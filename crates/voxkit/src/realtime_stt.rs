@@ -319,10 +319,10 @@ where
             }
         };
 
-        if let Some(event) = parse_transcript_event(&parsed) {
-            if transcript_tx.send(event).await.is_err() {
-                break; // Receiver dropped
-            }
+        if let Some(event) = parse_transcript_event(&parsed)
+            && transcript_tx.send(event).await.is_err()
+        {
+            break; // Receiver dropped
         }
     }
 }
