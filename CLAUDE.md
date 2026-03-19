@@ -1,6 +1,12 @@
 # CLAUDE.md — SuperVox
 
-Privacy-first voice journal TUI. Record → transcribe → AI insights. Terminal-first.
+Voice-powered productivity TUI. Live call assistant + post-call analysis + agent chat.
+
+## Modes
+
+1. **Live** — real-time subtitles + translation + rolling summary during calls
+2. **Analysis** — post-call summary, action items, follow-up draft
+3. **Agent** — chat with call history, generate emails, find info across calls
 
 ## Project Structure
 
@@ -8,12 +14,12 @@ Privacy-first voice journal TUI. Record → transcribe → AI insights. Terminal
 supervox/
   crates/
     voxkit/              — Voice pipeline: STT, VAD, TTS (Rust, 148 tests) ✓ DONE
-    journal-agent/       — LLM analysis: mood, themes, patterns (TODO)
-    supervox-tui/        — TUI app: ratatui + sgr-agent-tui (TODO)
-  schemas/               — Shared JSON schemas (TODO)
+    supervox-agent/      — 3-mode agent: live translate, analysis, chat (TODO)
+    supervox-tui/        — ratatui TUI with mode switching (TODO)
+  schemas/               — JSON schemas: call, analysis, config (TODO)
   docs/
+    plan.md              — Development plan (3 modes, 4 phases)
     prd.md               — Product requirements
-    plan.md              — Development plan
   Makefile
 ```
 
@@ -21,18 +27,18 @@ supervox/
 
 | Layer | Technology |
 |-------|-----------|
-| Voice pipeline | Rust — `voxkit` (STT, VAD, TTS, mic, system audio) |
-| LLM agent | Rust — `sgr-agent` v0.3 (tool calling, sessions, compaction) |
-| TUI framework | Rust — `ratatui` + `sgr-agent-tui` (chat panel, streaming) |
-| STT | voxkit OpenAiStt (cloud) or Realtime WS |
-| LLM | sgr-agent genai (Gemini / OpenRouter / Ollama) |
-| Audio capture | voxkit mic (cpal, cross-platform) |
-| Storage | JSON files in `~/.supervox/` (entries, sessions) |
+| Voice pipeline | `voxkit` (STT, VAD, TTS, mic, system audio capture) |
+| LLM agent | `sgr-agent` v0.3 (tool calling, sessions, compaction) |
+| TUI | `ratatui` + `sgr-agent-tui` (chat panel, streaming) |
+| Real-time STT | voxkit realtime (OpenAI WebSocket) |
+| Batch STT | voxkit openai (gpt-4o-transcribe) |
+| LLM | sgr-agent genai (Gemini Flash / OpenRouter / Ollama) |
+| Audio | voxkit mic + system_audio (cpal, ScreenCaptureKit) |
+| Storage | JSON in `~/.supervox/` (calls, sessions, config) |
 
 ## Dependencies (workspace)
 
 ```toml
-# External crates from ~/startups/shared/rust-code/
 sgr-agent = { path = "../../shared/rust-code/crates/sgr-agent", features = ["agent", "session", "genai"] }
 sgr-agent-tui = { path = "../../shared/rust-code/crates/sgr-agent-tui" }
 ```
@@ -42,80 +48,79 @@ sgr-agent-tui = { path = "../../shared/rust-code/crates/sgr-agent-tui" }
 - **Lint:** `cargo clippy --workspace -- -D warnings`
 - **Format:** `cargo fmt --all`
 - **Test:** `cargo test --workspace`
-- **Run TUI:** `cargo run -p supervox-tui`
-
-## voxkit (DONE)
-
-Feature-gated voice pipeline at `crates/voxkit/`:
-
-| Feature | What |
-|---------|------|
-| default | AudioChunk, Transcript, SttBackend, VadBackend, VadProcessor, RmsVad |
-| `openai` | OpenAiStt (gpt-4o-transcribe) |
-| `realtime` | OpenAI Realtime WebSocket STT |
-| `silero` | SileroVad (ONNX neural VAD) |
-| `openai-tts` | OpenAiTts client |
-| `player` | TtsPlayer (sentence split + rodio) |
-| `mic` | cpal mic capture with VAD |
-| `macos-system-audio` | ScreenCaptureKit capture |
-| `macos-mic-mode` | Voice Isolation detection |
-| `wav` | WAV encoding |
-
-## TUI Architecture (target)
-
-Based on sgr-agent-tui (ratatui):
-
-```
-┌─ SuperVox ──────────────────────────────────────┐
-│ ┌─ Chat ──────────────────────┐ ┌─ Status ────┐ │
-│ │ [recording 00:45]           │ │ Mic: ●      │ │
-│ │                             │ │ VAD: speech  │ │
-│ │ Transcript:                 │ │ STT: openai  │ │
-│ │ "Today I was thinking..."   │ │ LLM: gemini  │ │
-│ │                             │ │              │ │
-│ │ AI Summary:                 │ │ Entries: 42  │ │
-│ │ Mood: reflective (0.85)     │ │ This week: 5 │ │
-│ │ Themes: [work, goals]       │ └──────────────┘ │
-│ │                             │                   │
-│ └─────────────────────────────┘                   │
-│ [r]ecord [s]top [a]nalyze [p]atterns [q]uit       │
-└───────────────────────────────────────────────────┘
-```
-
-Key bindings:
-- `r` — start recording (mic → VAD → buffer)
-- `s` — stop recording, transcribe
-- `a` — analyze transcript (LLM summary + mood + themes)
-- `p` — show weekly patterns
-- `l` — list recent entries
-- `q` — quit
-
-## Key Principles
-
-- **Terminal-first** — TUI is the primary interface, iOS comes later
-- **Privacy-first** — transcription can be local (Whisper) or cloud (OpenAI), user chooses
-- **Offline-first** — entries stored locally, LLM analysis optional
-- **CLI-first testing** — every feature works without TUI too
-- **Schemas-first** — define JournalEntry, Summary before code
+- **Run:** `cargo run -p supervox-tui`
 
 ## Essential Commands
 
 ```bash
-make test                    # all workspace tests
-make check                   # test + clippy + fmt
-cargo run -p supervox-tui    # launch TUI
+make test      # all workspace tests
+make check     # test + clippy + fmt
+make run       # launch TUI
+
+# TUI modes
+supervox live                    # live call assistant
+supervox analyze <call.json>     # post-call analysis
+supervox agent                   # chat with history
+supervox calls                   # list past calls
 ```
+
+## Agent Tools (supervox-agent)
+
+| Tool | Mode | What |
+|------|------|------|
+| `translate` | Live | Translate text chunk (any pair, configurable) |
+| `rolling_summary` | Live | Condensed meaning every ~5s (not word-for-word) |
+| `analyze_call` | Analysis | Full summary + action items + mood + themes |
+| `draft_follow_up` | Analysis | Follow-up email in call language |
+| `search_calls` | Agent | RAG search across past call transcripts |
+| `ask_about_calls` | Agent | Answer questions about call history |
+
+## Live Mode Pipeline
+
+```
+mic + system audio → VAD → STT (realtime WS) → transcript
+                                               → translate (parallel) → left panel
+                                               → rolling_summary (~5s) → right panel
+on stop → auto-trigger analysis mode
+```
+
+## Config
+
+```toml
+# ~/.supervox/config.toml
+[general]
+my_language = "ru"            # Target language for summaries/translation
+[live]
+stt_backend = "realtime"      # "realtime" | "openai"
+summary_lag_secs = 5
+capture = "mic+system"
+[analysis]
+llm_model = "gemini-2.5-flash"
+follow_up_language = "auto"   # "auto" = same as call language
+```
+
+Language is configurable, not hardcoded. Default: summaries in Russian, follow-ups in call language.
+
+## Key Principles
+
+- **Terminal-first** — TUI is the primary interface
+- **Configurable languages** — not hardcoded to EN→RU
+- **Rolling summary > word-for-word** — meaning matters more than exact words
+- **Auto-flow** — live → stop → analysis happens automatically
+- **CLI-first testing** — every tool works without TUI
+- **Schemas-first** — define Call, Analysis before code
 
 ## Don't
 
-- Over-engineer — v1 is record → transcribe → summarize → browse
-- Add features not in docs/plan.md Phase 1
+- Hardcode languages — use config
+- Over-engineer — Phase 1 first, polish later
 - Duplicate audio logic — use voxkit for everything
-- Add networking beyond STT/LLM API calls
+- Skip TDD for agent tools
 
 ## Do
 
-- TDD for journal-agent tools (mood, themes, patterns)
-- Use sgr-agent-tui for TUI foundation (don't reinvent chat panel)
-- Use sgr-agent Session for entry persistence
-- Store entries as JSON in `~/.supervox/entries/`
+- TDD for each agent tool with fixture transcripts
+- Use sgr-agent-tui for TUI foundation
+- Use sgr-agent Session for call persistence
+- Use sgr-agent Compactor for long call transcripts
+- Store calls as JSON in `~/.supervox/calls/`
