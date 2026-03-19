@@ -1,0 +1,27 @@
+[package]
+name = "supervox-tui"
+version = "0.1.0"
+edition = "2024"
+description = "SuperVox TUI — live call assistant, post-call analysis, agent chat"
+license = "MIT"
+
+[[bin]]
+name = "supervox"
+path = "src/main.rs"
+
+[dependencies]
+supervox-agent = { path = "../supervox-agent" }
+sgr-agent = { path = "../../../../shared/rust-code/crates/sgr-agent", features = ["agent", "session", "genai"] }
+sgr-agent-tui = { path = "../../../../shared/rust-code/crates/sgr-agent-tui" }
+ratatui = "0.29.0"
+crossterm = "0.27"
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

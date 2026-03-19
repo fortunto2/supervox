@@ -1,282 +1,64 @@
----
-type: methodology
-status: active
-title: "SuperVox — Development Plan"
-created: 2026-03-20
-tags: [supervox, plan, voxkit, tui, ratatui, rust]
----
+# SuperVox Phase 1 — Implementation Plan
 
-# SuperVox — Development Plan
+**Status:** [ ] Not Started
+**Track:** phase1
+**Estimated tasks:** 17
 
-> Voice-powered productivity TUI. Live call assistant + voice journal + post-call agent.
+## Context Handoff
 
-## Modes
+**Intent:** Build SuperVox — a voice-powered productivity TUI with 3 modes: live call assistant (real-time subtitles + translation + rolling summary), post-call analysis (summary + action items + follow-up draft), and agent chat (Q&A over call history).
 
-SuperVox works in **3 modes**, selected at startup or switched on the fly:
+**Key files:**
+- `CLAUDE.md` — project instructions, tech stack, architecture
+- `docs/plan.md` — full plan with mode descriptions and data flows
+- `crates/voxkit/` — voice pipeline (DONE, 148 tests: STT, VAD, TTS, mic, system audio)
 
-### Mode 1: Live Call Assistant (primary)
+**Dependencies (path deps from shared workspace):**
+- `sgr-agent` at `../../shared/rust-code/crates/sgr-agent` — LLM agent framework (tool calling, sessions, compaction)
+- `sgr-agent-tui` at `../../shared/rust-code/crates/sgr-agent-tui` — ratatui TUI components (ChatPanel, FocusRing, terminal setup)
 
-Real-time help during calls when you struggle with English.
-
-```
-┌─ SuperVox ─ LIVE ─ call with John (00:12:34) ──────────┐
-│ ┌─ Transcript + Translation ────────┐ ┌─ Summary ────┐ │
-│ │ 🇬🇧 "We need to align on the     │ │ Rolling:     │ │
-│ │    deliverables for Q3..."        │ │ • Discussing │ │
-│ │ 🇷🇺 "Нужно согласовать            │ │   Q3 план    │ │
-│ │    результаты на Q3..."           │ │ • Он хочет   │ │
-│ │                                   │ │   дедлайн    │ │
-│ │ 🇬🇧 "Can you commit to Friday?"   │ │   в пятницу  │ │
-│ │ 🇷🇺 "Можешь пообещать к пятнице?" │ │ • Бюджет не  │ │
-│ │                                   │ │   обсуждали  │ │
-│ └───────────────────────────────────┘ └──────────────┘ │
-│ Status: Mic ● | STT: realtime | Lang: EN→RU           │
-└────────────────────────────────────────────────────────┘
-```
-
-**What it does:**
-- Captures mic + system audio (your voice + the other person)
-- Real-time STT (OpenAI Realtime WebSocket or gpt-4o-transcribe)
-- Live translation to your language (configurable: EN→RU, any pair)
-- **Rolling summary with ~5s lag** — condensed meaning of what's being said, not word-for-word
-- Saves full transcript + translation for post-call analysis
-
-**Why rolling summary matters:** When you're struggling with English, you might miss 3 sentences while parsing one. The rolling summary panel shows "what they mean" in your language, updated every few seconds. Even with lag, this is lifesaving.
-
-### Mode 2: Post-Call Analysis
-
-After a call ends (or on any saved transcript):
-
-```
-┌─ SuperVox ─ ANALYSIS ─ call with John (saved) ────────┐
-│ ┌─ Summary ─────────────────────────────────────────┐  │
-│ │ ## Итоги                                          │  │
-│ │ Обсудили Q3 дедлайны. Джон хочет к пятнице.       │  │
-│ │ Бюджет пока не согласован — ждёт аппрув от CEO.   │  │
-│ │                                                    │  │
-│ │ ## Мои действия                                    │  │
-│ │ - [ ] Отправить estimate до четверга               │  │
-│ │ - [ ] Написать follow-up email                     │  │
-│ │ - [ ] Забукать встречу с CEO на бюджет             │  │
-│ │                                                    │  │
-│ │ ## Follow-up draft                                 │  │
-│ │ "Hi John, thanks for the call. Here's my estimate…"│  │
-│ └────────────────────────────────────────────────────┘  │
-│ [a]gent chat | [e]xport | [c]opy follow-up | [q]uit    │
-└────────────────────────────────────────────────────────┘
-```
-
-**What it does:**
-- Full summary of the call (in your language)
-- Action items extracted automatically
-- Follow-up email draft (in the call's language — English)
-- Key decisions, open questions, deadlines
-- Mood/tone analysis (were they happy? frustrated? rushing?)
-
-### Mode 3: Agent Chat
-
-Interactive conversation with your call history:
-
-```
-> Что мы договорились с Джоном по бюджету?
-AI: На звонке 20 марта Джон сказал что бюджет ждёт аппрув CEO.
-    Вы не обсуждали конкретные суммы. На прошлом звонке (15 марта)
-    он упоминал $50K как ориентир.
-
-> Напиши фолоап на английском
-AI: "Hi John, following up on our call today. I'll have the Q3
-    estimate ready by Thursday as discussed. Could you also check
-    with your CEO on the budget approval? Happy to schedule a
-    separate call if needed. Best, Rustam"
-```
-
-**What it does:**
-- RAG over all your call transcripts
-- Answer questions about past calls
-- Generate follow-ups, emails, summaries on demand
-- Cross-call analysis (what changed between calls, recurring topics)
+**Key decisions:**
+- voxkit already done — use it for all audio ops
+- Languages configurable via config.toml (default: summaries in Russian, follow-ups in call language)
+- Storage: JSON files in `~/.supervox/` (calls, sessions)
+- LLM: sgr-agent genai (Gemini Flash primary, OpenRouter fallback)
+- Real-time STT: voxkit realtime (OpenAI WebSocket)
 
 ---
 
-## Configuration
+## Phase 1: Workspace + Schemas
 
-```toml
-# ~/.supervox/config.toml
-[general]
-my_language = "ru"           # Summary/translation target language
-output_language = "ru"       # UI and analysis output language
+- [ ] Task 1.1: Create root `Cargo.toml` workspace with members `crates/voxkit`, `crates/supervox-agent`, `crates/supervox-tui`. Verify `cargo check -p voxkit` passes.
+- [ ] Task 1.2: Create `schemas/call.json` (id, created_at, duration_secs, participants, language, transcript, translation, tags), `schemas/call_analysis.json` (summary, action_items, follow_up_draft, decisions, open_questions, mood, themes), `schemas/config.json` (my_language, stt_backend, llm_model, summary_lag_secs, capture).
 
-[live]
-stt_backend = "realtime"     # "realtime" (WebSocket) | "openai" (batch)
-translate = true             # Live translation overlay
-summary_lag_secs = 5         # Rolling summary update interval
-capture = "mic+system"       # "mic" | "system" | "mic+system"
+## Phase 2: supervox-agent — Domain Types + Tools
 
-[analysis]
-llm_model = "gemini-2.5-flash"  # Primary LLM
-follow_up_language = "auto"     # "auto" = same as call language
+- [ ] Task 2.1: Create `crates/supervox-agent/Cargo.toml` with deps (sgr-agent path dep, voxkit path dep, serde, serde_json, chrono). Define domain types in `src/types.rs`: `Call`, `CallAnalysis`, `ActionItem`, `Mood` enum, `CallMatch`. Tests: serialization roundtrip.
+- [ ] Task 2.2: Implement `translate` tool in `src/tools/translate.rs` — sgr-agent ToolDef, takes text + source_lang + target_lang, returns translated text via LLM structured call. TDD with English→Russian fixture.
+- [ ] Task 2.3: Implement `rolling_summary` tool in `src/tools/rolling_summary.rs` — takes recent transcript chunks + prior summary context, returns 2-3 bullet points of condensed meaning in target language. TDD with multi-turn fixture.
+- [ ] Task 2.4: Implement `analyze_call` tool in `src/tools/analyze.rs` — takes full transcript, returns `CallAnalysis` struct. TDD with fixture call transcript.
+- [ ] Task 2.5: Implement `draft_follow_up` tool in `src/tools/follow_up.rs` — takes `CallAnalysis` + language, returns email draft string. TDD.
+- [ ] Task 2.6: Implement `search_calls` tool in `src/tools/search.rs` — searches saved call JSON files by text query, returns `Vec<CallMatch>` with snippets. TDD with temp dir fixtures.
+- [ ] Task 2.7: Implement `ask_about_calls` tool in `src/tools/ask.rs` — takes question + call context, answers via LLM. TDD.
+- [ ] Task 2.8: Add storage module `src/storage.rs` — `save_call()`, `load_call()`, `list_calls()`. Path: `~/.supervox/calls/<date>-<id>.json`. TDD: roundtrip in temp dir.
 
-[agent]
-llm_model = "gemini-2.5-flash"
-search_depth = 10               # How many past calls to search
+## Phase 3: supervox-tui — Foundation + CLI
 
-[storage]
-path = "~/.supervox"
-```
+- [ ] Task 3.1: Create `crates/supervox-tui/Cargo.toml` with deps (sgr-agent, sgr-agent-tui, voxkit with features `openai mic wav`, supervox-agent, ratatui, crossterm, clap, tokio). Clap CLI: subcommands `live`, `analyze <file>`, `agent`, `calls`.
+- [ ] Task 3.2: Build TUI app framework in `src/app.rs` — `App` struct with `Mode` enum (Live, Analysis, Agent), event loop (crossterm + tokio mpsc), terminal init/restore from sgr-agent-tui. Key binding: `q` = quit.
+- [ ] Task 3.3: Implement `calls` subcommand (non-TUI stdout) — list saved calls from storage with date, duration, first line of transcript.
 
-**Language is configurable, not hardcoded.** Default: summaries in Russian, follow-ups in call language.
+## Phase 4: supervox-tui — Live Mode
 
----
+- [ ] Task 4.1: Build Live mode layout in `src/modes/live.rs` — left panel (transcript + translation, auto-scroll Paragraph), right panel (rolling summary, Paragraph), bottom bar (mic ●, STT backend, timer). Ratatui Layout::horizontal split.
+- [ ] Task 4.2: Integrate mic capture — `r` key starts `voxkit::mic::MicCapture`, audio level shown in status bar. `s` key stops. Wire captured `AudioChunk` to STT pipeline.
+- [ ] Task 4.3: Integrate STT + auto-save — pipe audio to `voxkit::openai_stt::OpenAiStt`, display transcript segments in left panel. On stop: save call JSON via supervox-agent storage.
 
-## Status
+## Phase 5: supervox-tui — Analysis + Agent
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| voxkit | **DONE** | 148 tests, 10 modules, all backends |
-| schemas | TODO | JSON schemas for calls, analysis |
-| supervox-agent | TODO | 3-mode agent: live, analysis, chat |
-| supervox-tui | TODO | ratatui TUI with mode switching |
+- [ ] Task 5.1: Implement Analysis mode in `src/modes/analysis.rs` — triggered after live stop or via `analyze <file>`. Run `analyze_call` + `draft_follow_up` tools, display in scrollable panel. `c` key = copy follow-up to clipboard.
+- [ ] Task 5.2: Implement Agent mode in `src/modes/agent.rs` — sgr-agent-tui `ChatPanel` for interactive Q&A. Load recent calls as context. Wire `ask_about_calls` and `search_calls` tools.
 
----
+## Phase 6: Verification
 
-## Phase 1: Workspace + agent + schemas
-
-### 1.1 Workspace Cargo.toml (project root)
-
-```toml
-[workspace]
-members = ["crates/voxkit", "crates/supervox-agent", "crates/supervox-tui"]
-resolver = "2"
-```
-
-### 1.2 Schemas (`schemas/`)
-
-- `call.json` — id, created_at, duration_secs, participants, language, audio_path, transcript, translation, tags
-- `call_analysis.json` — summary, action_items, follow_up_draft, decisions, open_questions, mood, themes
-- `config.json` — user preferences (languages, models, backends)
-
-### 1.3 supervox-agent crate (`crates/supervox-agent/`)
-
-```toml
-[dependencies]
-sgr-agent = { path = "../../../shared/rust-code/crates/sgr-agent", features = ["agent", "session", "genai"] }
-voxkit = { path = "../voxkit", features = ["openai", "realtime", "mic", "wav"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-chrono = { version = "0.4", features = ["serde"] }
-```
-
-**Domain types:**
-```rust
-pub struct Call { id, created_at, duration, participants, language, transcript, translation }
-pub struct CallAnalysis { summary, action_items, follow_up_draft, decisions, open_questions, mood, themes }
-pub struct ActionItem { text, assignee, deadline, done }
-```
-
-**Agent tools:**
-- `translate(text, from, to) → String` — translate chunk
-- `rolling_summary(recent_chunks, context) → String` — condensed meaning with lag
-- `analyze_call(transcript) → CallAnalysis` — post-call full analysis
-- `draft_follow_up(analysis, language) → String` — follow-up email
-- `search_calls(query, limit) → Vec<CallMatch>` — RAG search over past calls
-- `ask_about_calls(question, context) → String` — answer questions about call history
-
-**Live pipeline (Mode 1):**
-```
-mic+system → VAD → STT (realtime) → transcript
-                                   → translate (parallel) → translation panel
-                                   → rolling_summary (every 5s) → summary panel
-```
-
-**Tests:** TDD with fixture transcripts for each tool.
-
----
-
-## Phase 2: TUI app (`crates/supervox-tui/`)
-
-### 2.1 Mode selection
-
-```bash
-supervox                    # Interactive: pick mode
-supervox live               # Start live call assistant
-supervox analyze <call.json> # Analyze saved call
-supervox agent              # Chat with call history
-supervox calls              # List past calls
-```
-
-### 2.2 Live mode TUI (Mode 1)
-
-```
-┌─ SuperVox ─ LIVE ─────────────────────────────────────┐
-│ ┌─ Transcript ──────────────┐ ┌─ Rolling Summary ───┐ │
-│ │ 🇬🇧 original text...       │ │ Краткий смысл:     │ │
-│ │ 🇷🇺 перевод...              │ │ • пункт 1          │ │
-│ │ (streaming, auto-scroll)  │ │ • пункт 2          │ │
-│ │                           │ │ (updates ~5s lag)  │ │
-│ └───────────────────────────┘ └────────────────────┘ │
-│ Mic ● | System ● | STT: realtime | 00:04:23          │
-│ [s]top & analyze | [m]ute | [q]uit                    │
-└───────────────────────────────────────────────────────┘
-```
-
-**Data flow:**
-1. voxkit mic + system audio capture → PCM stream
-2. voxkit realtime_stt → live transcript events (delta + final)
-3. supervox-agent translate tool → translation line below each utterance
-4. supervox-agent rolling_summary (buffered, every N seconds) → right panel
-5. On stop → auto-trigger Mode 2 (analysis)
-
-### 2.3 Analysis mode TUI (Mode 2)
-
-After call ends or on `supervox analyze`:
-- Full summary + action items + follow-up draft
-- All in user's language
-- Copy-to-clipboard for follow-up
-
-### 2.4 Agent mode TUI (Mode 3)
-
-sgr-agent-tui ChatPanel — interactive Q&A about call history.
-Session persisted in `~/.supervox/sessions/`.
-
-### 2.5 Reuse from sgr-agent-tui
-
-- `ChatPanel` — message display with streaming
-- `FocusRing` — keyboard focus management
-- Terminal setup (panic handler, alt screen)
-- Event loop (crossterm + tokio channels)
-
----
-
-## Phase 3: Polish
-
-- Audio waveform in live mode
-- Speaker diarization labels (You / Them)
-- Hotkey to bookmark moments during call
-- Export call + analysis to markdown
-- Ollama local LLM (--local flag)
-- Configurable STT (OpenAI / Deepgram / local Whisper)
-
----
-
-## Phase 4: iOS app (future)
-
-Same modes, native Swift:
-- WhisperKit for local STT
-- mlx-swift for local LLM
-- Live subtitles as overlay
-- TestFlight → App Store
-
----
-
-## Build order for `/build`
-
-1. Create workspace `Cargo.toml`
-2. Create `schemas/` JSON files (call, analysis, config)
-3. Create `supervox-agent` crate — domain types + all 6 tools (TDD)
-4. Create `supervox-tui` crate — live mode first (record + transcribe + translate + summary)
-5. Add analysis mode (auto-trigger after live, or standalone)
-6. Add agent mode (chat with history)
-7. Integration test: live call → stop → analysis → agent Q&A
-8. `make check` passes
-
-Each step = 1 commit. Tests before code for supervox-agent.
+- [ ] Task 6.1: Run full verification: `cargo test --workspace`, `cargo clippy --workspace -- -D warnings`, `cargo fmt --all -- --check`. Fix all issues. Commit with message `feat: SuperVox Phase 1 complete`.

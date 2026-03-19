@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/voxkit", "crates/supervox-agent", "crates/supervox-tui"]
+resolver = "2"
