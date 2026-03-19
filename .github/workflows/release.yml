@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout shared deps
+        uses: actions/checkout@v4
+        with:
+          repository: fortunto2/rust-code
+          path: shared/rust-code
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Symlink shared deps
+        run: |
+          mkdir -p ../../shared
+          ln -s "$GITHUB_WORKSPACE/shared/rust-code" ../../shared/rust-code
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/supervox dist/
+          cd dist
+          tar czf supervox-${{ matrix.target }}.tar.gz supervox
+          shasum -a 256 supervox-${{ matrix.target }}.tar.gz > supervox-${{ matrix.target }}.tar.gz.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supervox-${{ matrix.target }}
+          path: dist/supervox-${{ matrix.target }}.tar.gz*
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            supervox-*.tar.gz
+            supervox-*.sha256

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  check:
+    name: Test + Clippy + Fmt
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout shared deps
+        uses: actions/checkout@v4
+        with:
+          repository: fortunto2/rust-code
+          path: shared/rust-code
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Symlink shared deps
+        run: |
+          mkdir -p ../../shared
+          ln -s "$GITHUB_WORKSPACE/shared/rust-code" ../../shared/rust-code
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace
