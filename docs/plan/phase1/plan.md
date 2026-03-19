@@ -61,4 +61,4 @@
 
 ## Phase 6: Verification
 
-- [x] Task 6.1: Run full verification: `cargo test --workspace`, `cargo clippy --workspace -- -D warnings`, `cargo fmt --all -- --check`. Fix all issues. Commit with message `feat: SuperVox Phase 1 complete`.
+- [x] Task 6.1: Run full verification: `cargo test --workspace`, `cargo clippy --workspace -- -D warnings`, `cargo fmt --all -- --check`. Fix all issues. Commit with message `feat: SuperVox Phase 1 complete`. <!-- sha:600bbff -->
