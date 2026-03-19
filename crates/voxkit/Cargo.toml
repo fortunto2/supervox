@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Voice pipeline toolkit — STT, VAD, TTS abstractions for Rust voice apps"
 license = "MIT"
+repository = "https://github.com/fortunto2/supervox"
 keywords = ["voice", "stt", "vad", "tts", "audio"]
 categories = ["multimedia::audio"]
 
