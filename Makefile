@@ -1,24 +1,27 @@
-.PHONY: test clippy fmt check
+.PHONY: test clippy fmt check run
 
-## Run all voxkit tests
+## Run all tests
 test:
-	cargo test -p voxkit
-	cargo test -p voxkit --features "wav"
+	cargo test --workspace
 
 ## Clippy lint
 clippy:
-	cargo clippy -p voxkit -- -D warnings
+	cargo clippy --workspace -- -D warnings
 
 ## Format check
 fmt:
-	cargo fmt -p voxkit -- --check
+	cargo fmt --all -- --check
 
 ## All checks
 check: test clippy fmt
 
 ## Format fix
 fmt-fix:
-	cargo fmt -p voxkit
+	cargo fmt --all
+
+## Run TUI
+run:
+	cargo run -p supervox-tui
 
 ## Help
 help:

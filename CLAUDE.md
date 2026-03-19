@@ -1,16 +1,15 @@
 # CLAUDE.md — SuperVox
 
-Privacy-first AI voice diary. Record → transcribe locally → AI insights. No cloud. No accounts.
+Privacy-first voice journal TUI. Record → transcribe → AI insights. Terminal-first.
 
 ## Project Structure
 
 ```
 supervox/
   crates/
-    voxkit/              — Voice pipeline: STT, VAD, TTS (Rust crate, 148 tests)
+    voxkit/              — Voice pipeline: STT, VAD, TTS (Rust, 148 tests) ✓ DONE
     journal-agent/       — LLM analysis: mood, themes, patterns (TODO)
-    journal-cli/         — CLI: record, transcribe, analyze (TODO)
-  SuperVox/              — iOS/macOS Swift app (TODO)
+    supervox-tui/        — TUI app: ratatui + sgr-agent-tui (TODO)
   schemas/               — Shared JSON schemas (TODO)
   docs/
     prd.md               — Product requirements
@@ -22,27 +21,32 @@ supervox/
 
 | Layer | Technology |
 |-------|-----------|
-| Voice pipeline | Rust — `voxkit` crate (STT, VAD, TTS, mic capture) |
-| LLM agent | Rust — `sgr-agent` (reasoning loop, compaction, sessions) |
-| iOS/macOS app | Swift 6, SwiftUI, SwiftData |
-| Local STT | WhisperKit (Apple Silicon optimized) |
-| Local LLM | mlx-swift (Llama 3.2 1B Q4) |
-| Audio | AVFoundation (recording + playback) |
-| Payments | StoreKit 2 |
-| Analytics | PostHog EU (privacy-respecting) |
-| CLI STT | voxkit OpenAiStt (cloud, for dev/testing) |
-| CLI LLM | sgr-agent + OpenRouter |
+| Voice pipeline | Rust — `voxkit` (STT, VAD, TTS, mic, system audio) |
+| LLM agent | Rust — `sgr-agent` v0.3 (tool calling, sessions, compaction) |
+| TUI framework | Rust — `ratatui` + `sgr-agent-tui` (chat panel, streaming) |
+| STT | voxkit OpenAiStt (cloud) or Realtime WS |
+| LLM | sgr-agent genai (Gemini / OpenRouter / Ollama) |
+| Audio capture | voxkit mic (cpal, cross-platform) |
+| Storage | JSON files in `~/.supervox/` (entries, sessions) |
+
+## Dependencies (workspace)
+
+```toml
+# External crates from ~/startups/shared/rust-code/
+sgr-agent = { path = "../../shared/rust-code/crates/sgr-agent", features = ["agent", "session", "genai"] }
+sgr-agent-tui = { path = "../../shared/rust-code/crates/sgr-agent-tui" }
+```
 
 ## Tooling
 
-- **Rust:** `cargo test`, `cargo clippy -- -D warnings`, `cargo fmt`
-- **Swift:** SwiftLint, swift-format, Swift Testing (@Test)
-- **Deps (Rust):** managed via Cargo
-- **Deps (Swift):** SPM (Swift Package Manager)
+- **Lint:** `cargo clippy --workspace -- -D warnings`
+- **Format:** `cargo fmt --all`
+- **Test:** `cargo test --workspace`
+- **Run TUI:** `cargo run -p supervox-tui`
 
 ## voxkit (DONE)
 
-Feature-gated voice pipeline crate at `crates/voxkit/`:
+Feature-gated voice pipeline at `crates/voxkit/`:
 
 | Feature | What |
 |---------|------|
@@ -53,42 +57,65 @@ Feature-gated voice pipeline crate at `crates/voxkit/`:
 | `openai-tts` | OpenAiTts client |
 | `player` | TtsPlayer (sentence split + rodio) |
 | `mic` | cpal mic capture with VAD |
-| `macos-system-audio` | ScreenCaptureKit via Swift subprocess |
+| `macos-system-audio` | ScreenCaptureKit capture |
 | `macos-mic-mode` | Voice Isolation detection |
 | `wav` | WAV encoding |
 
+## TUI Architecture (target)
+
+Based on sgr-agent-tui (ratatui):
+
+```
+┌─ SuperVox ──────────────────────────────────────┐
+│ ┌─ Chat ──────────────────────┐ ┌─ Status ────┐ │
+│ │ [recording 00:45]           │ │ Mic: ●      │ │
+│ │                             │ │ VAD: speech  │ │
+│ │ Transcript:                 │ │ STT: openai  │ │
+│ │ "Today I was thinking..."   │ │ LLM: gemini  │ │
+│ │                             │ │              │ │
+│ │ AI Summary:                 │ │ Entries: 42  │ │
+│ │ Mood: reflective (0.85)     │ │ This week: 5 │ │
+│ │ Themes: [work, goals]       │ └──────────────┘ │
+│ │                             │                   │
+│ └─────────────────────────────┘                   │
+│ [r]ecord [s]top [a]nalyze [p]atterns [q]uit       │
+└───────────────────────────────────────────────────┘
+```
+
+Key bindings:
+- `r` — start recording (mic → VAD → buffer)
+- `s` — stop recording, transcribe
+- `a` — analyze transcript (LLM summary + mood + themes)
+- `p` — show weekly patterns
+- `l` — list recent entries
+- `q` — quit
+
 ## Key Principles
 
-- **Privacy is architecture** — no network calls from the app, no cloud, no accounts
-- **Offline-first** — works on airplane
-- **CLI-first testing** — every feature works in journal-cli before Swift
-- **Schemas-first** — define JournalEntry, Summary as schemas before code
-- **One pain → one feature → launch**
+- **Terminal-first** — TUI is the primary interface, iOS comes later
+- **Privacy-first** — transcription can be local (Whisper) or cloud (OpenAI), user chooses
+- **Offline-first** — entries stored locally, LLM analysis optional
+- **CLI-first testing** — every feature works without TUI too
+- **Schemas-first** — define JournalEntry, Summary before code
 
 ## Essential Commands
 
 ```bash
-# voxkit
-cd crates/voxkit && cargo test
-cd crates/voxkit && cargo test --features "wav"
-cd crates/voxkit && cargo clippy -- -D warnings
-
-# journal-cli (when ready)
-cargo run -p journal-cli -- transcribe audio.wav
-cargo run -p journal-cli -- analyze transcript.json
-cargo run -p journal-cli -- listen
+make test                    # all workspace tests
+make check                   # test + clippy + fmt
+cargo run -p supervox-tui    # launch TUI
 ```
 
 ## Don't
 
-- Send any user data to cloud from the iOS app
-- Add accounts, sign-in, CloudKit
 - Over-engineer — v1 is record → transcribe → summarize → browse
-- Add features not in the PRD
+- Add features not in docs/plan.md Phase 1
+- Duplicate audio logic — use voxkit for everything
+- Add networking beyond STT/LLM API calls
 
 ## Do
 
-- TDD for business logic (mood extraction, theme detection, patterns)
-- Test on real audio files before Swift integration
-- Use voxkit for all audio operations (don't duplicate in Swift)
-- Keep journal-cli and iOS app using same domain schemas
+- TDD for journal-agent tools (mood, themes, patterns)
+- Use sgr-agent-tui for TUI foundation (don't reinvent chat panel)
+- Use sgr-agent Session for entry persistence
+- Store entries as JSON in `~/.supervox/entries/`
