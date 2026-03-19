@@ -25,6 +25,8 @@ pub struct App {
     pub running: bool,
     pub status: String,
     pub live_state: modes::live::LiveState,
+    pub analysis_state: modes::analysis::AnalysisState,
+    pub agent_state: modes::agent::AgentState,
     pub audio: AudioPipeline,
     pub audio_event_rx: mpsc::UnboundedReceiver<AudioEvent>,
     pub audio_event_tx: mpsc::UnboundedSender<AudioEvent>,
@@ -37,16 +39,31 @@ impl App {
             Mode::Analysis { file } => format!("Analysis mode — {file}"),
             Mode::Agent => "Agent mode — type a question".into(),
         };
+
+        let analysis_file = match &mode {
+            Mode::Analysis { file } => file.clone(),
+            _ => String::new(),
+        };
+
         let (audio_event_tx, audio_event_rx) = mpsc::unbounded_channel();
-        Self {
+        let mut app = Self {
             mode,
             running: true,
             status,
             live_state: modes::live::LiveState::default(),
+            analysis_state: modes::analysis::AnalysisState::new(&analysis_file),
+            agent_state: modes::agent::AgentState::default(),
             audio: AudioPipeline::default(),
             audio_event_rx,
             audio_event_tx,
+        };
+
+        // Load call file for analysis mode
+        if !analysis_file.is_empty() {
+            app.analysis_state.load_from_call(&analysis_file);
         }
+
+        app
     }
 
     fn mode_label(&self) -> &str {
@@ -135,21 +152,42 @@ pub async fn run(mode: Mode) -> Result<()> {
         if event::poll(Duration::from_millis(50))?
             && let Event::Key(key) = event::read()?
         {
-            match (key.modifiers, key.code) {
-                (_, KeyCode::Char('q')) if !app.live_state.is_recording => {
+            // Ctrl+C always quits
+            if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c') {
+                app.audio.stop();
+                app.running = false;
+                continue;
+            }
+
+            // Esc quits in all modes
+            if key.code == KeyCode::Esc {
+                if !app.live_state.is_recording {
                     app.running = false;
                 }
-                (KeyModifiers::CONTROL, KeyCode::Char('c')) => {
-                    app.audio.stop();
-                    app.running = false;
-                }
-                _ => match &app.mode {
-                    Mode::Live => {
+                continue;
+            }
+
+            // Mode-specific handling
+            match &app.mode {
+                Mode::Live => {
+                    // q quits only when not recording
+                    if key.code == KeyCode::Char('q') && !app.live_state.is_recording {
+                        app.running = false;
+                    } else {
                         handle_live_key(&mut app, key);
                     }
-                    Mode::Analysis { .. } => modes::analysis::handle_key(&mut app, key),
-                    Mode::Agent => modes::agent::handle_key(&mut app, key),
-                },
+                }
+                Mode::Analysis { .. } => {
+                    if key.code == KeyCode::Char('q') {
+                        app.running = false;
+                    } else {
+                        modes::analysis::handle_key(&mut app, key);
+                    }
+                }
+                Mode::Agent => {
+                    // In agent mode, all keys go to input handler (no 'q' quit)
+                    modes::agent::handle_key(&mut app, key);
+                }
             }
         }
     }
