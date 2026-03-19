@@ -1,4 +1,3 @@
-use crossterm::event::KeyEvent;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -171,19 +170,6 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
         Paragraph::new(status_line).style(Style::default().bg(Color::Black)),
         status_area,
     );
-}
-
-/// Handle key events in live mode.
-pub fn handle_key(state: &mut LiveState, key: KeyEvent) {
-    match key.code {
-        crossterm::event::KeyCode::Char('r') if !state.is_recording => {
-            state.start_recording();
-        }
-        crossterm::event::KeyCode::Char('s') if state.is_recording => {
-            state.stop_recording();
-        }
-        _ => {}
-    }
 }
 
 fn audio_level_bar(level: f32) -> String {
