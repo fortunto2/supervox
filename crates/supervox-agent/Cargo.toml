@@ -15,6 +15,10 @@ tokio = { version = "1", features = ["sync", "macros", "rt"] }
 async-trait = "0.1"
 tracing = "0.1"
 thiserror = "2"
+schemars = { version = "0.8", features = ["chrono"] }
+uuid = { version = "1", features = ["v7"] }
+directories = "6"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tempfile = "3"
