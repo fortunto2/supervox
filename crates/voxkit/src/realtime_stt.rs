@@ -150,7 +150,7 @@ fn build_ws_request(url: &str, api_key: &str) -> Result<http::Request<()>, SttSt
         .parse()
         .map_err(|e: http::uri::InvalidUri| SttStreamError::Connection(e.to_string()))?;
 
-    let host = uri.host().unwrap_or("api.openai.com");
+    let host = uri.host().unwrap_or("api.openai.com").to_owned();
 
     http::Request::builder()
         .uri(uri)
