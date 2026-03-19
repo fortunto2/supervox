@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CallAnalysis",
+  "description": "Post-call analysis output",
+  "type": "object",
+  "required": ["summary", "action_items"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "Concise summary of the call"
+    },
+    "action_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description"],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "What needs to be done"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "Person responsible"
+          },
+          "deadline": {
+            "type": "string",
+            "description": "Due date or timeframe"
+          }
+        }
+      },
+      "description": "Action items extracted from the call"
+    },
+    "follow_up_draft": {
+      "type": "string",
+      "description": "Draft follow-up email text"
+    },
+    "decisions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Key decisions made during the call"
+    },
+    "open_questions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Unresolved questions from the call"
+    },
+    "mood": {
+      "type": "string",
+      "enum": ["positive", "neutral", "negative", "mixed"],
+      "description": "Overall mood/sentiment of the call"
+    },
+    "themes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Main topics discussed"
+    }
+  }
+}

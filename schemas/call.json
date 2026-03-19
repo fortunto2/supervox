@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Call",
+  "description": "A recorded call with transcript and metadata",
+  "type": "object",
+  "required": ["id", "created_at", "duration_secs", "transcript"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique call identifier (UUID v7)"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when call started"
+    },
+    "duration_secs": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Call duration in seconds"
+    },
+    "participants": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of participant names or labels"
+    },
+    "language": {
+      "type": "string",
+      "description": "Detected primary language code (e.g. en, ru)"
+    },
+    "transcript": {
+      "type": "string",
+      "description": "Full call transcript text"
+    },
+    "translation": {
+      "type": "string",
+      "description": "Translated transcript (if translation was active)"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "User-defined tags for categorization"
+    }
+  }
+}

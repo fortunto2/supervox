@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Config",
+  "description": "SuperVox configuration",
+  "type": "object",
+  "properties": {
+    "my_language": {
+      "type": "string",
+      "default": "ru",
+      "description": "Target language for summaries and translation"
+    },
+    "stt_backend": {
+      "type": "string",
+      "enum": ["realtime", "openai"],
+      "default": "realtime",
+      "description": "Speech-to-text backend"
+    },
+    "llm_model": {
+      "type": "string",
+      "default": "gemini-2.5-flash",
+      "description": "LLM model for analysis and chat"
+    },
+    "summary_lag_secs": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 5,
+      "description": "Seconds between rolling summary updates in live mode"
+    },
+    "capture": {
+      "type": "string",
+      "enum": ["mic", "system", "mic+system"],
+      "default": "mic+system",
+      "description": "Audio capture mode"
+    }
+  }
+}
