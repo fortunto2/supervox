@@ -1,1 +1,2 @@
-// Placeholder — will be filled in Phase 4
+pub mod app;
+pub mod modes;

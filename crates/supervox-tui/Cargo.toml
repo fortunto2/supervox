@@ -13,6 +13,7 @@ path = "src/main.rs"
 supervox-agent = { path = "../supervox-agent" }
 sgr-agent = { path = "../../../../shared/rust-code/crates/sgr-agent", features = ["agent", "session", "genai"] }
 sgr-agent-tui = { path = "../../../../shared/rust-code/crates/sgr-agent-tui" }
+voxkit = { path = "../voxkit", features = ["openai", "mic", "wav"] }
 ratatui = "0.29.0"
 crossterm = "0.27"
 tokio = { version = "1", features = ["full"] }
@@ -22,6 +23,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = "0.4"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
