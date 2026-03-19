@@ -1,0 +1,36 @@
+# Rust
+target/
+*.swp
+*.swo
+
+# Swift
+.build/
+DerivedData/
+*.xcuserdata/
+*.xcworkspace/xcuserdata/
+*.playground/
+Pods/
+
+# IDE
+.idea/
+.vscode/
+*.xcodeproj/xcuserdata/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Models (download separately)
+*.onnx
+*.mlmodel
+*.mlpackage/
+
+# Audio test files
+*.wav
+*.mp3
+*.m4a
+!fixtures/
