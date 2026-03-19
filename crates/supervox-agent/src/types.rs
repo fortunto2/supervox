@@ -151,8 +151,14 @@ mod tests {
 
     #[test]
     fn mood_serializes_lowercase() {
-        assert_eq!(serde_json::to_string(&Mood::Positive).unwrap(), "\"positive\"");
-        assert_eq!(serde_json::to_string(&Mood::Negative).unwrap(), "\"negative\"");
+        assert_eq!(
+            serde_json::to_string(&Mood::Positive).unwrap(),
+            "\"positive\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Mood::Negative).unwrap(),
+            "\"negative\""
+        );
         assert_eq!(serde_json::to_string(&Mood::Mixed).unwrap(), "\"mixed\"");
     }
 
