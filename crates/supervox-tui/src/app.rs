@@ -22,6 +22,7 @@ pub struct App {
     pub mode: Mode,
     pub running: bool,
     pub status: String,
+    pub live_state: modes::live::LiveState,
 }
 
 impl App {
@@ -35,6 +36,7 @@ impl App {
             mode,
             running: true,
             status,
+            live_state: modes::live::LiveState::default(),
         }
     }
 
@@ -57,42 +59,48 @@ pub async fn run(mode: Mode) -> Result<()> {
         terminal.draw(|f| {
             let area = f.area();
 
-            let [main_area, status_area] =
-                Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).areas(area);
-
-            // Main content by mode
             match &app.mode {
-                Mode::Live => modes::live::render(f, main_area, &app),
-                Mode::Analysis { .. } => modes::analysis::render(f, main_area, &app),
-                Mode::Agent => modes::agent::render(f, main_area, &app),
-            }
+                Mode::Live => {
+                    // Live mode handles its own status bar
+                    modes::live::render(f, area, &app.live_state);
+                }
+                _ => {
+                    let [main_area, status_area] =
+                        Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).areas(area);
 
-            // Status bar
-            let status = Paragraph::new(Line::from(format!(
-                " [{}] {} | q=quit",
-                app.mode_label(),
-                app.status
-            )))
-            .style(Style::default().fg(Color::White).bg(Color::DarkGray));
-            f.render_widget(status, status_area);
+                    match &app.mode {
+                        Mode::Analysis { .. } => modes::analysis::render(f, main_area, &app),
+                        Mode::Agent => modes::agent::render(f, main_area, &app),
+                        Mode::Live => unreachable!(),
+                    }
+
+                    // Status bar for non-live modes
+                    let status = Paragraph::new(Line::from(format!(
+                        " [{}] {} | q=quit",
+                        app.mode_label(),
+                        app.status
+                    )))
+                    .style(Style::default().fg(Color::White).bg(Color::DarkGray));
+                    f.render_widget(status, status_area);
+                }
+            }
         })?;
 
-        // Poll for events with timeout for future async tasks
         if event::poll(Duration::from_millis(100))?
             && let Event::Key(key) = event::read()?
         {
             match (key.modifiers, key.code) {
-                (_, KeyCode::Char('q')) | (KeyModifiers::CONTROL, KeyCode::Char('c')) => {
+                (_, KeyCode::Char('q')) if !app.live_state.is_recording => {
                     app.running = false;
                 }
-                _ => {
-                    // Delegate to mode-specific handler
-                    match &app.mode {
-                        Mode::Live => modes::live::handle_key(&mut app, key),
-                        Mode::Analysis { .. } => modes::analysis::handle_key(&mut app, key),
-                        Mode::Agent => modes::agent::handle_key(&mut app, key),
-                    }
+                (KeyModifiers::CONTROL, KeyCode::Char('c')) => {
+                    app.running = false;
                 }
+                _ => match &app.mode {
+                    Mode::Live => modes::live::handle_key(&mut app.live_state, key),
+                    Mode::Analysis { .. } => modes::analysis::handle_key(&mut app, key),
+                    Mode::Agent => modes::agent::handle_key(&mut app, key),
+                },
             }
         }
     }
