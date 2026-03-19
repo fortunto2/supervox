@@ -1,0 +1,42 @@
+[package]
+name = "voxkit"
+version = "0.1.0"
+edition = "2024"
+description = "Voice pipeline toolkit — STT, VAD, TTS abstractions for Rust voice apps"
+license = "MIT"
+keywords = ["voice", "stt", "vad", "tts", "audio"]
+categories = ["multimedia::audio"]
+
+[features]
+default = []
+openai = ["dep:reqwest", "dep:base64", "dep:hound"]
+realtime = ["openai", "dep:tokio-tungstenite", "dep:futures-util", "dep:http", "dep:base64"]
+silero = ["dep:ort"]
+openai-tts = ["dep:reqwest"]
+player = ["openai-tts", "dep:rodio"]
+mic = ["dep:cpal"]
+macos-system-audio = []
+macos-mic-mode = []
+wav = ["dep:hound"]
+
+[dependencies]
+tokio = { version = "1", features = ["sync", "macros"] }
+tracing = "0.1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+async-trait = "0.1"
+
+# Feature-gated
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "multipart"], optional = true }
+base64 = { version = "0.22", optional = true }
+tokio-tungstenite = { version = "0.28", features = ["native-tls"], optional = true }
+futures-util = { version = "0.3", optional = true }
+http = { version = "1", optional = true }
+ort = { version = "2.0.0-rc.12", optional = true }
+rodio = { version = "0.20", optional = true, default-features = false, features = ["mp3"] }
+cpal = { version = "0.15", optional = true }
+hound = { version = "3.5", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
