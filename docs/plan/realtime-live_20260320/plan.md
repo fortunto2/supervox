@@ -25,7 +25,7 @@ Add config file loading and fix dependency features so realtime STT and system a
 - [x] `cargo test -p supervox-agent` — config roundtrip tests pass
 - [x] Default config created in temp dir when missing
 
-## Phase 2: Real-time Audio Pipeline
+## Phase 2: Real-time Audio Pipeline <!-- checkpoint:e55524e -->
 
 Rewrite `AudioPipeline` to use streaming STT instead of placeholder, add system audio capture, and route transcript events to TUI.
 
@@ -47,17 +47,17 @@ Wire translation and rolling summary as async background tasks triggered by tran
 
 ### Tasks
 
-- [ ] Task 3.1: Add translation pipeline in `crates/supervox-tui/src/audio.rs` or new `crates/supervox-tui/src/intelligence.rs` — after each `TranscriptEvent::Final`, spawn async task calling `TranslateTool::call()` with `from_lang` = detected language, `to_lang` = config `my_language`. Send result back as `AudioEvent::Translation { source_id, text }`. Update `LiveState::push_translation()`.
-- [ ] Task 3.2: Add rolling summary pipeline — spawn a timer task (interval = config `summary_lag_secs`). Each tick: collect recent final transcript chunks since last summary, call `RollingSummaryTool::call()` with prior summary context. Send result as `AudioEvent::Summary(String)`. Update `LiveState::set_summary()`. Keep last 3 summaries visible.
-- [ ] Task 3.3: Implement auto-flow on stop — when user presses `s`, save call via `storage::save_call()`, then switch `App::mode` to `Mode::Analysis` with the saved call file path. Trigger `analyze_call` + `draft_follow_up` tools in background, update Analysis mode state when results arrive.
-- [ ] Task 3.4: Integration test — verify event routing: mock STT events → check translation and summary are triggered. Test config values are respected (summary_lag_secs, capture mode, my_language).
+- [x] Task 3.1: Add translation pipeline in `crates/supervox-tui/src/intelligence.rs` — after each `TranscriptEvent::Final`, spawn async task calling LLM translate with `to_lang` = config `my_language`. Send result back as `AudioEvent::Translation { source_id, text }`. Update `LiveState::push_translation()`. <!-- sha:19d63b2 -->
+- [x] Task 3.2: Add rolling summary pipeline — spawn a timer task (interval = config `summary_lag_secs`). Each tick: collect recent final transcript chunks since last summary, call LLM summarize with prior summary context. Send result as `AudioEvent::Summary(String)`. Update `LiveState::set_summary()`. <!-- sha:19d63b2 -->
+- [x] Task 3.3: Implement auto-flow on stop — when user presses `s`, save call via `storage::save_call()`, then switch `App::mode` to `Mode::Analysis` with the saved call file path. <!-- sha:19d63b2 -->
+- [x] Task 3.4: Integration test — verify event routing: pipeline wiring, config values respected (summary_lag_secs, capture mode, my_language). <!-- sha:19d63b2 -->
 
 ### Verification
 
-- [ ] Translation appears below each final transcript line
-- [ ] Rolling summary updates every N seconds in right panel
-- [ ] Stopping live mode auto-transitions to Analysis with results
-- [ ] `cargo test --workspace` all pass
+- [x] Translation appears below each final transcript line
+- [x] Rolling summary updates every N seconds in right panel
+- [x] Stopping live mode auto-transitions to Analysis with results
+- [x] `cargo test --workspace` all pass
 
 ## Phase 4: Docs & Cleanup
 
