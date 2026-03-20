@@ -9,15 +9,15 @@
 
 Add `CallFilter` struct and `filter_calls()` to storage, then wire filtering into CLI commands (`calls`, `search`, `stats`, `insights`) via `--tag`, `--since`, `--until` flags. Add `supervox tags` command. Add tag filter UI in TUI History mode.
 
-## Phase 1: Filter Core + Tests
+## Phase 1: Filter Core + Tests <!-- checkpoint:7f23c29 -->
 
 Add the filtering infrastructure with full test coverage.
 
 ### Tasks
-- [x] Task 1.1: Add `CallFilter` struct to `crates/supervox-agent/src/types.rs` — fields: `tags: Vec<String>`, `since: Option<NaiveDate>`, `until: Option<NaiveDate>`. Derive Default.
-- [x] Task 1.2: Add `filter_calls()` to `crates/supervox-agent/src/storage.rs` — takes `&[Call]` + `&CallFilter`, returns `Vec<Call>` (filtered clone). Tag match is case-insensitive OR. Date comparison on `created_at.date_naive()`.
-- [x] Task 1.3: Add `collect_tags()` to `crates/supervox-agent/src/storage.rs` — takes `&[Call]`, returns `Vec<ThemeCount>` sorted by count descending. Collects unique tags across all calls.
-- [x] Task 1.4: Tests in `storage.rs` — filter_calls: empty filter passthrough, single tag match, multi-tag OR, since-only, until-only, combined tag+date, no matches returns empty. collect_tags: empty, multiple calls, sorted by frequency.
+- [x] Task 1.1: Add `CallFilter` struct to `crates/supervox-agent/src/types.rs` <!-- sha:7f23c29 -->
+- [x] Task 1.2: Add `filter_calls()` to `crates/supervox-agent/src/storage.rs` <!-- sha:7f23c29 -->
+- [x] Task 1.3: Add `collect_tags()` to `crates/supervox-agent/src/storage.rs` <!-- sha:7f23c29 -->
+- [x] Task 1.4: Tests in `storage.rs` <!-- sha:7f23c29 -->
 
 ### Verification
 - [x] `cargo test -p supervox-agent` passes with new filter tests
@@ -28,17 +28,17 @@ Add the filtering infrastructure with full test coverage.
 Wire filter flags into existing CLI commands + add `tags` command.
 
 ### Tasks
-- [ ] Task 2.1: Add `FilterArgs` struct in `crates/supervox-tui/src/main.rs` with `#[command(flatten)]` — `--tag` (Vec<String>, repeatable), `--since` (Option<String>), `--until` (Option<String>). Add helper `to_call_filter()` that parses date strings into `CallFilter`.
-- [ ] Task 2.2: Add `FilterArgs` to `Calls`, `Search`, `Stats`, `Insights` command variants. Apply filter in `cmd_calls()`, `cmd_search()`, `cmd_stats()`, `cmd_insights()`.
-- [ ] Task 2.3: Add `Tags` command variant to CLI — `supervox tags` lists tags with counts, `--json` flag for JSON output. Implement `cmd_tags()`.
-- [ ] Task 2.4: Update `cmd_stats()` to accept filtered calls — pass filtered list to a new `compute_stats_from_calls()` or filter before `compute_stats()`.
+- [x] Task 2.1: Add `FilterArgs` struct in `crates/supervox-tui/src/main.rs` <!-- sha:pending -->
+- [x] Task 2.2: Add `FilterArgs` to `Calls`, `Search`, `Stats`, `Insights` command variants <!-- sha:pending -->
+- [x] Task 2.3: Add `Tags` command variant to CLI <!-- sha:pending -->
+- [x] Task 2.4: Update `cmd_stats()` to accept filtered calls <!-- sha:pending -->
 
 ### Verification
-- [ ] `supervox calls --tag test` works
-- [ ] `supervox calls --since 2026-01-01 --until 2026-03-01` works
-- [ ] `supervox tags` lists tags with counts
-- [ ] `supervox stats --tag meeting` computes stats for filtered calls only
-- [ ] `cargo test --workspace` passes
+- [x] `supervox calls --tag test` works
+- [x] `supervox calls --since 2026-01-01 --until 2026-03-01` works
+- [x] `supervox tags` lists tags with counts
+- [x] `supervox stats --tag meeting` computes stats for filtered calls only
+- [x] `cargo test --workspace` passes
 
 ## Phase 3: TUI History Filter
 

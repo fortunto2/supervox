@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 mod agent_loop;
 mod analysis_pipeline;
@@ -21,6 +21,46 @@ struct Cli {
     local: bool,
 }
 
+/// Shared filter flags for narrowing call lists by tag and/or date range.
+#[derive(Args, Debug, Default)]
+struct FilterArgs {
+    /// Filter by tag (repeatable, OR logic)
+    #[arg(long = "tag")]
+    tags: Vec<String>,
+    /// Filter calls from this date onward (YYYY-MM-DD)
+    #[arg(long)]
+    since: Option<String>,
+    /// Filter calls up to this date (YYYY-MM-DD)
+    #[arg(long)]
+    until: Option<String>,
+}
+
+impl FilterArgs {
+    fn to_call_filter(&self) -> Result<supervox_agent::types::CallFilter> {
+        let since = self
+            .since
+            .as_deref()
+            .map(|s| {
+                chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+                    .map_err(|e| anyhow::anyhow!("Invalid --since date \"{s}\": {e}"))
+            })
+            .transpose()?;
+        let until = self
+            .until
+            .as_deref()
+            .map(|s| {
+                chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+                    .map_err(|e| anyhow::anyhow!("Invalid --until date \"{s}\": {e}"))
+            })
+            .transpose()?;
+        Ok(supervox_agent::types::CallFilter {
+            tags: self.tags.clone(),
+            since,
+            until,
+        })
+    }
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Live call assistant — real-time subtitles + translation + rolling summary
@@ -40,6 +80,8 @@ enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        #[command(flatten)]
+        filter: FilterArgs,
     },
     /// Delete a call by ID
     Delete {
@@ -64,15 +106,27 @@ enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        #[command(flatten)]
+        filter: FilterArgs,
     },
     /// Cross-call insights — recurring themes, mood trends, action items
     Insights {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        #[command(flatten)]
+        filter: FilterArgs,
     },
     /// Aggregate call statistics — total calls, duration, analysis coverage
     Stats {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        #[command(flatten)]
+        filter: FilterArgs,
+    },
+    /// List all unique tags with counts
+    Tags {
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -98,8 +152,8 @@ async fn main() -> Result<()> {
     }
 
     match cli.command {
-        Some(Commands::Calls { json }) => {
-            cmd_calls(json)?;
+        Some(Commands::Calls { json, filter }) => {
+            cmd_calls(json, &filter)?;
         }
         Some(Commands::Delete { call_id, force }) => {
             cmd_delete(&call_id, force)?;
@@ -107,14 +161,21 @@ async fn main() -> Result<()> {
         Some(Commands::Export { call_id, output }) => {
             cmd_export(&call_id, output.as_deref())?;
         }
-        Some(Commands::Search { query, json }) => {
-            cmd_search(&query, json)?;
+        Some(Commands::Search {
+            query,
+            json,
+            filter,
+        }) => {
+            cmd_search(&query, json, &filter)?;
         }
-        Some(Commands::Insights { json }) => {
-            cmd_insights(json).await?;
+        Some(Commands::Insights { json, filter }) => {
+            cmd_insights(json, &filter).await?;
         }
-        Some(Commands::Stats { json }) => {
-            cmd_stats(json)?;
+        Some(Commands::Stats { json, filter }) => {
+            cmd_stats(json, &filter)?;
+        }
+        Some(Commands::Tags { json }) => {
+            cmd_tags(json)?;
         }
         Some(Commands::AnalyzeAll { dry_run }) => {
             cmd_analyze_all(dry_run).await?;
@@ -205,10 +266,24 @@ fn cmd_export(call_id: &str, output: Option<&str>) -> Result<()> {
 }
 
 /// Search call transcripts and display matches.
-fn cmd_search(query: &str, json: bool) -> Result<()> {
+fn cmd_search(query: &str, json: bool, filter_args: &FilterArgs) -> Result<()> {
     let calls_dir = supervox_agent::storage::default_calls_dir();
-    let matches = supervox_agent::tools::search::search_calls_in_dir(&calls_dir, query)
+    let call_filter = filter_args.to_call_filter()?;
+    let has_filter =
+        !call_filter.tags.is_empty() || call_filter.since.is_some() || call_filter.until.is_some();
+
+    let mut matches = supervox_agent::tools::search::search_calls_in_dir(&calls_dir, query)
         .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    // Post-filter search results if filter flags are set
+    if has_filter {
+        let calls =
+            supervox_agent::storage::list_calls(&calls_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let filtered = supervox_agent::storage::filter_calls(&calls, &call_filter);
+        let filtered_ids: std::collections::HashSet<String> =
+            filtered.into_iter().map(|c| c.id).collect();
+        matches.retain(|m| filtered_ids.contains(&m.call_id));
+    }
 
     if json {
         println!("{}", serde_json::to_string_pretty(&matches)?);
@@ -230,10 +305,12 @@ fn cmd_search(query: &str, json: bool) -> Result<()> {
 }
 
 /// List saved calls to stdout (non-TUI).
-fn cmd_calls(json: bool) -> Result<()> {
+fn cmd_calls(json: bool, filter_args: &FilterArgs) -> Result<()> {
     let calls_dir = supervox_agent::storage::default_calls_dir();
-    let calls =
+    let all_calls =
         supervox_agent::storage::list_calls(&calls_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let call_filter = filter_args.to_call_filter()?;
+    let calls = supervox_agent::storage::filter_calls(&all_calls, &call_filter);
 
     if json {
         println!("{}", serde_json::to_string_pretty(&calls)?);
@@ -241,7 +318,7 @@ fn cmd_calls(json: bool) -> Result<()> {
     }
 
     if calls.is_empty() {
-        println!("No calls found in {}", calls_dir.display());
+        println!("No calls found");
         return Ok(());
     }
 
@@ -270,7 +347,13 @@ fn cmd_calls(json: bool) -> Result<()> {
         );
     }
 
-    println!("\n{} call(s) total", calls.len());
+    let total = all_calls.len();
+    let shown = calls.len();
+    if shown < total {
+        println!("\n{shown}/{total} call(s) (filtered)");
+    } else {
+        println!("\n{total} call(s) total");
+    }
     Ok(())
 }
 
@@ -296,10 +379,20 @@ async fn cmd_analyze_json(file: &str) -> Result<()> {
 }
 
 /// Display aggregate call statistics.
-fn cmd_stats(json: bool) -> Result<()> {
+fn cmd_stats(json: bool, filter_args: &FilterArgs) -> Result<()> {
     let calls_dir = supervox_agent::storage::default_calls_dir();
-    let stats =
-        supervox_agent::storage::compute_stats(&calls_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let call_filter = filter_args.to_call_filter()?;
+    let has_filter =
+        !call_filter.tags.is_empty() || call_filter.since.is_some() || call_filter.until.is_some();
+
+    let stats = if has_filter {
+        let all_calls =
+            supervox_agent::storage::list_calls(&calls_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let filtered = supervox_agent::storage::filter_calls(&all_calls, &call_filter);
+        compute_stats_from_calls(&calls_dir, &filtered)
+    } else {
+        supervox_agent::storage::compute_stats(&calls_dir).map_err(|e| anyhow::anyhow!("{e}"))?
+    };
 
     if json {
         println!("{}", serde_json::to_string_pretty(&stats)?);
@@ -310,7 +403,10 @@ fn cmd_stats(json: bool) -> Result<()> {
     let hours = total_secs / 3600;
     let mins = (total_secs % 3600) / 60;
 
-    println!("Call Statistics");
+    println!(
+        "Call Statistics{}",
+        if has_filter { " (filtered)" } else { "" }
+    );
     println!("{}", "=".repeat(40));
     println!("Total calls:      {}", stats.total_calls);
     println!("Total duration:   {hours}h {mins}m");
@@ -334,6 +430,77 @@ fn cmd_stats(json: bool) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+/// Compute stats from a pre-filtered list of calls.
+fn compute_stats_from_calls(
+    calls_dir: &std::path::Path,
+    calls: &[supervox_agent::types::Call],
+) -> supervox_agent::types::CallStats {
+    let now = chrono::Utc::now();
+    let week_ago = now - chrono::Duration::days(7);
+    let month_ago = now - chrono::Duration::days(30);
+
+    let total_calls = calls.len();
+    let total_duration_secs: f64 = calls.iter().map(|c| c.duration_secs).sum::<f64>().max(0.0);
+    let calls_this_week = calls.iter().filter(|c| c.created_at >= week_ago).count();
+    let calls_this_month = calls.iter().filter(|c| c.created_at >= month_ago).count();
+
+    let mut analyzed_count = 0usize;
+    let mut theme_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+
+    for call in calls {
+        if let Ok(Some(analysis)) = supervox_agent::storage::load_analysis(calls_dir, &call.id) {
+            analyzed_count += 1;
+            for theme in &analysis.themes {
+                *theme_counts.entry(theme.clone()).or_default() += 1;
+            }
+        }
+    }
+
+    let mut top_themes: Vec<supervox_agent::types::ThemeCount> = theme_counts
+        .into_iter()
+        .map(|(theme, count)| supervox_agent::types::ThemeCount { theme, count })
+        .collect();
+    top_themes.sort_by(|a, b| b.count.cmp(&a.count));
+    top_themes.truncate(5);
+
+    supervox_agent::types::CallStats {
+        total_calls,
+        total_duration_secs,
+        analyzed_count,
+        unanalyzed_count: total_calls - analyzed_count,
+        top_themes,
+        calls_this_week,
+        calls_this_month,
+    }
+}
+
+/// List all unique tags with counts.
+fn cmd_tags(json: bool) -> Result<()> {
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    let calls =
+        supervox_agent::storage::list_calls(&calls_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let tags = supervox_agent::storage::collect_tags(&calls);
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&tags)?);
+        return Ok(());
+    }
+
+    if tags.is_empty() {
+        println!("No tags found. Analyze calls first to auto-tag from themes.");
+        return Ok(());
+    }
+
+    println!("{:<30} COUNT", "TAG");
+    println!("{}", "-".repeat(40));
+    for t in &tags {
+        println!("{:<30} {}", t.theme, t.count);
+    }
+    println!("\n{} unique tag(s)", tags.len());
     Ok(())
 }
 
@@ -408,15 +575,18 @@ async fn cmd_analyze_all(dry_run: bool) -> Result<()> {
 }
 
 /// Generate cross-call insights and display formatted output or JSON.
-async fn cmd_insights(json: bool) -> Result<()> {
+async fn cmd_insights(json: bool, filter_args: &FilterArgs) -> Result<()> {
     let config_path = supervox_agent::storage::default_config_path();
     let config = supervox_agent::storage::load_config(&config_path)
         .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;
 
+    let call_filter = filter_args.to_call_filter()?;
+
     eprintln!("Generating insights from call history...");
-    let insights = analysis_pipeline::generate_insights(config.effective_model())
-        .await
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let insights =
+        analysis_pipeline::generate_insights_filtered(config.effective_model(), &call_filter)
+            .await
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     if json {
         println!("{}", serde_json::to_string_pretty(&insights)?);

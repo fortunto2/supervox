@@ -6,7 +6,7 @@
 use sgr_agent::Llm;
 use sgr_agent::types::{LlmConfig, Message};
 use supervox_agent::storage;
-use supervox_agent::types::{CallAnalysis, CallInsights};
+use supervox_agent::types::{CallAnalysis, CallFilter, CallInsights};
 
 const LLM_TIMEOUT_SECS: u64 = 30;
 
@@ -68,14 +68,18 @@ pub async fn draft_follow_up(
 
 const INSIGHTS_TIMEOUT_SECS: u64 = 60;
 
-/// Generate cross-call insights from all saved calls and analyses.
-pub async fn generate_insights(model: &str) -> Result<CallInsights, String> {
+/// Generate cross-call insights with optional filter.
+pub async fn generate_insights_filtered(
+    model: &str,
+    filter: &CallFilter,
+) -> Result<CallInsights, String> {
     let calls_dir = storage::default_calls_dir();
-    let calls =
+    let all_calls =
         storage::list_calls(&calls_dir).map_err(|e| format!("Failed to load calls: {e}"))?;
+    let calls = storage::filter_calls(&all_calls, filter);
 
     if calls.is_empty() {
-        return Err("No calls found. Record some calls first.".into());
+        return Err("No calls found matching filter criteria.".into());
     }
 
     let mut context = String::new();
