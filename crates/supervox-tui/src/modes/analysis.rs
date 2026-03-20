@@ -211,8 +211,32 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
             "Action Items:",
             Style::default().add_modifier(Modifier::BOLD),
         )));
+
+        // Load action store to show completion status
+        let actions_path = supervox_agent::storage::default_actions_path();
+        let action_store =
+            supervox_agent::storage::load_action_store(&actions_path).unwrap_or_default();
+
         for item in &state.action_items {
-            lines.push(Line::from(format!("  ☐ {item}")));
+            // Check if this action is completed (derive ID from call_id + raw description)
+            let is_completed = state.call_id.as_ref().is_some_and(|cid| {
+                // Extract raw description by stripping assignee/deadline suffixes
+                let raw_desc = item.find(" (@").map_or(item.as_str(), |i| &item[..i]);
+                let raw_desc = raw_desc
+                    .find(" — due ")
+                    .map_or(raw_desc, |i| &raw_desc[..i]);
+                let aid = supervox_agent::types::action_id(cid, raw_desc);
+                action_store.get(&aid).is_some_and(|s| s.completed)
+            });
+
+            if is_completed {
+                lines.push(Line::from(Span::styled(
+                    format!("  \u{2611} {item}"),
+                    Style::default().fg(Color::Green),
+                )));
+            } else {
+                lines.push(Line::from(format!("  \u{2610} {item}")));
+            }
         }
         lines.push(Line::from(""));
     }

@@ -35,7 +35,7 @@ supervox/
 | Batch STT | voxkit openai (gpt-4o-transcribe) |
 | LLM | sgr-agent genai (Gemini Flash / OpenRouter / Ollama) |
 | Audio | voxkit mic + system_audio (cpal, ScreenCaptureKit) |
-| Storage | JSON + WAV in `~/.supervox/` (calls, analyses, audio, config) |
+| Storage | JSON + WAV in `~/.supervox/` (calls, analyses, audio, config, actions) |
 
 ## Dependencies (workspace)
 
@@ -80,12 +80,18 @@ supervox tags --json                 # output tag list as JSON
 supervox analyze-all                 # batch-analyze all unanalyzed calls
 supervox analyze-all --dry-run       # list unanalyzed calls without processing
 supervox play <call-id>              # play audio recording in system player
+supervox actions                     # list open action items across calls
+supervox actions --all               # include completed actions
+supervox actions --json              # output TrackedAction array as JSON
+supervox actions done <id-prefix>    # mark action item as complete
+supervox actions undo <id-prefix>    # undo action completion
 
-# Filtering (calls, search, stats, insights)
+# Filtering (calls, search, stats, insights, actions)
 supervox calls --tag meeting         # filter by tag (repeatable, OR logic)
 supervox calls --since 2026-03-01    # from date onward (YYYY-MM-DD)
 supervox calls --until 2026-03-15    # up to date
 supervox stats --tag budget --since 2026-01-01  # combined filters
+supervox actions --tag meeting --since 2026-03-01  # filter action items
 
 # Ollama (local LLM)
 supervox --local live                # use Ollama instead of cloud LLM
@@ -158,6 +164,8 @@ on stop → finalize WAV → save call (with audio_path) → auto-switch to Anal
 - `CallStats { total_calls, total_duration_secs, analyzed_count, unanalyzed_count, top_themes, calls_this_week, calls_this_month }` — aggregate statistics
 - `ThemeCount { theme, count }` — frequency of a recurring theme
 - `MoodSummary { positive, neutral, negative, mixed }` — mood distribution
+- `ActionState { completed, completed_at }` — action item completion state
+- `TrackedAction { action_id, call_id, call_date, description, assignee, deadline, state }` — enriched action item with tracking
 
 ### Help overlay
 - `?` key toggles help popup in any mode showing mode-appropriate keybindings
@@ -207,17 +215,51 @@ System audio requires `system-audio-tap` binary (macOS ScreenCaptureKit).
 - **CLI-first testing** — every tool works without TUI
 - **Schemas-first** — define Call, Analysis before code
 
+## Architecture Standards
+
+**Crate boundaries (strict):**
+```
+voxkit            — audio I/O only. No business logic, no TUI.
+supervox-agent    — domain types + LLM tools. No TUI, no audio I/O.
+supervox-tui      — TUI + CLI. Orchestrates pipelines. Depends on both.
+```
+
+**Async patterns:**
+- TUI event loop: `tokio::select!` on crossterm + mpsc receivers
+- Background tasks: `tokio::spawn` for mic, STT, LLM — never block TUI thread
+- Pipeline: mic → stt → transcript → translate (parallel) + summary (timer)
+- Cancellation: `CancellationToken` shared across pipeline tasks
+- Channels: bounded `mpsc` (64 cap), slow consumer drops oldest
+
+**Error handling:**
+- Domain: typed enums via thiserror (`AgentError`, `StorageError`)
+- TUI: errors in status bar, never crash
+- Audio/LLM: timeout + retry, fallback message, continue working
+
+**State:**
+- No `Mutex` in TUI — single `App` struct, events via channels
+- Persistent: JSON files via `storage` module
+- Config: loaded once at startup, immutable
+
+**Type safety:**
+- Newtype IDs: `CallId(String)` — not bare String
+- Enums: `Mood`, `AudioSource` — not String
+- Timestamps: `chrono::DateTime<Utc>`
+- All public types: `Clone + Debug + Serialize`
+
 ## Don't
 
 - Hardcode languages — use config
-- Over-engineer — Phase 1 first, polish later
-- Duplicate audio logic — use voxkit for everything
-- Skip TDD for agent tools
+- Block TUI thread — spawn everything async
+- Use `Mutex` in TUI — channels only
+- `unwrap()` in production — `?` or error in status bar
+- Duplicate audio logic — voxkit only
 
 ## Do
 
 - TDD for each agent tool with fixture transcripts
+- `CancellationToken` for clean pipeline shutdown
+- Tracing spans on every pipeline stage
 - Use sgr-agent-tui for TUI foundation
-- Use sgr-agent Session for call persistence
 - Use sgr-agent Compactor for long call transcripts
 - Store calls as JSON in `~/.supervox/calls/`
