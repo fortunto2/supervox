@@ -77,6 +77,18 @@ pub struct CallInsights {
     pub period: String,
 }
 
+/// Aggregate call statistics.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CallStats {
+    pub total_calls: usize,
+    pub total_duration_secs: f64,
+    pub analyzed_count: usize,
+    pub unanalyzed_count: usize,
+    pub top_themes: Vec<ThemeCount>,
+    pub calls_this_week: usize,
+    pub calls_this_month: usize,
+}
+
 /// A search match result when searching across past calls.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CallMatch {

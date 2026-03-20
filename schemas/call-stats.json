@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CallStats",
+  "description": "Aggregate call statistics",
+  "type": "object",
+  "required": ["total_calls", "total_duration_secs", "analyzed_count", "unanalyzed_count", "top_themes", "calls_this_week", "calls_this_month"],
+  "properties": {
+    "total_calls": {
+      "type": "integer",
+      "description": "Total number of recorded calls"
+    },
+    "total_duration_secs": {
+      "type": "number",
+      "description": "Total duration of all calls in seconds"
+    },
+    "analyzed_count": {
+      "type": "integer",
+      "description": "Number of calls with cached analysis"
+    },
+    "unanalyzed_count": {
+      "type": "integer",
+      "description": "Number of calls without cached analysis"
+    },
+    "top_themes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["theme", "count"],
+        "properties": {
+          "theme": { "type": "string", "description": "Theme name" },
+          "count": { "type": "integer", "description": "Number of calls with this theme" }
+        }
+      },
+      "description": "Top 5 most frequent themes across analyzed calls"
+    },
+    "calls_this_week": {
+      "type": "integer",
+      "description": "Number of calls in the last 7 days"
+    },
+    "calls_this_month": {
+      "type": "integer",
+      "description": "Number of calls in the last 30 days"
+    }
+  }
+}

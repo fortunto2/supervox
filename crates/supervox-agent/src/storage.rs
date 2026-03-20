@@ -1,4 +1,4 @@
-use crate::types::{Call, CallAnalysis, Config};
+use crate::types::{Call, CallAnalysis, CallStats, Config, ThemeCount};
 use std::path::{Path, PathBuf};
 
 /// Default calls directory: ~/.supervox/calls/
@@ -211,6 +211,49 @@ pub fn delete_call(calls_dir: &Path, call_id: &str) -> Result<(), Box<dyn std::e
         }
     }
     Err(format!("Call not found: {call_id}").into())
+}
+
+/// Compute aggregate statistics across all saved calls.
+pub fn compute_stats(calls_dir: &Path) -> Result<CallStats, Box<dyn std::error::Error>> {
+    let calls = list_calls(calls_dir)?;
+    let now = chrono::Utc::now();
+    let week_ago = now - chrono::Duration::days(7);
+    let month_ago = now - chrono::Duration::days(30);
+
+    let total_calls = calls.len();
+    let total_duration_secs: f64 = calls.iter().map(|c| c.duration_secs).sum();
+    let calls_this_week = calls.iter().filter(|c| c.created_at >= week_ago).count();
+    let calls_this_month = calls.iter().filter(|c| c.created_at >= month_ago).count();
+
+    let mut analyzed_count = 0usize;
+    let mut theme_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+
+    for call in &calls {
+        if let Ok(Some(analysis)) = load_analysis(calls_dir, &call.id) {
+            analyzed_count += 1;
+            for theme in &analysis.themes {
+                *theme_counts.entry(theme.clone()).or_default() += 1;
+            }
+        }
+    }
+
+    let mut top_themes: Vec<ThemeCount> = theme_counts
+        .into_iter()
+        .map(|(theme, count)| ThemeCount { theme, count })
+        .collect();
+    top_themes.sort_by(|a, b| b.count.cmp(&a.count));
+    top_themes.truncate(5);
+
+    Ok(CallStats {
+        total_calls,
+        total_duration_secs,
+        analyzed_count,
+        unanalyzed_count: total_calls - analyzed_count,
+        top_themes,
+        calls_this_week,
+        calls_this_month,
+    })
 }
 
 /// Default config path: ~/.supervox/config.toml
@@ -557,6 +600,107 @@ mod tests {
         update_call_tags(&dir, "tag2", &["a".into(), "b".into()]).unwrap();
         let loaded = load_call(&dir, "tag2").unwrap();
         assert_eq!(loaded.tags, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn compute_stats_empty_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stats = compute_stats(tmp.path()).unwrap();
+        assert_eq!(stats.total_calls, 0);
+        assert_eq!(stats.total_duration_secs, 0.0);
+        assert_eq!(stats.analyzed_count, 0);
+        assert_eq!(stats.unanalyzed_count, 0);
+        assert!(stats.top_themes.is_empty());
+        assert_eq!(stats.calls_this_week, 0);
+        assert_eq!(stats.calls_this_month, 0);
+    }
+
+    #[test]
+    fn compute_stats_mixed_analyzed_unanalyzed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().to_path_buf();
+
+        let c1 = make_call("s1", "First call");
+        let c2 = make_call("s2", "Second call");
+        save_call(&dir, &c1).unwrap();
+        save_call(&dir, &c2).unwrap();
+
+        // Only analyze c1
+        let analysis = make_analysis();
+        save_analysis(&dir, "s1", &analysis).unwrap();
+
+        let stats = compute_stats(&dir).unwrap();
+        assert_eq!(stats.total_calls, 2);
+        assert_eq!(stats.total_duration_secs, 120.0); // 60 + 60
+        assert_eq!(stats.analyzed_count, 1);
+        assert_eq!(stats.unanalyzed_count, 1);
+        assert_eq!(stats.calls_this_week, 2);
+        assert_eq!(stats.calls_this_month, 2);
+    }
+
+    #[test]
+    fn compute_stats_theme_aggregation() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().to_path_buf();
+
+        let c1 = make_call("t1", "Call 1");
+        let c2 = make_call("t2", "Call 2");
+        save_call(&dir, &c1).unwrap();
+        save_call(&dir, &c2).unwrap();
+
+        let mut a1 = make_analysis();
+        a1.themes = vec!["planning".into(), "budget".into()];
+        save_analysis(&dir, "t1", &a1).unwrap();
+
+        let mut a2 = make_analysis();
+        a2.themes = vec!["planning".into(), "hiring".into()];
+        save_analysis(&dir, "t2", &a2).unwrap();
+
+        let stats = compute_stats(&dir).unwrap();
+        assert_eq!(stats.analyzed_count, 2);
+        // "planning" should appear with count 2 and be first
+        assert_eq!(stats.top_themes[0].theme, "planning");
+        assert_eq!(stats.top_themes[0].count, 2);
+        assert_eq!(stats.top_themes.len(), 3); // planning, budget, hiring
+    }
+
+    #[test]
+    fn compute_stats_old_calls_not_in_week() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().to_path_buf();
+
+        let mut old_call = make_call("old1", "Old call");
+        old_call.created_at = chrono::DateTime::parse_from_rfc3339("2025-01-01T10:00:00Z")
+            .unwrap()
+            .to_utc();
+        save_call(&dir, &old_call).unwrap();
+
+        let stats = compute_stats(&dir).unwrap();
+        assert_eq!(stats.total_calls, 1);
+        assert_eq!(stats.calls_this_week, 0);
+        assert_eq!(stats.calls_this_month, 0);
+    }
+
+    #[test]
+    fn call_stats_serialization_roundtrip() {
+        use crate::types::CallStats;
+        let stats = CallStats {
+            total_calls: 5,
+            total_duration_secs: 300.0,
+            analyzed_count: 3,
+            unanalyzed_count: 2,
+            top_themes: vec![crate::types::ThemeCount {
+                theme: "planning".into(),
+                count: 3,
+            }],
+            calls_this_week: 2,
+            calls_this_month: 4,
+        };
+        let json = serde_json::to_string(&stats).unwrap();
+        let back: CallStats = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.total_calls, 5);
+        assert_eq!(back.analyzed_count, 3);
+        assert_eq!(back.top_themes[0].theme, "planning");
     }
 
     #[test]
