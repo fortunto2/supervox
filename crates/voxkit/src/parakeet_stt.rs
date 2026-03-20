@@ -111,6 +111,16 @@ impl StreamingSttBackend for ParakeetStt {
                         // Transcribe every ~2 seconds of audio (32000 samples at 16kHz)
                         if audio_buffer.len() >= 32000 {
                             let segment = std::mem::take(&mut audio_buffer);
+
+                            // Skip silent chunks — Parakeet hallucinates on silence
+                            let rms = (segment.iter().map(|s| s * s).sum::<f32>()
+                                / segment.len() as f32)
+                                .sqrt();
+                            if rms < SILENCE_THRESHOLD {
+                                tracing::debug!("Parakeet: skipping silent chunk (RMS={rms:.4})");
+                                continue;
+                            }
+
                             item_counter += 1;
                             let item_id = format!("parakeet_{item_counter}");
 
@@ -134,9 +144,15 @@ impl StreamingSttBackend for ParakeetStt {
                     SttInput::Close => {
                         // Flush remaining audio
                         if audio_buffer.len() >= 1600 {
+                            let segment = std::mem::take(&mut audio_buffer);
+                            let rms = (segment.iter().map(|s| s * s).sum::<f32>()
+                                / segment.len() as f32)
+                                .sqrt();
+                            if rms < SILENCE_THRESHOLD {
+                                break;
+                            }
                             item_counter += 1;
                             let item_id = format!("parakeet_{item_counter}");
-                            let segment = std::mem::take(&mut audio_buffer);
                             if let Ok(result) = engine.transcribe_samples(segment, 16000, 1, None)
                                 && !result.text.trim().is_empty()
                             {
@@ -156,6 +172,10 @@ impl StreamingSttBackend for ParakeetStt {
         Ok((input_tx, transcript_rx))
     }
 }
+
+/// RMS threshold below which audio is considered silence.
+/// Parakeet hallucinates on silence — must skip quiet chunks.
+const SILENCE_THRESHOLD: f32 = 0.005;
 
 /// Check that parakeet model files exist in the given directory.
 pub fn model_exists(model_dir: &Path) -> bool {
