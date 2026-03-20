@@ -296,7 +296,9 @@ fn source_color(source: &AudioSource) -> Color {
 }
 
 fn audio_level_bar(level: f32, width: usize) -> String {
-    let bars = (level * width as f32).min(width as f32) as usize;
+    // Amplify: speech RMS is typically 0.01-0.1, scale up for visible bars
+    let amplified = (level * 10.0).min(1.0);
+    let bars = (amplified * width as f32) as usize;
     format!("[{}{}]", "█".repeat(bars), "░".repeat(width - bars))
 }
 
@@ -413,12 +415,12 @@ mod tests {
 
     #[test]
     fn audio_level_bar_full() {
-        assert_eq!(audio_level_bar(1.0, 6), "[██████]");
+        assert_eq!(audio_level_bar(0.1, 6), "[██████]"); // 0.1 * 10 = 1.0 → full
     }
 
     #[test]
     fn audio_level_bar_half() {
-        assert_eq!(audio_level_bar(0.5, 6), "[███░░░]");
+        assert_eq!(audio_level_bar(0.05, 6), "[███░░░]"); // 0.05 * 10 = 0.5 → half
     }
 
     #[test]
