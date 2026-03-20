@@ -470,4 +470,107 @@ mod tests {
         assert!(md.contains("## Translation"));
         assert!(md.contains("Translated text"));
     }
+
+    fn make_analysis() -> CallAnalysis {
+        use crate::types::{ActionItem, Mood};
+        CallAnalysis {
+            summary: "Test summary".into(),
+            action_items: vec![ActionItem {
+                description: "Follow up".into(),
+                assignee: Some("Alice".into()),
+                deadline: None,
+            }],
+            follow_up_draft: None,
+            decisions: vec!["Decision A".into()],
+            open_questions: vec![],
+            mood: Mood::Positive,
+            themes: vec!["planning".into(), "budget".into()],
+        }
+    }
+
+    #[test]
+    fn save_and_load_analysis_roundtrip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().to_path_buf();
+        let call = make_call("ana123", "Some transcript");
+        save_call(&dir, &call).unwrap();
+
+        let analysis = make_analysis();
+        save_analysis(&dir, "ana123", &analysis).unwrap();
+
+        let loaded = load_analysis(&dir, "ana123").unwrap();
+        assert!(loaded.is_some());
+        let loaded = loaded.unwrap();
+        assert_eq!(loaded.summary, "Test summary");
+        assert_eq!(loaded.themes, vec!["planning", "budget"]);
+    }
+
+    #[test]
+    fn load_analysis_not_found_returns_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().to_path_buf();
+        let call = make_call("noana", "Transcript");
+        save_call(&dir, &call).unwrap();
+
+        let loaded = load_analysis(&dir, "noana").unwrap();
+        assert!(loaded.is_none());
+    }
+
+    #[test]
+    fn load_analysis_nonexistent_dir_returns_none() {
+        let result = load_analysis(Path::new("/nonexistent/dir"), "x").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn save_analysis_no_call_fails() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path()).unwrap();
+        let analysis = make_analysis();
+        let result = save_analysis(tmp.path(), "ghost", &analysis);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn update_call_tags_sets_themes() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().to_path_buf();
+        let call = make_call("tag1", "Transcript");
+        save_call(&dir, &call).unwrap();
+
+        let themes = vec!["meeting".to_string(), "budget".to_string()];
+        update_call_tags(&dir, "tag1", &themes).unwrap();
+
+        let updated = load_call(&dir, "tag1").unwrap();
+        assert_eq!(updated.tags, vec!["meeting", "budget"]);
+    }
+
+    #[test]
+    fn update_call_tags_idempotent() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().to_path_buf();
+        let mut call = make_call("tag2", "Transcript");
+        call.tags = vec!["a".into(), "b".into()];
+        save_call(&dir, &call).unwrap();
+
+        // Same tags — should be a no-op
+        update_call_tags(&dir, "tag2", &["a".into(), "b".into()]).unwrap();
+        let loaded = load_call(&dir, "tag2").unwrap();
+        assert_eq!(loaded.tags, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn list_calls_excludes_analysis_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().to_path_buf();
+        let call = make_call("lca1", "Transcript");
+        save_call(&dir, &call).unwrap();
+
+        let analysis = make_analysis();
+        save_analysis(&dir, "lca1", &analysis).unwrap();
+
+        let calls = list_calls(&dir).unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].id, "lca1");
+    }
 }
