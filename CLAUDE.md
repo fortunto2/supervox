@@ -65,6 +65,12 @@ supervox analyze <call.json> --json  # output CallAnalysis as JSON
 supervox agent                       # chat with history
 supervox calls                       # list past calls
 supervox calls --json                # output calls as JSON
+supervox delete <call-id>            # delete a call (with confirmation)
+supervox delete <call-id> --force    # delete without confirmation
+supervox export <call-id>            # export call as markdown to stdout
+supervox export <call-id> -o file.md # export to file
+supervox search <query>              # search call transcripts
+supervox search <query> --json       # output matches as JSON
 
 # Ollama (local LLM)
 supervox --local live                # use Ollama instead of cloud LLM
@@ -102,6 +108,7 @@ on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 - 'f' key: generate follow-up email via `draft_follow_up`
 - 'c' key: copy analysis to clipboard
 - 'C' key: copy follow-up to clipboard
+- 'e' key: export call + analysis as markdown to clipboard
 - 'h' key: open call history browser
 - Loading state shown during LLM call
 
@@ -115,6 +122,7 @@ on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 - Accessible via 'h' from Live (idle) and Analysis modes
 - Shows call list: date, duration, first 60 chars of transcript
 - ↑/↓/j/k to navigate, Enter to open in Analysis, Esc to go back
+- 'd' key: delete selected call (inline y/n confirmation)
 
 ### Key types
 - `AudioSource::Mic | System` — "You:" (cyan) vs "Them:" (yellow) labels

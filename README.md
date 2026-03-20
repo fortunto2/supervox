@@ -34,6 +34,12 @@ supervox analyze <call.json> --json  # output analysis as JSON
 supervox agent                       # chat with history
 supervox calls                       # list past calls
 supervox calls --json                # output calls as JSON
+supervox delete <call-id>            # delete a call (with confirmation)
+supervox delete <call-id> --force    # delete without confirmation
+supervox export <call-id>            # export call as markdown to stdout
+supervox export <call-id> -o file.md # export to file
+supervox search <query>              # search call transcripts
+supervox search <query> --json       # output matches as JSON
 
 # Use local Ollama instead of cloud LLM
 supervox --local live
@@ -66,8 +72,21 @@ Opens a call JSON file, runs LLM analysis automatically (summary, action items, 
 | `f` | Generate follow-up email |
 | `c` | Copy analysis to clipboard |
 | `C` | Copy follow-up to clipboard |
+| `e` | Export call + analysis as markdown to clipboard |
 | `h` | Open call history |
 | Arrow keys | Scroll |
+| `q` | Quit |
+
+### History mode
+
+Browse and manage past calls.
+
+| Key | Action |
+|-----|--------|
+| `↑/↓/j/k` | Navigate |
+| `Enter` | Open in Analysis |
+| `d` | Delete call (y/n confirmation) |
+| `Esc` | Back to previous mode |
 | `q` | Quit |
 
 ### Agent mode
