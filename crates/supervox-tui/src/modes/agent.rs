@@ -38,6 +38,35 @@ impl Default for AgentState {
     }
 }
 
+impl AgentState {
+    /// Push a streaming text chunk to the latest assistant message (or create one).
+    pub fn push_assistant_chunk(&mut self, text: &str) {
+        if let Some(last) = self.messages.last_mut()
+            && matches!(last.role, MessageRole::Assistant)
+        {
+            last.content.push_str(text);
+            return;
+        }
+        self.messages.push(ChatMessage {
+            role: MessageRole::Assistant,
+            content: text.to_string(),
+        });
+    }
+
+    /// Mark the current response as complete.
+    pub fn finish_response(&mut self) {
+        // No-op for now — future: could toggle a "thinking" indicator
+    }
+
+    /// Push an error message.
+    pub fn push_error(&mut self, error: &str) {
+        self.messages.push(ChatMessage {
+            role: MessageRole::System,
+            content: format!("Error: {error}"),
+        });
+    }
+}
+
 /// Render agent mode — chat panel + input box.
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let state = &app.agent_state;

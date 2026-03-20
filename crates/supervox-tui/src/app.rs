@@ -10,7 +10,19 @@ use tokio::sync::mpsc;
 
 use crate::audio::{AudioEvent, AudioPipeline};
 use crate::modes;
-use supervox_agent::types::Config;
+use supervox_agent::types::{CallAnalysis, Config};
+
+/// Async events from background tasks (analysis, follow-up, agent).
+#[allow(dead_code)] // Agent variants used in Phase 3
+pub enum AppEvent {
+    AnalysisReady(CallAnalysis),
+    AnalysisError(String),
+    FollowUpReady(String),
+    FollowUpError(String),
+    AgentChunk(String),
+    AgentDone,
+    AgentError(String),
+}
 
 /// Application mode.
 #[derive(Debug, Clone)]
@@ -36,6 +48,9 @@ pub struct App {
     pub translate_tx: Option<mpsc::UnboundedSender<(String, String)>>,
     /// Sender for summary pipeline (final transcript text).
     pub summary_tx: Option<mpsc::UnboundedSender<String>>,
+    /// Channel for async app events (analysis, follow-up, agent).
+    pub app_event_rx: mpsc::UnboundedReceiver<AppEvent>,
+    pub app_event_tx: mpsc::UnboundedSender<AppEvent>,
 }
 
 impl App {
@@ -52,6 +67,7 @@ impl App {
         };
 
         let (audio_event_tx, audio_event_rx) = mpsc::unbounded_channel();
+        let (app_event_tx, app_event_rx) = mpsc::unbounded_channel();
         let mut app = Self {
             mode,
             running: true,
@@ -65,11 +81,17 @@ impl App {
             audio_event_tx,
             translate_tx: None,
             summary_tx: None,
+            app_event_rx,
+            app_event_tx,
         };
 
-        // Load call file for analysis mode
+        // Load call file for analysis mode and trigger LLM analysis
         if !analysis_file.is_empty() {
             app.analysis_state.load_from_call(&analysis_file);
+            if let Some(transcript) = app.analysis_state.get_transcript() {
+                app.analysis_state.loading = true;
+                app.spawn_analysis(transcript);
+            }
         }
 
         app
@@ -80,6 +102,100 @@ impl App {
             Mode::Live => "LIVE",
             Mode::Analysis { .. } => "ANALYSIS",
             Mode::Agent => "AGENT",
+        }
+    }
+
+    /// Spawn async LLM analysis for the given transcript.
+    pub fn spawn_analysis(&self, transcript: String) {
+        let model = self.config.llm_model.clone();
+        let tx = self.app_event_tx.clone();
+        tokio::spawn(async move {
+            match crate::analysis_pipeline::analyze_transcript(&transcript, &model).await {
+                Ok(analysis) => {
+                    let _ = tx.send(AppEvent::AnalysisReady(analysis));
+                }
+                Err(e) => {
+                    let _ = tx.send(AppEvent::AnalysisError(e));
+                }
+            }
+        });
+    }
+
+    /// Spawn async follow-up draft generation.
+    pub fn spawn_follow_up(&self) {
+        let analysis = CallAnalysis {
+            summary: self.analysis_state.summary.clone().unwrap_or_default(),
+            action_items: self
+                .analysis_state
+                .action_items
+                .iter()
+                .map(|d| supervox_agent::types::ActionItem {
+                    description: d.clone(),
+                    assignee: None,
+                    deadline: None,
+                })
+                .collect(),
+            follow_up_draft: None,
+            decisions: self.analysis_state.decisions.clone(),
+            open_questions: self.analysis_state.open_questions.clone(),
+            mood: supervox_agent::types::Mood::Neutral,
+            themes: self.analysis_state.themes.clone(),
+        };
+        let analysis_json = serde_json::to_string(&analysis).unwrap_or_default();
+        let language = self.config.my_language.clone();
+        let model = self.config.llm_model.clone();
+        let tx = self.app_event_tx.clone();
+        tokio::spawn(async move {
+            match crate::analysis_pipeline::draft_follow_up(&analysis_json, &language, &model).await
+            {
+                Ok(text) => {
+                    let _ = tx.send(AppEvent::FollowUpReady(text));
+                }
+                Err(e) => {
+                    let _ = tx.send(AppEvent::FollowUpError(e));
+                }
+            }
+        });
+    }
+
+    fn process_app_event(&mut self, event: AppEvent) {
+        match event {
+            AppEvent::AnalysisReady(analysis) => {
+                self.analysis_state.summary = Some(analysis.summary);
+                self.analysis_state.action_items = analysis
+                    .action_items
+                    .iter()
+                    .map(|a| a.description.clone())
+                    .collect();
+                self.analysis_state.decisions = analysis.decisions;
+                self.analysis_state.open_questions = analysis.open_questions;
+                self.analysis_state.mood = Some(format!("{:?}", analysis.mood));
+                self.analysis_state.themes = analysis.themes;
+                self.analysis_state.loading = false;
+                self.status = "Analysis complete".into();
+            }
+            AppEvent::AnalysisError(e) => {
+                self.analysis_state.error = Some(e.clone());
+                self.analysis_state.loading = false;
+                self.status = format!("Analysis error: {e}");
+            }
+            AppEvent::FollowUpReady(text) => {
+                self.analysis_state.follow_up = Some(text);
+                self.status = "Follow-up draft ready".into();
+            }
+            AppEvent::FollowUpError(e) => {
+                self.status = format!("Follow-up error: {e}");
+            }
+            AppEvent::AgentChunk(text) => {
+                self.agent_state.push_assistant_chunk(&text);
+            }
+            AppEvent::AgentDone => {
+                self.agent_state.finish_response();
+            }
+            AppEvent::AgentError(e) => {
+                self.agent_state.push_error(&e);
+                self.status = format!("Agent error: {e}");
+            }
         }
     }
 
@@ -139,13 +255,16 @@ impl App {
                                 "Call saved ({:.0}s) — switching to Analysis",
                                 duration_secs
                             );
-                            // Auto-flow: switch to Analysis mode
+                            // Auto-flow: switch to Analysis mode + trigger LLM analysis
                             let call_file = crate::audio::last_saved_call_path(&calls_dir);
                             if let Some(path) = call_file {
                                 let file = path.to_string_lossy().to_string();
                                 self.analysis_state = modes::analysis::AnalysisState::new(&file);
                                 self.analysis_state.load_from_call(&file);
+                                self.analysis_state.loading = true;
                                 self.mode = Mode::Analysis { file };
+                                // Spawn LLM analysis with the transcript
+                                self.spawn_analysis(transcript.clone());
                             }
                         }
                     }
@@ -201,6 +320,11 @@ pub async fn run(mode: Mode) -> Result<()> {
         // Process audio events (non-blocking)
         while let Ok(event) = app.audio_event_rx.try_recv() {
             app.process_audio_event(event);
+        }
+
+        // Process app events (analysis, follow-up, agent)
+        while let Ok(event) = app.app_event_rx.try_recv() {
+            app.process_app_event(event);
         }
 
         // Poll terminal events

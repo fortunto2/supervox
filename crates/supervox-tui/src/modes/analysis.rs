@@ -8,8 +8,9 @@ use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
 /// State for analysis mode.
 pub struct AnalysisState {
-    #[allow(dead_code)] // Used for display/reload
+    #[allow(dead_code)] // Used for reload
     pub file_path: String,
+    pub raw_transcript: Option<String>,
     pub summary: Option<String>,
     pub action_items: Vec<String>,
     pub decisions: Vec<String>,
@@ -26,6 +27,7 @@ impl AnalysisState {
     pub fn new(file_path: &str) -> Self {
         Self {
             file_path: file_path.to_string(),
+            raw_transcript: None,
             summary: None,
             action_items: Vec::new(),
             decisions: Vec::new(),
@@ -39,6 +41,11 @@ impl AnalysisState {
         }
     }
 
+    /// Get the raw transcript (if loaded from a call file).
+    pub fn get_transcript(&self) -> Option<String> {
+        self.raw_transcript.clone()
+    }
+
     pub fn load_from_call(&mut self, file_path: &str) {
         match std::fs::read_to_string(file_path) {
             Ok(json) => match serde_json::from_str::<supervox_agent::types::Call>(&json) {
@@ -49,8 +56,9 @@ impl AnalysisState {
                         call.duration_secs,
                         call.language.as_deref().unwrap_or("unknown")
                     ));
-                    // Display transcript as the analysis preview
+                    // Store raw transcript for LLM analysis
                     if !call.transcript.is_empty() {
+                        self.raw_transcript = Some(call.transcript.clone());
                         self.action_items = vec![format!("Transcript: {}", call.transcript)];
                     }
                     self.loading = false;
@@ -209,6 +217,13 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         }
         crossterm::event::KeyCode::PageDown => {
             app.analysis_state.scroll_offset += 10;
+        }
+        crossterm::event::KeyCode::Char('f') => {
+            // Generate follow-up email via LLM
+            if app.analysis_state.summary.is_some() && !app.analysis_state.loading {
+                app.status = "Generating follow-up...".into();
+                app.spawn_follow_up();
+            }
         }
         _ => {}
     }
