@@ -9,22 +9,22 @@
 
 Four phases: (1) TUI polish — help overlay + speaker colors, (2) call history browser, (3) CLI improvements — --json flag + Ollama config + error handling, (4) docs & cleanup. Each phase independently verifiable.
 
-## Phase 1: TUI Polish — Help Overlay & Speaker Colors
+## Phase 1: TUI Polish — Help Overlay & Speaker Colors <!-- checkpoint:460da7d -->
 
 Add keyboard help overlay and visual speaker differentiation in Live mode.
 
 ### Tasks
 
-- [~] Task 1.1: Add `TranscriptLine` struct to `crates/supervox-tui/src/modes/live.rs` — fields: `source: AudioSource`, `text: String`, `is_translation: bool`. Replace `transcript_lines: Vec<String>` and `translation_lines: Vec<String>` with `lines: Vec<TranscriptLine>` in `LiveState`. Update `process_audio_event()` in `crates/supervox-tui/src/app.rs` to populate source field.
-- [ ] Task 1.2: Color-code speaker labels in Live mode render — in `crates/supervox-tui/src/modes/live.rs` render function, prefix lines with "You: " (cyan) for `AudioSource::Mic` and "Them: " (yellow) for `AudioSource::System`. Translations remain italic cyan but inherit source prefix.
-- [ ] Task 1.3: Add help overlay system — create `crates/supervox-tui/src/help.rs` with `HelpOverlay` struct. Define per-mode keybinding arrays as `&[(&str, &str)]` (key, description). Render as centered popup using ratatui `Clear` + `Block` + `Paragraph`. Add `show_help: bool` to `App`.
-- [ ] Task 1.4: Wire `?` key to toggle help overlay in `crates/supervox-tui/src/app.rs` key handler. Any key dismisses when overlay is shown. Show mode-appropriate bindings (Live/Analysis/Agent).
+- [x] Task 1.1: Add `TranscriptLine` struct to `crates/supervox-tui/src/modes/live.rs` — fields: `source: AudioSource`, `text: String`, `is_translation: bool`. Replace `transcript_lines: Vec<String>` and `translation_lines: Vec<String>` with `lines: Vec<TranscriptLine>` in `LiveState`. Update `process_audio_event()` in `crates/supervox-tui/src/app.rs` to populate source field. <!-- sha:7fe7053 -->
+- [x] Task 1.2: Color-code speaker labels in Live mode render — in `crates/supervox-tui/src/modes/live.rs` render function, prefix lines with "You: " (cyan) for `AudioSource::Mic` and "Them: " (yellow) for `AudioSource::System`. Translations remain italic cyan but inherit source prefix. <!-- sha:7fe7053 -->
+- [x] Task 1.3: Add help overlay system — create `crates/supervox-tui/src/help.rs` with `HelpOverlay` struct. Define per-mode keybinding arrays as `&[(&str, &str)]` (key, description). Render as centered popup using ratatui `Clear` + `Block` + `Paragraph`. Add `show_help: bool` to `App`. <!-- sha:460da7d -->
+- [x] Task 1.4: Wire `?` key to toggle help overlay in `crates/supervox-tui/src/app.rs` key handler. Any key dismisses when overlay is shown. Show mode-appropriate bindings (Live/Analysis/Agent). <!-- sha:460da7d -->
 
 ### Verification
 
-- [ ] `?` shows overlay in each mode with correct bindings; any key dismisses
-- [ ] Live mode transcript shows "You:" cyan and "Them:" yellow prefixes
-- [ ] Existing tests pass (`cargo test -p supervox-tui`)
+- [x] `?` shows overlay in each mode with correct bindings; any key dismisses
+- [x] Live mode transcript shows "You:" cyan and "Them:" yellow prefixes
+- [x] Existing tests pass (`cargo test -p supervox-tui`)
 
 ## Phase 2: Call History Browser
 
