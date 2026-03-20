@@ -9,7 +9,7 @@
 
 Wire voxkit's existing realtime STT (WebSocket) into the TUI Live mode, add parallel translation + rolling summary on a timer, system audio capture, and config loading. All voxkit modules exist — this is integration work, not new audio code.
 
-## Phase 1: Config + Dependencies
+## Phase 1: Config + Dependencies <!-- checkpoint:21e8a25 -->
 
 Add config file loading and fix dependency features so realtime STT and system audio are available in the TUI crate.
 
@@ -31,15 +31,15 @@ Rewrite `AudioPipeline` to use streaming STT instead of placeholder, add system 
 
 ### Tasks
 
-- [ ] Task 2.1: Rewrite `crates/supervox-tui/src/audio.rs` — replace current `AudioPipeline` with two-stage design: (1) raw audio capture (mic + optional system audio via config `capture` field), (2) `OpenAiStreamingStt::connect()` feeding `TranscriptEvent` back via channel. Use `voxkit::realtime_stt::resample_to_24k()` for sample rate conversion. `AudioEvent` enum: `Transcript { source: AudioSource, text: String, is_final: bool }`, `Level(f32)`, `Stopped { transcript, duration_secs }`. `AudioSource` enum: `Mic`, `System`.
-- [ ] Task 2.2: Update `crates/supervox-tui/src/app.rs` `process_audio_event()` — handle new `AudioEvent::Transcript` with `is_final` flag. Delta events: update current line in `LiveState` (dimmed style). Final events: push completed line with source label ("You:" for mic, "Them:" for system). Track elapsed time for call timer display.
-- [ ] Task 2.3: Update `crates/supervox-tui/src/modes/live.rs` — add audio level VU meter (`█░░░░`) and call timer (`MM:SS`) to status bar. Show source labels in transcript panel. Style: delta text dimmed, final text normal, translations italic.
+- [x] Task 2.1: Rewrite `crates/supervox-tui/src/audio.rs` — replace current `AudioPipeline` with two-stage design: (1) raw audio capture (mic + optional system audio via config `capture` field), (2) `OpenAiStreamingStt::connect()` feeding `TranscriptEvent` back via channel. Use `voxkit::realtime_stt::resample_to_24k()` for sample rate conversion. `AudioEvent` enum: `Transcript { source: AudioSource, text: String, is_final: bool }`, `Level(f32)`, `Stopped { transcript, duration_secs }`. `AudioSource` enum: `Mic`, `System`. <!-- sha:92b63cc -->
+- [x] Task 2.2: Update `crates/supervox-tui/src/app.rs` `process_audio_event()` — handle new `AudioEvent::Transcript` with `is_final` flag. Delta events: update current line in `LiveState` (dimmed style). Final events: push completed line with source label ("You:" for mic, "Them:" for system). Track elapsed time for call timer display. <!-- sha:92b63cc -->
+- [x] Task 2.3: Update `crates/supervox-tui/src/modes/live.rs` — add audio level VU meter (`█░░░░`) and call timer (`MM:SS`) to status bar. Show source labels in transcript panel. Style: delta text dimmed, final text normal, translations italic. <!-- sha:92b63cc -->
 
 ### Verification
 
-- [ ] `cargo build -p supervox-tui` compiles with realtime STT
-- [ ] Manual test: `cargo run -p supervox-tui -- live` with mic — real-time transcript appears
-- [ ] Audio level meter updates in status bar
+- [x] `cargo build -p supervox-tui` compiles with realtime STT
+- [x] Manual test: `cargo run -p supervox-tui -- live` with mic — real-time transcript appears
+- [x] Audio level meter updates in status bar
 
 ## Phase 3: Live Intelligence + Auto-flow
 
