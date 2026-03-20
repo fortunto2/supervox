@@ -8,7 +8,7 @@ use sgr_agent_tui::{init_terminal, restore_terminal, setup_panic_hook};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-use crate::audio::{AudioEvent, AudioPipeline};
+use crate::audio::{AudioEvent, AudioPipeline, AudioSource};
 use crate::modes;
 use supervox_agent::types::{CallAnalysis, Config};
 
@@ -209,7 +209,7 @@ impl App {
                 is_final,
             } => {
                 if is_final {
-                    self.live_state.push_final_transcript(source.label(), &text);
+                    self.live_state.push_final_transcript(source.clone(), &text);
                     // Feed into translation + summary pipelines
                     if !text.is_empty() {
                         if let Some(tx) = &self.translate_tx {
@@ -217,7 +217,7 @@ impl App {
                                 format!(
                                     "{}-{}",
                                     source.label(),
-                                    self.live_state.transcript_lines.len()
+                                    self.live_state.transcript_count()
                                 ),
                                 text.clone(),
                             ));
@@ -227,11 +227,17 @@ impl App {
                         }
                     }
                 } else {
-                    self.live_state.update_delta(source.label(), &text);
+                    self.live_state.update_delta(source, &text);
                 }
             }
-            AudioEvent::Translation { source_id: _, text } => {
-                self.live_state.push_translation(&text);
+            AudioEvent::Translation { source_id, text } => {
+                // Parse source from source_id (format: "You-N" or "Them-N")
+                let source = if source_id.starts_with("You") {
+                    AudioSource::Mic
+                } else {
+                    AudioSource::System
+                };
+                self.live_state.push_translation(source, &text);
             }
             AudioEvent::Summary(text) => {
                 self.live_state.set_summary(&text);

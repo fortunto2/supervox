@@ -1,3 +1,4 @@
+use crate::audio::AudioSource;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -5,13 +6,20 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use std::time::Instant;
 
+/// A single line in the transcript view — either speech or its translation.
+#[derive(Debug, Clone)]
+pub struct TranscriptLine {
+    pub source: AudioSource,
+    pub text: String,
+    pub is_translation: bool,
+}
+
 /// State for live mode.
 pub struct LiveState {
-    pub transcript_lines: Vec<String>,
-    pub translation_lines: Vec<String>,
+    pub lines: Vec<TranscriptLine>,
     pub summary_lines: Vec<String>,
     /// Current delta (partial) transcript, shown dimmed until final.
-    pub current_delta: Option<String>,
+    pub current_delta: Option<(AudioSource, String)>,
     pub is_recording: bool,
     pub recording_start: Option<Instant>,
     pub audio_level: f32,
@@ -21,8 +29,7 @@ pub struct LiveState {
 impl Default for LiveState {
     fn default() -> Self {
         Self {
-            transcript_lines: Vec::new(),
-            translation_lines: Vec::new(),
+            lines: Vec::new(),
             summary_lines: Vec::new(),
             current_delta: None,
             is_recording: false,
@@ -43,8 +50,7 @@ impl LiveState {
     pub fn start_recording(&mut self) {
         self.is_recording = true;
         self.recording_start = Some(Instant::now());
-        self.transcript_lines.clear();
-        self.translation_lines.clear();
+        self.lines.clear();
         self.summary_lines.clear();
         self.current_delta = None;
     }
@@ -55,26 +61,39 @@ impl LiveState {
     }
 
     /// Update current delta (partial) transcript, shown dimmed.
-    pub fn update_delta(&mut self, source_label: &str, text: &str) {
-        self.current_delta = Some(format!("{source_label}: {text}"));
+    pub fn update_delta(&mut self, source: AudioSource, text: &str) {
+        self.current_delta = Some((source, text.to_string()));
     }
 
-    /// Push a finalized transcript line with source label.
-    pub fn push_final_transcript(&mut self, source_label: &str, text: &str) {
+    /// Push a finalized transcript line.
+    pub fn push_final_transcript(&mut self, source: AudioSource, text: &str) {
         if !text.is_empty() {
-            self.transcript_lines
-                .push(format!("{source_label}: {text}"));
+            self.lines.push(TranscriptLine {
+                source,
+                text: text.to_string(),
+                is_translation: false,
+            });
         }
         self.current_delta = None;
     }
 
-    pub fn push_translation(&mut self, text: &str) {
-        self.translation_lines.push(text.to_string());
+    /// Push a translation line, inheriting source from the last transcript.
+    pub fn push_translation(&mut self, source: AudioSource, text: &str) {
+        self.lines.push(TranscriptLine {
+            source,
+            text: text.to_string(),
+            is_translation: true,
+        });
     }
 
     /// Set the rolling summary text (replaces previous).
     pub fn set_summary(&mut self, text: &str) {
         self.summary_lines = text.lines().map(|l| l.to_string()).collect();
+    }
+
+    /// Count of non-translation transcript lines (for pipeline IDs).
+    pub fn transcript_count(&self) -> usize {
+        self.lines.iter().filter(|l| !l.is_translation).count()
     }
 }
 
@@ -90,7 +109,8 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
     // Left panel: transcript + translation + delta
     let mut text_lines: Vec<Line> = Vec::new();
 
-    if state.transcript_lines.is_empty() && state.current_delta.is_none() {
+    let has_content = !state.lines.is_empty() || state.current_delta.is_some();
+    if !has_content {
         let msg = if state.is_recording {
             "Listening..."
         } else {
@@ -101,28 +121,45 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
             Style::default().fg(Color::DarkGray),
         )));
     } else {
-        for (i, t) in state.transcript_lines.iter().enumerate() {
-            text_lines.push(Line::from(Span::styled(
-                t.clone(),
-                Style::default().fg(Color::White),
-            )));
-            if let Some(tr) = state.translation_lines.get(i) {
-                text_lines.push(Line::from(Span::styled(
-                    format!("  → {tr}"),
+        for line in &state.lines {
+            let (prefix_color, text_style) = if line.is_translation {
+                let color = source_color(&line.source);
+                (
+                    color,
                     Style::default()
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::ITALIC),
-                )));
-            }
+                )
+            } else {
+                let color = source_color(&line.source);
+                (color, Style::default().fg(Color::White))
+            };
+            let prefix = if line.is_translation {
+                format!("  → {}: ", line.source.label())
+            } else {
+                format!("{}: ", line.source.label())
+            };
+            text_lines.push(Line::from(vec![
+                Span::styled(prefix, Style::default().fg(prefix_color)),
+                Span::styled(line.text.clone(), text_style),
+            ]));
         }
         // Show current delta (partial) dimmed
-        if let Some(delta) = &state.current_delta {
-            text_lines.push(Line::from(Span::styled(
-                delta.clone(),
-                Style::default()
-                    .fg(Color::DarkGray)
-                    .add_modifier(Modifier::DIM),
-            )));
+        if let Some((source, text)) = &state.current_delta {
+            text_lines.push(Line::from(vec![
+                Span::styled(
+                    format!("{}: ", source.label()),
+                    Style::default()
+                        .fg(source_color(source))
+                        .add_modifier(Modifier::DIM),
+                ),
+                Span::styled(
+                    text.clone(),
+                    Style::default()
+                        .fg(Color::DarkGray)
+                        .add_modifier(Modifier::DIM),
+                ),
+            ]));
         }
     }
 
@@ -205,6 +242,14 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
     );
 }
 
+/// Color for speaker source labels.
+fn source_color(source: &AudioSource) -> Color {
+    match source {
+        AudioSource::Mic => Color::Cyan,
+        AudioSource::System => Color::Yellow,
+    }
+}
+
 fn audio_level_bar(level: f32) -> String {
     let bars = (level * 10.0).min(10.0) as usize;
     format!("[{}{}]", "█".repeat(bars), "░".repeat(10 - bars))
@@ -218,7 +263,7 @@ mod tests {
     fn live_state_default() {
         let state = LiveState::default();
         assert!(!state.is_recording);
-        assert!(state.transcript_lines.is_empty());
+        assert!(state.lines.is_empty());
         assert!(state.current_delta.is_none());
         assert_eq!(state.stt_backend, "realtime");
     }
@@ -238,23 +283,39 @@ mod tests {
     #[test]
     fn delta_and_final_transcript() {
         let mut state = LiveState::default();
-        state.update_delta("You", "Hel");
-        assert_eq!(state.current_delta.as_deref(), Some("You: Hel"));
-        assert!(state.transcript_lines.is_empty());
+        state.update_delta(AudioSource::Mic, "Hel");
+        assert!(state.current_delta.is_some());
+        let (src, text) = state.current_delta.as_ref().unwrap();
+        assert_eq!(*src, AudioSource::Mic);
+        assert_eq!(text, "Hel");
+        assert!(state.lines.is_empty());
 
-        state.push_final_transcript("You", "Hello world");
+        state.push_final_transcript(AudioSource::Mic, "Hello world");
         assert!(state.current_delta.is_none());
-        assert_eq!(state.transcript_lines.len(), 1);
-        assert_eq!(state.transcript_lines[0], "You: Hello world");
+        assert_eq!(state.lines.len(), 1);
+        assert_eq!(state.lines[0].text, "Hello world");
+        assert_eq!(state.lines[0].source, AudioSource::Mic);
+        assert!(!state.lines[0].is_translation);
     }
 
     #[test]
     fn push_translation() {
         let mut state = LiveState::default();
-        state.push_final_transcript("Them", "Bonjour");
-        state.push_translation("Привет");
-        assert_eq!(state.transcript_lines.len(), 1);
-        assert_eq!(state.translation_lines.len(), 1);
+        state.push_final_transcript(AudioSource::System, "Bonjour");
+        state.push_translation(AudioSource::System, "Привет");
+        assert_eq!(state.lines.len(), 2);
+        assert!(!state.lines[0].is_translation);
+        assert!(state.lines[1].is_translation);
+        assert_eq!(state.lines[1].source, AudioSource::System);
+    }
+
+    #[test]
+    fn transcript_count() {
+        let mut state = LiveState::default();
+        state.push_final_transcript(AudioSource::Mic, "Hello");
+        state.push_translation(AudioSource::Mic, "Привет");
+        state.push_final_transcript(AudioSource::System, "Bonjour");
+        assert_eq!(state.transcript_count(), 2);
     }
 
     #[test]
