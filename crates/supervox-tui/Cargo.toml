@@ -1,6 +1,6 @@
 [package]
 name = "supervox-tui"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2024"
 description = "SuperVox TUI — live call assistant, post-call analysis, agent chat"
 license = "MIT"
@@ -20,10 +20,10 @@ name = "supervox"
 path = "src/main.rs"
 
 [dependencies]
-supervox-agent = { version = "0.7.1", path = "../supervox-agent" }
+supervox-agent = { version = "0.7.2", path = "../supervox-agent" }
 sgr-agent = { version = "0.3.0", path = "../../../../shared/rust-code/crates/sgr-agent", features = ["agent", "session", "genai"] }
 sgr-agent-tui = { version = "0.4.1", path = "../../../../shared/rust-code/crates/sgr-agent-tui" }
-voxkit = { version = "0.7.1", path = "../voxkit", features = ["openai", "mic", "wav", "realtime", "macos-system-audio"] }
+voxkit = { version = "0.7.2", path = "../voxkit", features = ["openai", "mic", "wav", "realtime", "macos-system-audio"] }
 toml = "0.8"
 ratatui = "0.29.0"
 crossterm = "0.27"
