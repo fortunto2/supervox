@@ -27,7 +27,7 @@ Storage layer for saving/loading analysis results, and TUI integration to use ca
 - [x] Opening a call twice: first time runs LLM, second time loads from disk (no LLM call)
 - [x] Call JSON has populated `tags` field after analysis
 
-## Phase 2: Rich Agent Context + Insights CLI
+## Phase 2: Rich Agent Context + Insights CLI <!-- checkpoint:527054c -->
 
 Enrich agent context with analysis data and add cross-call insights command.
 
@@ -37,14 +37,14 @@ Enrich agent context with analysis data and add cross-call insights command.
 - [x] Task 2.2: Update `build_calls_context()` in `crates/supervox-tui/src/agent_loop.rs` <!-- sha:db847c6 --> — for each call, try `load_analysis()` and include summary + themes in context instead of 200-char transcript preview. Fall back to transcript preview if no analysis.
 - [x] Task 2.3: Add `generate_insights()` function to `crates/supervox-tui/src/analysis_pipeline.rs` <!-- sha:263b144 --> — loads all calls + analyses from storage, builds a context string of summaries/themes/action_items, calls `Llm::structured::<CallInsights>()` to produce cross-call analysis.
 - [x] Task 2.4: Add `Insights` subcommand to CLI in `crates/supervox-tui/src/main.rs` <!-- sha:263b144 --> with `--json` flag. Calls `generate_insights()` and displays formatted output (or JSON).
-- [~] Task 2.5: Unit tests for `CallInsights` serialization, `build_calls_context()` enrichment, and CLI integration test for `supervox insights` in `crates/supervox-tui/tests/cli_commands.rs`.
+- [x] Task 2.5: Unit tests for `CallInsights` serialization, `build_calls_context()` enrichment, and CLI integration test for `supervox insights` in `crates/supervox-tui/tests/cli_commands.rs`. <!-- sha:527054c -->
 
 ### Verification
 
-- [ ] `supervox insights` produces cross-call analysis from saved calls
-- [ ] `supervox insights --json` outputs valid JSON matching `CallInsights` schema
-- [ ] Agent mode context includes analysis summaries (visible in agent responses)
-- [ ] `cargo test --workspace` passes
+- [x] `supervox insights` produces cross-call analysis from saved calls
+- [x] `supervox insights --json` outputs valid JSON matching `CallInsights` schema
+- [x] Agent mode context includes analysis summaries (visible in agent responses)
+- [x] `cargo test --workspace` passes
 
 ## Phase 3: Docs & Cleanup
 
