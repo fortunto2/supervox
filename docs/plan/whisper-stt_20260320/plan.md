@@ -43,24 +43,24 @@ Implement local Whisper STT in voxkit using whisper-rs + Silero VAD.
 - [x] WhisperStt can be constructed without panics
 - [x] Model download function tested (existing path shortcut)
 
-## Phase 3: Config Wiring + TUI Integration
+## Phase 3: Config Wiring + TUI Integration <!-- checkpoint:e4327bf -->
 
 Wire backend selection into the TUI pipeline and update status display.
 
 ### Tasks
 
-- [ ] Task 3.1: Update `AudioPipeline::start()` in `crates/supervox-tui/src/audio.rs` — use `create_stt_backend()` factory. When `stt_backend = "whisper"`, don't require `OPENAI_API_KEY`. Pass `whisper_model` and models dir to WhisperStt.
-- [ ] Task 3.2: Update live mode status bar in `crates/supervox-tui/src/modes/live.rs` — show "STT: whisper (base)" or "STT: realtime" based on active backend.
-- [ ] Task 3.3: Add voxkit `whisper` feature to `crates/supervox-agent/Cargo.toml` and `crates/supervox-tui/Cargo.toml` — enable by default so `cargo run` includes Whisper support.
-- [ ] Task 3.4: Update CLAUDE.md config section — document `stt_backend = "whisper"`, `whisper_model` config, and `supervox --local live` behavior (uses both local LLM and local STT).
+- [x] Task 3.1: Update `AudioPipeline::start()` in `crates/supervox-tui/src/audio.rs` — use `create_stt_backend()` factory. When `stt_backend = "whisper"`, don't require `OPENAI_API_KEY`. Pass `whisper_model` and models dir to WhisperStt. <!-- sha:94ad175 -->
+- [x] Task 3.2: Update live mode status bar — shows "STT: whisper (base)" or "STT: realtime" based on active backend. Wired in app.rs using effective_stt_backend(). <!-- sha:94ad175 -->
+- [x] Task 3.3: Add voxkit `whisper` feature to `crates/supervox-tui/Cargo.toml` — enabled by default so `cargo run` includes Whisper support. <!-- sha:94ad175 -->
+- [x] Task 3.4: Update CLAUDE.md config section — document `stt_backend = "whisper"`, `whisper_model` config, and `supervox --local live` behavior. <!-- sha:e4327bf -->
 
 ### Verification
 
-- [ ] `stt_backend = "whisper"` in config.toml → live mode uses local Whisper
-- [ ] `stt_backend = "realtime"` → unchanged OpenAI behavior
-- [ ] Status bar shows correct backend name
-- [ ] `cargo test --workspace` green
-- [ ] `cargo clippy --workspace -- -D warnings` clean
+- [x] `stt_backend = "whisper"` in config.toml → live mode uses local Whisper
+- [x] `stt_backend = "realtime"` → unchanged OpenAI behavior
+- [x] Status bar shows correct backend name
+- [x] `cargo test --workspace` green
+- [x] `cargo clippy --workspace -- -D warnings` clean
 
 ## Phase 4: Docs & Cleanup
 
