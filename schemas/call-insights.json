@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CallInsights",
+  "description": "Cross-call insights aggregated from multiple call analyses",
+  "type": "object",
+  "required": ["recurring_themes", "mood_summary", "open_action_items", "key_patterns", "total_calls", "period"],
+  "properties": {
+    "recurring_themes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["theme", "count"],
+        "properties": {
+          "theme": { "type": "string", "description": "Theme name" },
+          "count": { "type": "integer", "description": "Number of calls with this theme" }
+        }
+      },
+      "description": "Themes that recur across multiple calls, sorted by frequency"
+    },
+    "mood_summary": {
+      "type": "object",
+      "required": ["positive", "neutral", "negative", "mixed"],
+      "properties": {
+        "positive": { "type": "integer" },
+        "neutral": { "type": "integer" },
+        "negative": { "type": "integer" },
+        "mixed": { "type": "integer" }
+      },
+      "description": "Distribution of mood/sentiment across analyzed calls"
+    },
+    "open_action_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description"],
+        "properties": {
+          "description": { "type": "string" },
+          "assignee": { "type": "string" },
+          "deadline": { "type": "string" }
+        }
+      },
+      "description": "Action items still relevant across calls"
+    },
+    "key_patterns": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Notable patterns or trends observed across calls"
+    },
+    "total_calls": {
+      "type": "integer",
+      "description": "Total number of calls analyzed"
+    },
+    "period": {
+      "type": "string",
+      "description": "Date range of analyzed calls (e.g. '2026-03-01 to 2026-03-20')"
+    }
+  }
+}
