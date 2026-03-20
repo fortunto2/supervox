@@ -60,7 +60,7 @@ pub struct App {
 impl App {
     pub fn new(mode: Mode, config: Config) -> Self {
         let status = match &mode {
-            Mode::Live => "Live mode — press 'r' to start recording".into(),
+            Mode::Live => "Live mode — press Space to start recording".into(),
             Mode::Analysis { file } => format!("Analysis mode — {file}"),
             Mode::Agent => "Agent mode — type a question".into(),
             Mode::History { .. } => "Call history".into(),
@@ -632,61 +632,78 @@ fn handle_history_key(app: &mut App, key: crossterm::event::KeyEvent) {
     }
 }
 
+/// Start recording: audio pipeline + intelligence pipelines.
+fn start_recording(app: &mut App) {
+    let tx = app.audio_event_tx.clone();
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    match app.audio.start(tx, &app.config, calls_dir) {
+        Ok(()) => {
+            app.live_state.start_recording();
+            app.status = "Recording...".into();
+
+            // Start translation pipeline
+            let (tr_tx, tr_rx) = mpsc::unbounded_channel();
+            crate::intelligence::start_translation_pipeline(
+                &app.config,
+                tr_rx,
+                app.audio_event_tx.clone(),
+            );
+            app.translate_tx = Some(tr_tx);
+
+            // Start summary pipeline
+            let (sum_tx, sum_rx) = mpsc::unbounded_channel();
+            crate::intelligence::start_summary_pipeline(
+                &app.config,
+                sum_rx,
+                app.audio_event_tx.clone(),
+            );
+            app.summary_tx = Some(sum_tx);
+        }
+        Err(e) => {
+            app.status_error = Some((format!("Error: {e}"), std::time::Instant::now()));
+        }
+    }
+}
+
+/// Stop recording: audio pipeline + intelligence pipelines.
+fn stop_recording(app: &mut App) {
+    app.audio.stop();
+    // Drop intelligence pipeline senders to stop background tasks
+    app.translate_tx = None;
+    app.summary_tx = None;
+    app.status = "Stopping...".into();
+}
+
+/// Add bookmark at current recording position.
+fn add_bookmark(app: &mut App) {
+    let bm = app.live_state.add_bookmark();
+    let secs = bm.timestamp_secs as u64;
+    let mins = secs / 60;
+    let s = secs % 60;
+    app.status = format!("Bookmark added ({mins}:{s:02})");
+    // Insert visual marker in transcript
+    app.live_state.lines.push(modes::live::TranscriptLine {
+        source: crate::audio::AudioSource::Mic,
+        text: format!("▶ Bookmark at {mins}:{s:02}"),
+        is_translation: false,
+    });
+}
+
 fn handle_live_key(app: &mut App, key: crossterm::event::KeyEvent) {
     match key.code {
         KeyCode::Char('h') if !app.live_state.is_recording => {
             open_history(app);
         }
-        KeyCode::Char('r') if !app.live_state.is_recording => {
-            let tx = app.audio_event_tx.clone();
-            let calls_dir = supervox_agent::storage::default_calls_dir();
-            match app.audio.start(tx, &app.config, calls_dir) {
-                Ok(()) => {
-                    app.live_state.start_recording();
-                    app.status = "Recording...".into();
-
-                    // Start translation pipeline
-                    let (tr_tx, tr_rx) = mpsc::unbounded_channel();
-                    crate::intelligence::start_translation_pipeline(
-                        &app.config,
-                        tr_rx,
-                        app.audio_event_tx.clone(),
-                    );
-                    app.translate_tx = Some(tr_tx);
-
-                    // Start summary pipeline
-                    let (sum_tx, sum_rx) = mpsc::unbounded_channel();
-                    crate::intelligence::start_summary_pipeline(
-                        &app.config,
-                        sum_rx,
-                        app.audio_event_tx.clone(),
-                    );
-                    app.summary_tx = Some(sum_tx);
-                }
-                Err(e) => {
-                    app.status_error = Some((format!("Error: {e}"), std::time::Instant::now()));
-                }
-            }
+        // Space toggles record/stop
+        KeyCode::Char(' ') | KeyCode::Char('r') if !app.live_state.is_recording => {
+            start_recording(app);
         }
-        KeyCode::Char('b') if app.live_state.is_recording => {
-            let bm = app.live_state.add_bookmark();
-            let secs = bm.timestamp_secs as u64;
-            let mins = secs / 60;
-            let s = secs % 60;
-            app.status = format!("Bookmark added ({mins}:{s:02})");
-            // Insert visual marker in transcript
-            app.live_state.lines.push(modes::live::TranscriptLine {
-                source: crate::audio::AudioSource::Mic,
-                text: format!("▶ Bookmark at {mins}:{s:02}"),
-                is_translation: false,
-            });
+        KeyCode::Char(' ') | KeyCode::Char('s') if app.live_state.is_recording => {
+            stop_recording(app);
         }
-        KeyCode::Char('s') if app.live_state.is_recording => {
-            app.audio.stop();
-            // Drop intelligence pipeline senders to stop background tasks
-            app.translate_tx = None;
-            app.summary_tx = None;
-            app.status = "Stopping...".into();
+        // Enter and 'b' add bookmark during recording
+        KeyCode::Enter | KeyCode::Char('b') if app.live_state.is_recording => {
+            add_bookmark(app);
         }
         _ => {}
     }

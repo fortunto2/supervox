@@ -6,12 +6,12 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
 /// Per-mode keybinding definitions: (key, description).
 const LIVE_KEYS: &[(&str, &str)] = &[
-    ("r", "Start recording"),
-    ("s", "Stop recording"),
+    ("Space", "Start/stop recording"),
+    ("r/s", "Start/stop recording"),
+    ("Enter", "Add bookmark"),
     ("b", "Add bookmark"),
     ("h", "Call history"),
     ("q", "Quit"),
-    ("Esc", "Quit (when idle)"),
     ("?", "Toggle help"),
 ];
 
@@ -131,9 +131,9 @@ mod tests {
     }
 
     #[test]
-    fn live_keys_contain_record() {
+    fn live_keys_contain_space_toggle() {
         let keys = keys_for_mode("LIVE");
-        assert!(keys.iter().any(|(k, _)| *k == "r"));
+        assert!(keys.iter().any(|(k, _)| *k == "Space"));
     }
 
     #[test]

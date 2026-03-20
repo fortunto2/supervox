@@ -275,7 +275,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
 
     status_spans.push(Span::raw(" │ "));
     status_spans.push(Span::styled(
-        " r=record s=stop ?=help q=quit ",
+        " Space=rec/stop Enter=mark ?=help q=quit ",
         Style::default().fg(Color::DarkGray),
     ));
 
