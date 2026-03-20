@@ -35,7 +35,7 @@ supervox/
 | Batch STT | voxkit openai (gpt-4o-transcribe) |
 | LLM | sgr-agent genai (Gemini Flash / OpenRouter / Ollama) |
 | Audio | voxkit mic + system_audio (cpal, ScreenCaptureKit) |
-| Storage | JSON in `~/.supervox/` (calls, sessions, config) |
+| Storage | JSON in `~/.supervox/` (calls, analyses, sessions, config) |
 
 ## Dependencies (workspace)
 
@@ -71,6 +71,8 @@ supervox export <call-id>            # export call as markdown to stdout
 supervox export <call-id> -o file.md # export to file
 supervox search <query>              # search call transcripts
 supervox search <query> --json       # output matches as JSON
+supervox insights                    # cross-call patterns + themes + action items
+supervox insights --json             # output CallInsights as JSON
 
 # Ollama (local LLM)
 supervox --local live                # use Ollama instead of cloud LLM
@@ -104,6 +106,9 @@ on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 
 ### Analysis Mode
 - Auto-triggers `analyze_call` (structured LLM output → CallAnalysis)
+- **Persists analysis** as `{date}-{id}.analysis.json` alongside call file
+- On re-open, loads cached analysis instantly (no LLM call)
+- Auto-tags `Call.tags` from `CallAnalysis.themes` when analysis completes
 - Maps results to AnalysisState: summary, action_items, decisions, open_questions, mood, themes
 - 'f' key: generate follow-up email via `draft_follow_up`
 - 'c' key: copy analysis to clipboard
@@ -113,7 +118,7 @@ on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 - Loading state shown during LLM call
 
 ### Agent Mode
-- Loads last 10 calls as context on startup
+- Loads last 10 calls with analysis summaries + themes as context (richer than transcript preview)
 - Streams LLM responses via `Llm::stream_complete`
 - System prompt with call history injected
 - "Thinking..." state while awaiting response
@@ -130,6 +135,9 @@ on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 - `AudioEvent::Transcript{source, text, is_final}` — delta (dimmed) + final (normal)
 - `AudioEvent::Translation{source_id, text}` — shown italic below original
 - `AudioEvent::Summary(String)` — replaces right panel content
+- `CallInsights { recurring_themes, mood_summary, open_action_items, key_patterns, total_calls, period }` — cross-call analysis
+- `ThemeCount { theme, count }` — frequency of a recurring theme
+- `MoodSummary { positive, neutral, negative, mixed }` — mood distribution
 
 ### Help overlay
 - `?` key toggles help popup in any mode showing mode-appropriate keybindings
@@ -142,9 +150,10 @@ on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 ### Analysis pipeline (`crates/supervox-tui/src/analysis_pipeline.rs`)
 - `analyze_transcript()` — structured LLM output → CallAnalysis
 - `draft_follow_up()` — LLM generates follow-up email
+- `generate_insights()` — cross-call pattern analysis → CallInsights
 
 ### Agent loop (`crates/supervox-tui/src/agent_loop.rs`)
-- `build_calls_context()` — loads recent calls as LLM context
+- `build_calls_context()` — loads recent calls as LLM context (enriched with analysis data)
 - `run_agent_query()` — streaming LLM query with call history
 
 ### AppEvent (`crates/supervox-tui/src/app.rs`)
