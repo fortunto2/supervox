@@ -13,15 +13,15 @@ System audio capture (other party's voice) is included as a separate audio sourc
 
 ## Acceptance Criteria
 
-- [ ] Live mode streams real-time transcripts via OpenAI Realtime WebSocket (delta + final events)
-- [ ] Each final transcript segment is auto-translated to `my_language` and shown below the original
-- [ ] Rolling summary updates every `summary_lag_secs` (default 5s) in the right panel with 3-5 bullet points
-- [ ] System audio capture works alongside mic (macOS), transcript lines labeled "You:" / "Them:"
-- [ ] Config loaded from `~/.supervox/config.toml` at startup; default config created if missing
-- [ ] Audio level meter (VU bar) shown in status bar, updating at ~10Hz
-- [ ] Call timer (MM:SS) shown in status bar
-- [ ] On stop: auto-transition to Analysis mode with the saved call
-- [ ] All existing tests pass + new tests for config loading, audio mixing, event routing
+- [x] Live mode streams real-time transcripts via OpenAI Realtime WebSocket (delta + final events)
+- [x] Each final transcript segment is auto-translated to `my_language` and shown below the original
+- [x] Rolling summary updates every `summary_lag_secs` (default 5s) in the right panel with 3-5 bullet points
+- [x] System audio capture works alongside mic (macOS), transcript lines labeled "You:" / "Them:"
+- [x] Config loaded from `~/.supervox/config.toml` at startup; default config created if missing
+- [x] Audio level meter (VU bar) shown in status bar, updating at ~10Hz
+- [x] Call timer (MM:SS) shown in status bar
+- [x] On stop: auto-transition to Analysis mode with the saved call
+- [x] All existing tests pass + new tests for config loading, audio mixing, event routing
 
 ## Dependencies
 
