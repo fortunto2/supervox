@@ -40,6 +40,29 @@
       "type": "array",
       "items": { "type": "string" },
       "description": "User-defined tags for categorization"
+    },
+    "audio_path": {
+      "type": "string",
+      "description": "Path to WAV audio recording (if available)"
+    },
+    "bookmarks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["timestamp_secs"],
+        "properties": {
+          "timestamp_secs": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Seconds from start of recording when bookmark was placed"
+          },
+          "note": {
+            "type": "string",
+            "description": "Optional note attached to bookmark"
+          }
+        }
+      },
+      "description": "Timestamped bookmarks placed during live recording"
     }
   }
 }

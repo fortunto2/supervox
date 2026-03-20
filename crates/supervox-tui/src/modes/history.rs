@@ -276,6 +276,7 @@ mod tests {
             translation: None,
             tags: vec![],
             audio_path: None,
+            bookmarks: vec![],
         }
     }
 

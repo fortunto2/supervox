@@ -143,6 +143,7 @@ mod tests {
             translation: None,
             tags: vec![],
             audio_path: None,
+            bookmarks: vec![],
         };
         storage::save_call(&calls_dir, &call).unwrap();
 
@@ -168,6 +169,7 @@ mod tests {
             translation: None,
             tags: vec![],
             audio_path: None,
+            bookmarks: vec![],
         };
         storage::save_call(&calls_dir, &call).unwrap();
 
@@ -198,6 +200,7 @@ mod tests {
             translation: None,
             tags: vec![],
             audio_path: None,
+            bookmarks: vec![],
         };
         storage::save_call(&calls_dir, &call).unwrap();
 
@@ -221,6 +224,7 @@ mod tests {
             translation: None,
             tags: vec![],
             audio_path: None,
+            bookmarks: vec![],
         };
         storage::save_call(&calls_dir, &call).unwrap();
 

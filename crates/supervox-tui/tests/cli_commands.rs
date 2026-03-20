@@ -15,6 +15,7 @@ fn make_call(id: &str, transcript: &str) -> Call {
         translation: None,
         tags: vec![],
         audio_path: None,
+        bookmarks: vec![],
     }
 }
 

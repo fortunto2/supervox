@@ -3,6 +3,13 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+/// A timestamped bookmark placed during a live call.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct Bookmark {
+    pub timestamp_secs: f64,
+    pub note: Option<String>,
+}
+
 /// A recorded call with transcript and metadata.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Call {
@@ -18,6 +25,8 @@ pub struct Call {
     pub tags: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audio_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub bookmarks: Vec<Bookmark>,
 }
 
 /// Post-call analysis output.
@@ -221,6 +230,7 @@ mod tests {
             translation: Some("Привет, как дела?".into()),
             tags: vec!["meeting".into()],
             audio_path: None,
+            bookmarks: vec![],
         };
         let json = serde_json::to_string(&call).unwrap();
         let back: Call = serde_json::from_str(&json).unwrap();
@@ -341,6 +351,96 @@ mod tests {
     }
 
     #[test]
+    fn bookmark_serialization_roundtrip() {
+        let bookmark = Bookmark {
+            timestamp_secs: 42.5,
+            note: Some("Important point".into()),
+        };
+        let json = serde_json::to_string(&bookmark).unwrap();
+        let back: Bookmark = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.timestamp_secs, 42.5);
+        assert_eq!(back.note.as_deref(), Some("Important point"));
+    }
+
+    #[test]
+    fn bookmark_without_note() {
+        let bookmark = Bookmark {
+            timestamp_secs: 10.0,
+            note: None,
+        };
+        let json = serde_json::to_string(&bookmark).unwrap();
+        let back: Bookmark = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.timestamp_secs, 10.0);
+        assert!(back.note.is_none());
+    }
+
+    #[test]
+    fn call_with_bookmarks_roundtrip() {
+        let call = Call {
+            id: "bm-test".into(),
+            created_at: Utc::now(),
+            duration_secs: 300.0,
+            participants: vec![],
+            language: None,
+            transcript: "test".into(),
+            translation: None,
+            tags: vec![],
+            audio_path: None,
+            bookmarks: vec![
+                Bookmark {
+                    timestamp_secs: 10.0,
+                    note: None,
+                },
+                Bookmark {
+                    timestamp_secs: 42.5,
+                    note: Some("Key decision".into()),
+                },
+            ],
+        };
+        let json = serde_json::to_string(&call).unwrap();
+        assert!(json.contains("bookmarks"));
+        let back: Call = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.bookmarks.len(), 2);
+        assert_eq!(back.bookmarks[1].timestamp_secs, 42.5);
+    }
+
+    #[test]
+    fn call_without_bookmarks_backward_compat() {
+        // Old JSON without bookmarks field must deserialize with empty vec
+        let json = r#"{
+            "id": "old-call",
+            "created_at": "2025-12-01T10:00:00Z",
+            "duration_secs": 300,
+            "participants": ["Alice"],
+            "language": "en",
+            "transcript": "Old call without bookmarks",
+            "translation": null,
+            "tags": ["meeting"]
+        }"#;
+        let call: Call = serde_json::from_str(json).unwrap();
+        assert_eq!(call.id, "old-call");
+        assert!(call.bookmarks.is_empty());
+    }
+
+    #[test]
+    fn call_without_bookmarks_omits_field() {
+        let call = Call {
+            id: "no-bm".into(),
+            created_at: Utc::now(),
+            duration_secs: 60.0,
+            participants: vec![],
+            language: None,
+            transcript: "test".into(),
+            translation: None,
+            tags: vec![],
+            audio_path: None,
+            bookmarks: vec![],
+        };
+        let json = serde_json::to_string(&call).unwrap();
+        assert!(!json.contains("bookmarks"));
+    }
+
+    #[test]
     fn config_defaults() {
         let cfg = Config::default();
         assert_eq!(cfg.my_language, "ru");
@@ -374,6 +474,7 @@ mod tests {
         assert!(call.translation.is_none());
         assert!(call.tags.is_empty());
         assert!(call.audio_path.is_none());
+        assert!(call.bookmarks.is_empty());
     }
 
     #[test]
@@ -406,6 +507,7 @@ mod tests {
             translation: None,
             tags: vec![],
             audio_path: Some("/path/to/call.wav".into()),
+            bookmarks: vec![],
         };
         let json = serde_json::to_string(&call).unwrap();
         assert!(json.contains("audio_path"));
@@ -425,6 +527,7 @@ mod tests {
             translation: None,
             tags: vec![],
             audio_path: None,
+            bookmarks: vec![],
         };
         let json = serde_json::to_string(&call).unwrap();
         assert!(!json.contains("audio_path"));

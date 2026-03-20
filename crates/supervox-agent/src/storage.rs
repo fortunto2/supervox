@@ -138,9 +138,26 @@ pub fn export_call_markdown(call: &Call, analysis: Option<&CallAnalysis>) -> Str
         md.push_str(&format!("**Audio:** {}\n", filename.to_string_lossy()));
     }
 
+    if !call.bookmarks.is_empty() {
+        md.push_str(&format!("**Bookmarks:** {}\n", call.bookmarks.len()));
+    }
+
     md.push_str("\n## Transcript\n\n");
     md.push_str(&call.transcript);
     md.push('\n');
+
+    if !call.bookmarks.is_empty() {
+        md.push_str("\n## Bookmarks\n\n");
+        for bm in &call.bookmarks {
+            let mins = bm.timestamp_secs as u64 / 60;
+            let secs = bm.timestamp_secs as u64 % 60;
+            if let Some(note) = &bm.note {
+                md.push_str(&format!("- {mins}:{secs:02} — {note}\n"));
+            } else {
+                md.push_str(&format!("- {mins}:{secs:02}\n"));
+            }
+        }
+    }
 
     if let Some(tr) = &call.translation {
         md.push_str("\n## Translation\n\n");
@@ -508,6 +525,7 @@ mod tests {
             translation: None,
             tags: vec![],
             audio_path: None,
+            bookmarks: vec![],
         }
     }
 
@@ -755,6 +773,35 @@ mod tests {
     }
 
     #[test]
+    fn export_markdown_with_bookmarks() {
+        use crate::types::Bookmark;
+        let mut call = make_call("exp-bm", "Bookmarked call");
+        call.bookmarks = vec![
+            Bookmark {
+                timestamp_secs: 10.0,
+                note: None,
+            },
+            Bookmark {
+                timestamp_secs: 125.5,
+                note: Some("Key decision".into()),
+            },
+        ];
+        let md = export_call_markdown(&call, None);
+        assert!(md.contains("**Bookmarks:** 2"));
+        assert!(md.contains("## Bookmarks"));
+        assert!(md.contains("- 0:10"));
+        assert!(md.contains("- 2:05 — Key decision"));
+    }
+
+    #[test]
+    fn export_markdown_without_bookmarks() {
+        let call = make_call("exp-nobm", "No bookmarks");
+        let md = export_call_markdown(&call, None);
+        assert!(!md.contains("## Bookmarks"));
+        assert!(!md.contains("**Bookmarks:**"));
+    }
+
+    #[test]
     fn export_markdown_without_audio_path() {
         let call = make_call("exp5", "No audio");
         let md = export_call_markdown(&call, None);
@@ -981,6 +1028,7 @@ mod tests {
             translation: None,
             tags: tags.iter().map(|s| s.to_string()).collect(),
             audio_path: None,
+            bookmarks: vec![],
         }
     }
 
