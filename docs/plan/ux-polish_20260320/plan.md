@@ -26,23 +26,23 @@ Add keyboard help overlay and visual speaker differentiation in Live mode.
 - [x] Live mode transcript shows "You:" cyan and "Them:" yellow prefixes
 - [x] Existing tests pass (`cargo test -p supervox-tui`)
 
-## Phase 2: Call History Browser
+## Phase 2: Call History Browser <!-- checkpoint:64aabc1 -->
 
 Add in-TUI call browsing accessible from Live and Analysis modes.
 
 ### Tasks
 
-- [~] Task 2.1: Add `CallHistoryState` to `crates/supervox-tui/src/modes/live.rs` (or new file `crates/supervox-tui/src/modes/history.rs`) — fields: `calls: Vec<Call>`, `cursor: usize`, `scroll_offset: usize`. Methods: `move_up()`, `move_down()`, `selected() -> Option<&Call>`.
-- [ ] Task 2.2: Render call history list — date, duration (formatted mm:ss), mood emoji (from CallAnalysis if available), first 60 chars of transcript. Highlight selected row. Scrollable with Up/Down/j/k.
-- [ ] Task 2.3: Wire `h` key in Live (idle) and Analysis modes to open history browser. Load calls via `storage::list_calls()`. Enter on selected call switches to Analysis mode for that call. Esc returns to previous mode. Add `Mode::History { return_to: Box<Mode> }` variant.
-- [ ] Task 2.4: Add tests for `CallHistoryState` — cursor bounds, empty list, navigation wrapping.
+- [x] Task 2.1: Add `CallHistoryState` to `crates/supervox-tui/src/modes/live.rs` (or new file `crates/supervox-tui/src/modes/history.rs`) — fields: `calls: Vec<Call>`, `cursor: usize`, `scroll_offset: usize`. Methods: `move_up()`, `move_down()`, `selected() -> Option<&Call>`. <!-- sha:64aabc1 -->
+- [x] Task 2.2: Render call history list — date, duration (formatted mm:ss), mood emoji (from CallAnalysis if available), first 60 chars of transcript. Highlight selected row. Scrollable with Up/Down/j/k. <!-- sha:64aabc1 -->
+- [x] Task 2.3: Wire `h` key in Live (idle) and Analysis modes to open history browser. Load calls via `storage::list_calls()`. Enter on selected call switches to Analysis mode for that call. Esc returns to previous mode. Add `Mode::History { return_to: Box<Mode> }` variant. <!-- sha:64aabc1 -->
+- [x] Task 2.4: Add tests for `CallHistoryState` — cursor bounds, empty list, navigation wrapping. <!-- sha:64aabc1 -->
 
 ### Verification
 
-- [ ] `h` key opens history with past calls listed
-- [ ] Arrow keys / j/k navigate, Enter opens Analysis for selected call
-- [ ] Esc returns to previous mode
-- [ ] Tests pass
+- [x] `h` key opens history with past calls listed
+- [x] Arrow keys / j/k navigate, Enter opens Analysis for selected call
+- [x] Esc returns to previous mode
+- [x] Tests pass
 
 ## Phase 3: CLI Improvements — JSON Output & Ollama Config
 
