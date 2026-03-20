@@ -41,6 +41,30 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Delete a call by ID
+    Delete {
+        /// Call ID (suffix match)
+        call_id: String,
+        /// Skip confirmation prompt
+        #[arg(long)]
+        force: bool,
+    },
+    /// Export a call as markdown
+    Export {
+        /// Call ID (suffix match)
+        call_id: String,
+        /// Write to file instead of stdout
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+    /// Search call transcripts
+    Search {
+        /// Search query
+        query: String,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[tokio::main]
@@ -57,6 +81,15 @@ async fn main() -> Result<()> {
     match cli.command {
         Some(Commands::Calls { json }) => {
             cmd_calls(json)?;
+        }
+        Some(Commands::Delete { call_id, force }) => {
+            cmd_delete(&call_id, force)?;
+        }
+        Some(Commands::Export { call_id, output }) => {
+            cmd_export(&call_id, output.as_deref())?;
+        }
+        Some(Commands::Search { query, json }) => {
+            cmd_search(&query, json)?;
         }
         Some(Commands::Live) | None => {
             app::run(app::Mode::Live).await?;
@@ -87,6 +120,85 @@ fn check_ollama_health() {
             eprintln!("warning: Ollama not reachable at localhost:11434 — LLM calls may fail");
         }
     }
+}
+
+/// Delete a call by ID with confirmation prompt.
+fn cmd_delete(call_id: &str, force: bool) -> Result<()> {
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    let call = supervox_agent::storage::load_call(&calls_dir, call_id)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    if !force {
+        let date = call.created_at.format("%Y-%m-%d %H:%M");
+        let first_line = call
+            .transcript
+            .lines()
+            .next()
+            .unwrap_or("")
+            .chars()
+            .take(60)
+            .collect::<String>();
+        eprintln!("Delete call {call_id}?");
+        eprintln!("  Date: {date}");
+        eprintln!("  Preview: {first_line}");
+        eprint!("Confirm (y/N): ");
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        if !input.trim().eq_ignore_ascii_case("y") {
+            eprintln!("Cancelled.");
+            return Ok(());
+        }
+    }
+
+    supervox_agent::storage::delete_call(&calls_dir, call_id)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    eprintln!("Deleted call {call_id}");
+    Ok(())
+}
+
+/// Export a call as markdown to stdout or file.
+fn cmd_export(call_id: &str, output: Option<&str>) -> Result<()> {
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    let call = supervox_agent::storage::load_call(&calls_dir, call_id)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let md = supervox_agent::storage::export_call_markdown(&call, None);
+
+    match output {
+        Some(path) => {
+            std::fs::write(path, &md)?;
+            eprintln!("Exported to {path}");
+        }
+        None => {
+            print!("{md}");
+        }
+    }
+    Ok(())
+}
+
+/// Search call transcripts and display matches.
+fn cmd_search(query: &str, json: bool) -> Result<()> {
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    let matches = supervox_agent::tools::search::search_calls_in_dir(&calls_dir, query)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&matches)?);
+        return Ok(());
+    }
+
+    if matches.is_empty() {
+        println!("No matches for \"{query}\"");
+        return Ok(());
+    }
+
+    for m in &matches {
+        println!("--- {} (score: {:.4}) ---", m.call_id, m.score);
+        println!("{}", m.snippet);
+        println!();
+    }
+    println!("{} match(es) found", matches.len());
+    Ok(())
 }
 
 /// List saved calls to stdout (non-TUI).
