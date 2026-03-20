@@ -17,6 +17,7 @@ const SYSTEM_PROMPT: &str = "You are SuperVox assistant. You help users understa
     Be concise and helpful. If you don't have enough information, say so.";
 
 /// Build context from recent calls (up to 10).
+/// Enriches with analysis summaries + themes when available, falls back to transcript preview.
 pub fn build_calls_context() -> String {
     let calls_dir = storage::default_calls_dir();
     let calls = storage::list_calls(&calls_dir).unwrap_or_default();
@@ -29,11 +30,39 @@ pub fn build_calls_context() -> String {
     for call in calls.iter().take(10) {
         let date = call.created_at.format("%Y-%m-%d %H:%M");
         let duration = call.duration_secs as u64;
-        let transcript_preview: String = call.transcript.chars().take(200).collect();
+
         context.push_str(&format!(
-            "--- Call {id} ({date}, {duration}s) ---\n{transcript_preview}\n\n",
-            id = call.id,
+            "--- Call {id} ({date}, {duration}s) ---\n",
+            id = call.id
         ));
+
+        // Try to load analysis for richer context
+        match storage::load_analysis(&calls_dir, &call.id) {
+            Ok(Some(analysis)) => {
+                context.push_str(&format!("Summary: {}\n", analysis.summary));
+                if !analysis.themes.is_empty() {
+                    context.push_str(&format!("Themes: {}\n", analysis.themes.join(", ")));
+                }
+                if !analysis.action_items.is_empty() {
+                    context.push_str("Action items: ");
+                    let items: Vec<&str> = analysis
+                        .action_items
+                        .iter()
+                        .map(|a| a.description.as_str())
+                        .collect();
+                    context.push_str(&items.join("; "));
+                    context.push('\n');
+                }
+                context.push_str(&format!("Mood: {:?}\n", analysis.mood));
+            }
+            _ => {
+                // Fall back to transcript preview
+                let preview: String = call.transcript.chars().take(200).collect();
+                context.push_str(&preview);
+                context.push('\n');
+            }
+        }
+        context.push('\n');
     }
     context
 }
