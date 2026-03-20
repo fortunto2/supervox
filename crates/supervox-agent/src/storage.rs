@@ -183,6 +183,18 @@ pub fn export_call_markdown(call: &Call, analysis: Option<&CallAnalysis>) -> Str
     md
 }
 
+/// Return the expected WAV path for a call: `{date}-{id}.wav` inside calls_dir.
+pub fn audio_path_for_call(calls_dir: &Path, call: &Call) -> PathBuf {
+    let date = call.created_at.format("%Y%m%d");
+    let filename = format!("{}-{}.wav", date, call.id);
+    calls_dir.join(filename)
+}
+
+/// Check if a WAV audio file exists for the given call.
+pub fn has_audio(calls_dir: &Path, call: &Call) -> bool {
+    audio_path_for_call(calls_dir, call).exists()
+}
+
 /// Save analysis results as `{date}-{id}.analysis.json` alongside the call file.
 pub fn save_analysis(
     calls_dir: &Path,
@@ -930,5 +942,31 @@ mod tests {
         assert_eq!(result[0].count, 2);
         assert_eq!(result[1].theme, "rare");
         assert_eq!(result[1].count, 2);
+    }
+
+    // --- audio_path_for_call / has_audio tests ---
+
+    #[test]
+    fn audio_path_for_call_returns_expected_path() {
+        let call = make_tagged_call("abc123", &[], "2026-03-20");
+        let dir = Path::new("/tmp/calls");
+        let path = audio_path_for_call(dir, &call);
+        assert_eq!(path, PathBuf::from("/tmp/calls/20260320-abc123.wav"));
+    }
+
+    #[test]
+    fn has_audio_false_when_no_wav() {
+        let tmp = tempfile::tempdir().unwrap();
+        let call = make_call("noaudio", "transcript");
+        assert!(!has_audio(tmp.path(), &call));
+    }
+
+    #[test]
+    fn has_audio_true_when_wav_exists() {
+        let tmp = tempfile::tempdir().unwrap();
+        let call = make_call("withaudio", "transcript");
+        let wav_path = audio_path_for_call(tmp.path(), &call);
+        std::fs::write(&wav_path, b"RIFF fake wav").unwrap();
+        assert!(has_audio(tmp.path(), &call));
     }
 }
