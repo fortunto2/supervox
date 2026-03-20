@@ -89,6 +89,14 @@ pub struct CallStats {
     pub calls_this_month: usize,
 }
 
+/// Filter criteria for narrowing down call lists.
+#[derive(Debug, Clone, Default)]
+pub struct CallFilter {
+    pub tags: Vec<String>,
+    pub since: Option<chrono::NaiveDate>,
+    pub until: Option<chrono::NaiveDate>,
+}
+
 /// A search match result when searching across past calls.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CallMatch {

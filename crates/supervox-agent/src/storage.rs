@@ -1,4 +1,4 @@
-use crate::types::{Call, CallAnalysis, CallStats, Config, ThemeCount};
+use crate::types::{Call, CallAnalysis, CallFilter, CallStats, Config, ThemeCount};
 use std::path::{Path, PathBuf};
 
 /// Default calls directory: ~/.supervox/calls/
@@ -58,6 +58,53 @@ pub fn list_calls(calls_dir: &Path) -> Result<Vec<Call>, Box<dyn std::error::Err
     }
     calls.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     Ok(calls)
+}
+
+/// Filter a list of calls by tag and/or date range.
+/// Tags use case-insensitive OR matching. Date comparison uses `created_at.date_naive()`.
+pub fn filter_calls(calls: &[Call], filter: &CallFilter) -> Vec<Call> {
+    calls
+        .iter()
+        .filter(|call| {
+            // Tag filter: OR logic, case-insensitive
+            if !filter.tags.is_empty() {
+                let has_tag = filter.tags.iter().any(|ft| {
+                    let ft_lower = ft.to_lowercase();
+                    call.tags.iter().any(|ct| ct.to_lowercase() == ft_lower)
+                });
+                if !has_tag {
+                    return false;
+                }
+            }
+            // Date filters
+            let call_date = call.created_at.date_naive();
+            if filter.since.is_some_and(|since| call_date < since) {
+                return false;
+            }
+            if filter.until.is_some_and(|until| call_date > until) {
+                return false;
+            }
+            true
+        })
+        .cloned()
+        .collect()
+}
+
+/// Collect unique tags across all calls, sorted by frequency descending.
+pub fn collect_tags(calls: &[Call]) -> Vec<ThemeCount> {
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for call in calls {
+        for tag in &call.tags {
+            let key = tag.to_lowercase();
+            *counts.entry(key).or_default() += 1;
+        }
+    }
+    let mut result: Vec<ThemeCount> = counts
+        .into_iter()
+        .map(|(theme, count)| ThemeCount { theme, count })
+        .collect();
+    result.sort_by(|a, b| b.count.cmp(&a.count).then(a.theme.cmp(&b.theme)));
+    result
 }
 
 /// Format a Call (and optional CallAnalysis) as a self-contained markdown string.
@@ -716,5 +763,170 @@ mod tests {
         let calls = list_calls(&dir).unwrap();
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].id, "lca1");
+    }
+
+    // --- filter_calls tests ---
+
+    fn make_tagged_call(id: &str, tags: &[&str], date: &str) -> Call {
+        let dt = chrono::DateTime::parse_from_rfc3339(&format!("{date}T10:00:00Z"))
+            .unwrap()
+            .to_utc();
+        Call {
+            id: id.into(),
+            created_at: dt,
+            duration_secs: 60.0,
+            participants: vec![],
+            language: None,
+            transcript: "transcript".into(),
+            translation: None,
+            tags: tags.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn filter_calls_empty_filter_passthrough() {
+        let calls = vec![
+            make_tagged_call("a", &["meeting"], "2026-03-10"),
+            make_tagged_call("b", &["budget"], "2026-03-15"),
+        ];
+        let filter = CallFilter::default();
+        let result = filter_calls(&calls, &filter);
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn filter_calls_single_tag() {
+        let calls = vec![
+            make_tagged_call("a", &["meeting"], "2026-03-10"),
+            make_tagged_call("b", &["budget"], "2026-03-15"),
+        ];
+        let filter = CallFilter {
+            tags: vec!["meeting".into()],
+            ..Default::default()
+        };
+        let result = filter_calls(&calls, &filter);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, "a");
+    }
+
+    #[test]
+    fn filter_calls_multi_tag_or() {
+        let calls = vec![
+            make_tagged_call("a", &["meeting"], "2026-03-10"),
+            make_tagged_call("b", &["budget"], "2026-03-15"),
+            make_tagged_call("c", &["hiring"], "2026-03-20"),
+        ];
+        let filter = CallFilter {
+            tags: vec!["meeting".into(), "budget".into()],
+            ..Default::default()
+        };
+        let result = filter_calls(&calls, &filter);
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn filter_calls_tag_case_insensitive() {
+        let calls = vec![make_tagged_call("a", &["Meeting"], "2026-03-10")];
+        let filter = CallFilter {
+            tags: vec!["MEETING".into()],
+            ..Default::default()
+        };
+        let result = filter_calls(&calls, &filter);
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn filter_calls_since_only() {
+        let calls = vec![
+            make_tagged_call("a", &[], "2026-03-01"),
+            make_tagged_call("b", &[], "2026-03-10"),
+            make_tagged_call("c", &[], "2026-03-20"),
+        ];
+        let filter = CallFilter {
+            since: Some(chrono::NaiveDate::from_ymd_opt(2026, 3, 10).unwrap()),
+            ..Default::default()
+        };
+        let result = filter_calls(&calls, &filter);
+        assert_eq!(result.len(), 2);
+        assert!(result.iter().all(|c| c.id != "a"));
+    }
+
+    #[test]
+    fn filter_calls_until_only() {
+        let calls = vec![
+            make_tagged_call("a", &[], "2026-03-01"),
+            make_tagged_call("b", &[], "2026-03-10"),
+            make_tagged_call("c", &[], "2026-03-20"),
+        ];
+        let filter = CallFilter {
+            until: Some(chrono::NaiveDate::from_ymd_opt(2026, 3, 10).unwrap()),
+            ..Default::default()
+        };
+        let result = filter_calls(&calls, &filter);
+        assert_eq!(result.len(), 2);
+        assert!(result.iter().all(|c| c.id != "c"));
+    }
+
+    #[test]
+    fn filter_calls_combined_tag_and_date() {
+        let calls = vec![
+            make_tagged_call("a", &["meeting"], "2026-03-01"),
+            make_tagged_call("b", &["meeting"], "2026-03-15"),
+            make_tagged_call("c", &["budget"], "2026-03-15"),
+        ];
+        let filter = CallFilter {
+            tags: vec!["meeting".into()],
+            since: Some(chrono::NaiveDate::from_ymd_opt(2026, 3, 10).unwrap()),
+            ..Default::default()
+        };
+        let result = filter_calls(&calls, &filter);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, "b");
+    }
+
+    #[test]
+    fn filter_calls_no_matches() {
+        let calls = vec![make_tagged_call("a", &["meeting"], "2026-03-10")];
+        let filter = CallFilter {
+            tags: vec!["nonexistent".into()],
+            ..Default::default()
+        };
+        let result = filter_calls(&calls, &filter);
+        assert!(result.is_empty());
+    }
+
+    // --- collect_tags tests ---
+
+    #[test]
+    fn collect_tags_empty() {
+        let result = collect_tags(&[]);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn collect_tags_multiple_calls() {
+        let calls = vec![
+            make_tagged_call("a", &["meeting", "budget"], "2026-03-10"),
+            make_tagged_call("b", &["meeting", "hiring"], "2026-03-15"),
+            make_tagged_call("c", &["meeting"], "2026-03-20"),
+        ];
+        let result = collect_tags(&calls);
+        assert_eq!(result[0].theme, "meeting");
+        assert_eq!(result[0].count, 3);
+        assert_eq!(result.len(), 3); // meeting, budget, hiring
+    }
+
+    #[test]
+    fn collect_tags_sorted_by_frequency() {
+        let calls = vec![
+            make_tagged_call("a", &["rare"], "2026-03-10"),
+            make_tagged_call("b", &["common", "rare"], "2026-03-15"),
+            make_tagged_call("c", &["common"], "2026-03-20"),
+        ];
+        let result = collect_tags(&calls);
+        assert_eq!(result[0].theme, "common");
+        assert_eq!(result[0].count, 2);
+        assert_eq!(result[1].theme, "rare");
+        assert_eq!(result[1].count, 2);
     }
 }
