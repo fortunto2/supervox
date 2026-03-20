@@ -7,6 +7,7 @@ Voice-powered productivity TUI. Live call assistant + post-call analysis + agent
 - **Live** -- real-time subtitles, translation, and rolling summary during calls
 - **Analysis** -- post-call summary, action items, follow-up draft
 - **Agent** -- chat with call history, search across past calls
+- **History** -- browse past calls, open any call in Analysis mode
 
 ## Prerequisites
 
@@ -27,11 +28,34 @@ make install   # install to ~/.cargo/bin
 ## Usage
 
 ```bash
-supervox live                    # live call assistant
-supervox analyze <call.json>     # post-call analysis
-supervox agent                   # chat with history
-supervox calls                   # list past calls
+supervox live                        # live call assistant
+supervox analyze <call.json>         # post-call analysis
+supervox analyze <call.json> --json  # output analysis as JSON
+supervox agent                       # chat with history
+supervox calls                       # list past calls
+supervox calls --json                # output calls as JSON
+
+# Use local Ollama instead of cloud LLM
+supervox --local live
 ```
+
+### Global keybindings
+
+| Key | Action |
+|-----|--------|
+| `?` | Show help overlay with all keybindings for current mode |
+| `Ctrl+C` | Quit immediately |
+
+### Live mode
+
+| Key | Action |
+|-----|--------|
+| `r` | Start recording |
+| `s` | Stop recording |
+| `h` | Open call history (when idle) |
+| `q` | Quit (when idle) |
+
+Speaker labels are color-coded: **You** (cyan) and **Them** (yellow).
 
 ### Analysis mode
 
@@ -42,6 +66,7 @@ Opens a call JSON file, runs LLM analysis automatically (summary, action items, 
 | `f` | Generate follow-up email |
 | `c` | Copy analysis to clipboard |
 | `C` | Copy follow-up to clipboard |
+| `h` | Open call history |
 | Arrow keys | Scroll |
 | `q` | Quit |
 
@@ -75,6 +100,8 @@ stt_backend = "realtime"        # "realtime" (WebSocket) | "openai" (batch)
 llm_model = "gemini-2.5-flash"  # model for translation + summary
 summary_lag_secs = 5            # rolling summary interval
 capture = "mic+system"          # "mic" | "mic+system"
+llm_backend = "auto"            # "auto" | "ollama"
+ollama_model = "llama3.2:3b"    # model when llm_backend = "ollama"
 ```
 
 ### System audio setup (macOS)

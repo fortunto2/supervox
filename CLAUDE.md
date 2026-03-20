@@ -7,6 +7,7 @@ Voice-powered productivity TUI. Live call assistant + post-call analysis + agent
 1. **Live** — real-time subtitles + translation + rolling summary during calls
 2. **Analysis** — post-call summary, action items, follow-up draft
 3. **Agent** — chat with call history, generate emails, find info across calls
+4. **History** — browse past calls with date, duration, transcript preview
 
 ## Project Structure
 
@@ -58,10 +59,15 @@ make check     # test + clippy + fmt
 make run       # launch TUI
 
 # TUI modes
-supervox live                    # live call assistant
-supervox analyze <call.json>     # post-call analysis
-supervox agent                   # chat with history
-supervox calls                   # list past calls
+supervox live                        # live call assistant
+supervox analyze <call.json>         # post-call analysis
+supervox analyze <call.json> --json  # output CallAnalysis as JSON
+supervox agent                       # chat with history
+supervox calls                       # list past calls
+supervox calls --json                # output calls as JSON
+
+# Ollama (local LLM)
+supervox --local live                # use Ollama instead of cloud LLM
 ```
 
 ## Agent Tools (supervox-agent)
@@ -96,6 +102,7 @@ on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 - 'f' key: generate follow-up email via `draft_follow_up`
 - 'c' key: copy analysis to clipboard
 - 'C' key: copy follow-up to clipboard
+- 'h' key: open call history browser
 - Loading state shown during LLM call
 
 ### Agent Mode
@@ -104,11 +111,21 @@ on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 - System prompt with call history injected
 - "Thinking..." state while awaiting response
 
+### History Mode
+- Accessible via 'h' from Live (idle) and Analysis modes
+- Shows call list: date, duration, first 60 chars of transcript
+- ↑/↓/j/k to navigate, Enter to open in Analysis, Esc to go back
+
 ### Key types
-- `AudioSource::Mic | System` — "You:" vs "Them:" labels
+- `AudioSource::Mic | System` — "You:" (cyan) vs "Them:" (yellow) labels
+- `TranscriptLine { source, text, is_translation }` — unified line type for Live mode
 - `AudioEvent::Transcript{source, text, is_final}` — delta (dimmed) + final (normal)
 - `AudioEvent::Translation{source_id, text}` — shown italic below original
 - `AudioEvent::Summary(String)` — replaces right panel content
+
+### Help overlay
+- `?` key toggles help popup in any mode showing mode-appropriate keybindings
+- Any key dismisses the overlay
 
 ### Intelligence module (`crates/supervox-tui/src/intelligence.rs`)
 - `start_translation_pipeline()` — spawns async task per final transcript
@@ -136,6 +153,8 @@ stt_backend = "realtime"      # "realtime" | "openai"
 llm_model = "gemini-2.5-flash"
 summary_lag_secs = 5
 capture = "mic+system"        # "mic" | "mic+system"
+llm_backend = "auto"          # "auto" | "ollama"
+ollama_model = "llama3.2:3b"  # Model when llm_backend = "ollama"
 ```
 
 Config loaded at startup via `storage::load_config()`. Default created if missing.
