@@ -40,15 +40,15 @@ Wire stats + batch analysis + enhanced calls output.
 - [x] `supervox analyze-all --dry-run` lists unanalyzed calls
 - [x] `supervox calls` shows analysis indicator column
 
-## Phase 3: TUI Enhancement & Docs <!-- checkpoint:pending -->
+## Phase 3: TUI Enhancement & Docs <!-- checkpoint:d5db78e -->
 
 Show stats in History mode + update docs.
 
 ### Tasks
-- [x] Task 3.1: Update History mode header in `crates/supervox-tui/src/modes/history.rs` — show "Call History (N calls, Xh Ym total)" instead of just count
-- [x] Task 3.2: Show analysis indicator (✓/✗) per call row in History mode list
-- [x] Task 3.3: Update CLAUDE.md — add `stats`, `analyze-all` commands to Essential Commands section
-- [x] Task 3.4: Remove dead code — unused imports, stale comments from changes
+- [x] Task 3.1: Update History mode header in `crates/supervox-tui/src/modes/history.rs` — show "Call History (N calls, Xh Ym total)" instead of just count <!-- sha:d5db78e -->
+- [x] Task 3.2: Show analysis indicator (✓/✗) per call row in History mode list <!-- sha:d5db78e -->
+- [x] Task 3.3: Update CLAUDE.md — add `stats`, `analyze-all` commands to Essential Commands section <!-- sha:d5db78e -->
+- [x] Task 3.4: Remove dead code — unused imports, stale comments from changes <!-- sha:d5db78e -->
 
 ### Verification
 - [x] History mode shows total duration in header
