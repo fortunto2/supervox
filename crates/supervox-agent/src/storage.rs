@@ -475,7 +475,7 @@ pub fn find_action_by_prefix(
         .collect();
     match matches.len() {
         0 => Ok(None),
-        1 => Ok(Some(matches.into_iter().next().unwrap())),
+        1 => Ok(matches.into_iter().next()),
         _ => Err(format!(
             "Ambiguous prefix \"{prefix}\" — matches {} actions. Use more characters.",
             matches.len()
