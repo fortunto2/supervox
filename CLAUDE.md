@@ -80,6 +80,10 @@ supervox tags --json                 # output tag list as JSON
 supervox analyze-all                 # batch-analyze all unanalyzed calls
 supervox analyze-all --dry-run       # list unanalyzed calls without processing
 supervox play <call-id>              # play audio recording in system player
+supervox import <audio-file>         # import external audio: transcribe + save + analyze
+supervox import <file> --no-analyze  # import without auto-analysis
+supervox import <file> --json        # output resulting Call as JSON
+supervox import <file> --language ru # override language (ISO 639-1)
 supervox actions                     # list open action items across calls
 supervox actions --all               # include completed actions
 supervox actions --json              # output TrackedAction array as JSON
