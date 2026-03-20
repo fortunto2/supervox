@@ -1,6 +1,6 @@
 [package]
 name = "voxkit"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2024"
 description = "Voice pipeline toolkit — STT, VAD, TTS abstractions for Rust voice apps"
 license = "MIT"
