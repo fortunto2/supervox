@@ -203,6 +203,39 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(follow_up, follow_up_area);
 }
 
+/// Format analysis text for clipboard copy.
+fn format_analysis_for_clipboard(state: &AnalysisState) -> String {
+    let mut parts = Vec::new();
+    if let Some(summary) = &state.summary {
+        parts.push(format!("Summary: {summary}"));
+    }
+    if let Some(mood) = &state.mood {
+        parts.push(format!("Mood: {mood}"));
+    }
+    if !state.themes.is_empty() {
+        parts.push(format!("Themes: {}", state.themes.join(", ")));
+    }
+    if !state.action_items.is_empty() {
+        parts.push("Action Items:".into());
+        for item in &state.action_items {
+            parts.push(format!("  - {item}"));
+        }
+    }
+    if !state.decisions.is_empty() {
+        parts.push("Decisions:".into());
+        for d in &state.decisions {
+            parts.push(format!("  - {d}"));
+        }
+    }
+    if !state.open_questions.is_empty() {
+        parts.push("Open Questions:".into());
+        for q in &state.open_questions {
+            parts.push(format!("  - {q}"));
+        }
+    }
+    parts.join("\n")
+}
+
 /// Handle key events in analysis mode.
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     match key.code {
@@ -223,6 +256,27 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
             if app.analysis_state.summary.is_some() && !app.analysis_state.loading {
                 app.status = "Generating follow-up...".into();
                 app.spawn_follow_up();
+            }
+        }
+        crossterm::event::KeyCode::Char('c') => {
+            // Copy formatted analysis text to clipboard
+            let text = format_analysis_for_clipboard(&app.analysis_state);
+            if !text.is_empty() {
+                match crate::clipboard::copy_to_clipboard(&text) {
+                    Ok(()) => app.status = "Copied to clipboard".into(),
+                    Err(e) => app.status = format!("Copy failed: {e}"),
+                }
+            }
+        }
+        crossterm::event::KeyCode::Char('C') => {
+            // Copy follow-up text to clipboard
+            if let Some(follow_up) = &app.analysis_state.follow_up {
+                match crate::clipboard::copy_to_clipboard(follow_up) {
+                    Ok(()) => app.status = "Follow-up copied".into(),
+                    Err(e) => app.status = format!("Copy failed: {e}"),
+                }
+            } else {
+                app.status = "No follow-up to copy".into();
             }
         }
         _ => {}
