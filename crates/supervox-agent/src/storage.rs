@@ -45,7 +45,8 @@ pub fn list_calls(calls_dir: &Path) -> Result<Vec<Call>, Box<dyn std::error::Err
     for entry in std::fs::read_dir(calls_dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().is_some_and(|e| e == "json") {
+        let fname = path.file_name().unwrap_or_default().to_string_lossy();
+        if path.extension().is_some_and(|e| e == "json") && !fname.ends_with(".analysis.json") {
             match std::fs::read_to_string(&path) {
                 Ok(json) => match serde_json::from_str::<Call>(&json) {
                     Ok(call) => calls.push(call),
@@ -133,6 +134,51 @@ pub fn export_call_markdown(call: &Call, analysis: Option<&CallAnalysis>) -> Str
     }
 
     md
+}
+
+/// Save analysis results as `{date}-{id}.analysis.json` alongside the call file.
+pub fn save_analysis(
+    calls_dir: &Path,
+    call_id: &str,
+    analysis: &CallAnalysis,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Find call file to derive the base name
+    for entry in std::fs::read_dir(calls_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().is_some_and(|e| e == "json") {
+            let name = path.file_stem().unwrap_or_default().to_string_lossy();
+            if name.ends_with(call_id) && !name.contains(".analysis") {
+                let analysis_filename = format!("{name}.analysis.json");
+                let analysis_path = calls_dir.join(analysis_filename);
+                let json = serde_json::to_string_pretty(analysis)?;
+                std::fs::write(analysis_path, json)?;
+                return Ok(());
+            }
+        }
+    }
+    Err(format!("Call not found for analysis: {call_id}").into())
+}
+
+/// Load persisted analysis for a call. Returns None if no analysis file exists.
+pub fn load_analysis(
+    calls_dir: &Path,
+    call_id: &str,
+) -> Result<Option<CallAnalysis>, Box<dyn std::error::Error>> {
+    if !calls_dir.exists() {
+        return Ok(None);
+    }
+    for entry in std::fs::read_dir(calls_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let filename = path.file_name().unwrap_or_default().to_string_lossy();
+        if filename.ends_with(".analysis.json") && filename.contains(call_id) {
+            let json = std::fs::read_to_string(&path)?;
+            let analysis: CallAnalysis = serde_json::from_str(&json)?;
+            return Ok(Some(analysis));
+        }
+    }
+    Ok(None)
 }
 
 /// Delete a call by ID from the calls directory.
