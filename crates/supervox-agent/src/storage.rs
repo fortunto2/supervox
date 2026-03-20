@@ -1,4 +1,4 @@
-use crate::types::{Call, Config};
+use crate::types::{Call, CallAnalysis, Config};
 use std::path::{Path, PathBuf};
 
 /// Default calls directory: ~/.supervox/calls/
@@ -57,6 +57,82 @@ pub fn list_calls(calls_dir: &Path) -> Result<Vec<Call>, Box<dyn std::error::Err
     }
     calls.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     Ok(calls)
+}
+
+/// Format a Call (and optional CallAnalysis) as a self-contained markdown string.
+pub fn export_call_markdown(call: &Call, analysis: Option<&CallAnalysis>) -> String {
+    let mut md = String::new();
+    let date = call.created_at.format("%Y-%m-%d %H:%M UTC");
+    let dur = call.duration_secs as u64;
+    let mins = dur / 60;
+    let secs = dur % 60;
+
+    md.push_str(&format!("# Call — {date}\n\n"));
+    md.push_str(&format!("**Duration:** {mins}m {secs}s\n"));
+    if !call.participants.is_empty() {
+        md.push_str(&format!(
+            "**Participants:** {}\n",
+            call.participants.join(", ")
+        ));
+    }
+    if let Some(lang) = &call.language {
+        md.push_str(&format!("**Language:** {lang}\n"));
+    }
+    if !call.tags.is_empty() {
+        md.push_str(&format!("**Tags:** {}\n", call.tags.join(", ")));
+    }
+
+    md.push_str("\n## Transcript\n\n");
+    md.push_str(&call.transcript);
+    md.push('\n');
+
+    if let Some(tr) = &call.translation {
+        md.push_str("\n## Translation\n\n");
+        md.push_str(tr);
+        md.push('\n');
+    }
+
+    if let Some(a) = analysis {
+        md.push_str("\n## Summary\n\n");
+        md.push_str(&a.summary);
+        md.push('\n');
+
+        if !a.action_items.is_empty() {
+            md.push_str("\n## Action Items\n\n");
+            for item in &a.action_items {
+                md.push_str(&format!("- {}", item.description));
+                if let Some(who) = &item.assignee {
+                    md.push_str(&format!(" (@{who})"));
+                }
+                if let Some(when) = &item.deadline {
+                    md.push_str(&format!(" — due {when}"));
+                }
+                md.push('\n');
+            }
+        }
+
+        if !a.decisions.is_empty() {
+            md.push_str("\n## Decisions\n\n");
+            for d in &a.decisions {
+                md.push_str(&format!("- {d}\n"));
+            }
+        }
+
+        if !a.open_questions.is_empty() {
+            md.push_str("\n## Open Questions\n\n");
+            for q in &a.open_questions {
+                md.push_str(&format!("- {q}\n"));
+            }
+        }
+
+        md.push_str(&format!("\n**Mood:** {:?}\n", a.mood));
+
+        if !a.themes.is_empty() {
+            md.push_str(&format!("**Themes:** {}\n", a.themes.join(", ")));
+        }
+    }
+
+    md
 }
 
 /// Delete a call by ID from the calls directory.
