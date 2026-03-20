@@ -19,6 +19,7 @@ mic = ["dep:cpal"]
 macos-system-audio = []
 macos-mic-mode = []
 wav = ["dep:hound"]
+whisper = ["silero", "dep:whisper-rs", "dep:reqwest"]
 
 [dependencies]
 tokio = { version = "1", features = ["sync", "macros"] }
@@ -38,6 +39,8 @@ ort = { version = "2.0.0-rc.12", optional = true }
 rodio = { version = "0.20", optional = true, default-features = false, features = ["mp3"] }
 cpal = { version = "0.15", optional = true }
 hound = { version = "3.5", optional = true }
+whisper-rs = { version = "0.16", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tempfile = "3"

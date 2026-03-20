@@ -106,16 +106,16 @@ impl SileroVad {
 
         let outputs = self
             .session
-            .run(ort::inputs!["input" => input, "state" => state, "sr" => sr]?)?;
+            .run(ort::inputs!["input" => input, "state" => state, "sr" => sr])?;
 
         // Extract speech probability
         let output_value = &outputs["output"];
-        let (_, output_data) = output_value.try_extract_raw_tensor::<f32>()?;
+        let (_, output_data) = output_value.try_extract_tensor::<f32>()?;
         let prob = output_data.first().copied().unwrap_or(0.0);
 
         // Update LSTM state
         let state_value = &outputs["stateN"];
-        let (_, state_data) = state_value.try_extract_raw_tensor::<f32>()?;
+        let (_, state_data) = state_value.try_extract_tensor::<f32>()?;
         self.state = state_data.to_vec();
 
         Ok(prob)

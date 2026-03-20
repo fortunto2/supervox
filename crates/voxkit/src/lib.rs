@@ -26,6 +26,9 @@ pub mod silero;
 #[cfg(feature = "realtime")]
 pub mod realtime_stt;
 
+#[cfg(feature = "whisper")]
+pub mod whisper_stt;
+
 #[cfg(feature = "openai-tts")]
 pub mod tts;
 
