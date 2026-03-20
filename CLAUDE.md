@@ -31,7 +31,7 @@ supervox/
 | Voice pipeline | `voxkit` (STT, VAD, TTS, mic, system audio capture) |
 | LLM agent | `sgr-agent` v0.3 (tool calling, sessions, compaction) |
 | TUI | `ratatui` + `sgr-agent-tui` (chat panel, streaming) |
-| Real-time STT | voxkit realtime (OpenAI WebSocket) |
+| Real-time STT | voxkit realtime (OpenAI WebSocket) or whisper (local whisper.cpp + Metal) |
 | Batch STT | voxkit openai (gpt-4o-transcribe) |
 | LLM | sgr-agent genai (Gemini Flash / OpenRouter / Ollama) |
 | Audio | voxkit mic + system_audio (cpal, ScreenCaptureKit) |
@@ -200,7 +200,8 @@ on stop → finalize WAV → save call (with audio_path + bookmarks) → auto-sw
 ```toml
 # ~/.supervox/config.toml
 my_language = "ru"            # Target language for summaries/translation
-stt_backend = "realtime"      # "realtime" | "openai"
+stt_backend = "realtime"      # "realtime" | "whisper"
+whisper_model = "base"        # "tiny" | "base" | "small" | "medium" (when stt_backend = "whisper")
 llm_model = "gemini-2.5-flash"
 summary_lag_secs = 5
 capture = "mic+system"        # "mic" | "mic+system"
@@ -209,8 +210,9 @@ ollama_model = "llama3.2:3b"  # Model when llm_backend = "ollama"
 ```
 
 Config loaded at startup via `storage::load_config()`. Default created if missing.
-Requires `OPENAI_API_KEY` env var for realtime STT.
+Requires `OPENAI_API_KEY` env var for realtime STT (not needed when `stt_backend = "whisper"`).
 System audio requires `system-audio-tap` binary (macOS ScreenCaptureKit).
+`supervox --local live` uses both Ollama (local LLM) and Whisper (local STT).
 
 ## Key Principles
 
