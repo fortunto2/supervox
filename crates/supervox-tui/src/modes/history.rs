@@ -3,6 +3,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
+use std::collections::HashSet;
 use supervox_agent::types::Call;
 
 /// State for call history browser.
@@ -12,6 +13,8 @@ pub struct CallHistoryState {
     pub scroll_offset: usize,
     /// When true, waiting for y/n confirmation to delete selected call.
     pub confirm_delete: bool,
+    /// IDs of calls that have cached analysis.
+    pub analyzed_ids: HashSet<String>,
 }
 
 impl CallHistoryState {
@@ -21,7 +24,13 @@ impl CallHistoryState {
             cursor: 0,
             scroll_offset: 0,
             confirm_delete: false,
+            analyzed_ids: HashSet::new(),
         }
+    }
+
+    pub fn with_analyzed_ids(mut self, ids: HashSet<String>) -> Self {
+        self.analyzed_ids = ids;
+        self
     }
 
     pub fn move_up(&mut self) {
@@ -83,17 +92,36 @@ pub fn render(f: &mut Frame, area: Rect, state: &CallHistoryState) {
                 Style::default().fg(Color::White)
             };
 
+            let indicator = if state.analyzed_ids.contains(&call.id) {
+                "\u{2713}"
+            } else {
+                "\u{2717}"
+            };
+
             ListItem::new(Line::from(vec![
                 Span::styled(format!(" {date} "), style),
                 Span::styled(format!(" {duration} "), style),
+                Span::styled(format!(" {indicator} "), style),
                 Span::styled(format!(" {preview}"), style),
             ]))
         })
         .collect();
 
+    let total_secs: u64 = state.calls.iter().map(|c| c.duration_secs as u64).sum();
+    let hours = total_secs / 3600;
+    let mins = (total_secs % 3600) / 60;
+    let title = if total_secs > 0 {
+        format!(
+            " Call History ({} calls, {hours}h {mins}m total) ",
+            state.calls.len()
+        )
+    } else {
+        format!(" Call History ({}) ", state.calls.len())
+    };
+
     let list = List::new(items).block(
         Block::default()
-            .title(format!(" Call History ({}) ", state.calls.len()))
+            .title(title)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan)),
     );

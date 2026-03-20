@@ -455,7 +455,18 @@ pub async fn run(mode: Mode) -> Result<()> {
 pub fn open_history(app: &mut App) {
     let calls_dir = supervox_agent::storage::default_calls_dir();
     let calls = supervox_agent::storage::list_calls(&calls_dir).unwrap_or_default();
-    app.history_state = Some(modes::history::CallHistoryState::new(calls));
+    let analyzed_ids: std::collections::HashSet<String> = calls
+        .iter()
+        .filter(|c| {
+            supervox_agent::storage::load_analysis(&calls_dir, &c.id)
+                .ok()
+                .flatten()
+                .is_some()
+        })
+        .map(|c| c.id.clone())
+        .collect();
+    app.history_state =
+        Some(modes::history::CallHistoryState::new(calls).with_analyzed_ids(analyzed_ids));
     let return_mode = app.mode.clone();
     app.mode = Mode::History {
         return_to: Box::new(return_mode),

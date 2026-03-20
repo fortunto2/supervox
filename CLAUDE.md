@@ -73,6 +73,10 @@ supervox search <query>              # search call transcripts
 supervox search <query> --json       # output matches as JSON
 supervox insights                    # cross-call patterns + themes + action items
 supervox insights --json             # output CallInsights as JSON
+supervox stats                       # aggregate call statistics
+supervox stats --json                # output CallStats as JSON
+supervox analyze-all                 # batch-analyze all unanalyzed calls
+supervox analyze-all --dry-run       # list unanalyzed calls without processing
 
 # Ollama (local LLM)
 supervox --local live                # use Ollama instead of cloud LLM
@@ -136,6 +140,7 @@ on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 - `AudioEvent::Translation{source_id, text}` — shown italic below original
 - `AudioEvent::Summary(String)` — replaces right panel content
 - `CallInsights { recurring_themes, mood_summary, open_action_items, key_patterns, total_calls, period }` — cross-call analysis
+- `CallStats { total_calls, total_duration_secs, analyzed_count, unanalyzed_count, top_themes, calls_this_week, calls_this_month }` — aggregate statistics
 - `ThemeCount { theme, count }` — frequency of a recurring theme
 - `MoodSummary { positive, neutral, negative, mixed }` — mood distribution
 
