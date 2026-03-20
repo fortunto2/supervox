@@ -592,4 +592,88 @@ mod tests {
         let json = serde_json::to_string(&call).unwrap();
         assert!(!json.contains("audio_path"));
     }
+
+    #[test]
+    fn stt_backend_serde_roundtrip() {
+        assert_eq!(
+            serde_json::to_string(&SttBackend::Realtime).unwrap(),
+            "\"realtime\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SttBackend::Whisper).unwrap(),
+            "\"whisper\""
+        );
+        let rt: SttBackend = serde_json::from_str("\"realtime\"").unwrap();
+        assert_eq!(rt, SttBackend::Realtime);
+        let wh: SttBackend = serde_json::from_str("\"whisper\"").unwrap();
+        assert_eq!(wh, SttBackend::Whisper);
+    }
+
+    #[test]
+    fn capture_mode_serde_roundtrip() {
+        assert_eq!(serde_json::to_string(&CaptureMode::Mic).unwrap(), "\"mic\"");
+        assert_eq!(
+            serde_json::to_string(&CaptureMode::MicSystem).unwrap(),
+            "\"mic+system\""
+        );
+        let mic: CaptureMode = serde_json::from_str("\"mic\"").unwrap();
+        assert_eq!(mic, CaptureMode::Mic);
+        let ms: CaptureMode = serde_json::from_str("\"mic+system\"").unwrap();
+        assert_eq!(ms, CaptureMode::MicSystem);
+    }
+
+    #[test]
+    fn llm_backend_serde_roundtrip() {
+        assert_eq!(
+            serde_json::to_string(&LlmBackend::Auto).unwrap(),
+            "\"auto\""
+        );
+        assert_eq!(
+            serde_json::to_string(&LlmBackend::Ollama).unwrap(),
+            "\"ollama\""
+        );
+        let auto: LlmBackend = serde_json::from_str("\"auto\"").unwrap();
+        assert_eq!(auto, LlmBackend::Auto);
+        let oll: LlmBackend = serde_json::from_str("\"ollama\"").unwrap();
+        assert_eq!(oll, LlmBackend::Ollama);
+    }
+
+    #[test]
+    fn config_backward_compat_toml_strings() {
+        // Existing TOML files with string values must parse correctly
+        let toml_str = r#"
+stt_backend = "realtime"
+capture = "mic+system"
+llm_backend = "auto"
+"#;
+        let cfg: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(cfg.stt_backend, SttBackend::Realtime);
+        assert_eq!(cfg.capture, CaptureMode::MicSystem);
+        assert_eq!(cfg.llm_backend, LlmBackend::Auto);
+    }
+
+    #[test]
+    fn config_toml_whisper_mic_ollama() {
+        let toml_str = r#"
+stt_backend = "whisper"
+capture = "mic"
+llm_backend = "ollama"
+"#;
+        let cfg: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(cfg.stt_backend, SttBackend::Whisper);
+        assert_eq!(cfg.capture, CaptureMode::Mic);
+        assert_eq!(cfg.llm_backend, LlmBackend::Ollama);
+    }
+
+    #[test]
+    fn capture_mode_includes_system() {
+        assert!(CaptureMode::MicSystem.includes_system());
+        assert!(!CaptureMode::Mic.includes_system());
+    }
+
+    #[test]
+    fn stt_backend_display() {
+        assert_eq!(SttBackend::Realtime.to_string(), "realtime");
+        assert_eq!(SttBackend::Whisper.to_string(), "whisper");
+    }
 }
