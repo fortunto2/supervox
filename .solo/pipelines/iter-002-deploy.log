@@ -1,170 +1,124 @@
-  [2msession: f7acbe51  model: claude-opus-4-6[1m][0m
+  [2msession: c4e8a81d  model: claude-opus-4-6[1m][0m
   [35m=>[0m [35msolo:deploy[0m
 
-Let me assess the project state and determine the right deploy approach for a Rust TUI app.
+Starting deploy stage for SuperVox. Let me assess the current state.
+  [32m$ [0m [33mBash[0m [2mCheck git status[0m
   [32m$ [0m [33mBash[0m [2mRecent commits[0m
-  [32m$ [0m [33mBash[0m [2mWorking tree status[0m
-  [32m$ [0m [33mBash[0m [2mCheck git remotes[0m
-  [32m$ [0m [33mBash[0m [2mCheck build state[0m
+  [32m$ [0m [33mBash[0m [2mCheck remote[0m
   [32m$ [0m [33mBash[0m [2mCheck gh CLI[0m
-  [36m**[0m [36mGlob[0m [2m"**/.github/**"[0m
-  [36m**[0m [36mGlob[0m [2m"**/Cargo.toml"[0m
+  [32m$ [0m [33mBash[0m [2mCheck pipeline states[0m
+
+Build state confirmed. SuperVox is a Rust TUI — no web hosting needed. Deploy means: push to GitHub, set up CI/CD, prepare for distribution.
+  [36m**[0m [36mGlob[0m [2m".github/**/*"[0m
+  [32m$ [0m [33mBash[0m [2mCheck workspace Cargo.toml[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Makefile[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Cargo.toml[0m
+  [36m**[0m [36mGlob[0m [2m"**/stacks/rust*.yaml" ~/.claude/plugins/cache/solo/solo/1.19.0[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.github/workflows/ci.yml[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.github/workflows/release.yml[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/Cargo.toml[0m
+  [32m$ [0m [33mBash[0m [2mCheck TUI crate version[0m
 
-Good. SuperVox is a Rust TUI — deploy means: verify build, push to GitHub, create a release with binaries. CI and release workflows are already set up.
-
-Let me verify the build locally and check existing releases.
-  [32m$ [0m [33mBash[0m [2mCheck existing tags[0m
-  [32m$ [0m [33mBash[0m [2mCheck existing releases[0m
-  [32m$ [0m [33mBash[0m [2mRun workspace tests[0m
+CI/CD already set up. Both `ci.yml` and `release.yml` workflows exist. Let me verify the build locally and push.
+  [32m$ [0m [33mBash[0m [2mCheck formatting[0m
   [32m$ [0m [33mBash[0m [2mClippy lint check[0m
-  [32m$ [0m [33mBash[0m [2mFormat check[0m
+  [32m$ [0m [33mBash[0m [2mRun all tests[0m
 
-All 42 tests pass, clippy clean, fmt clean. Now let me check what's new since v0.2.0.
-  [32m$ [0m [33mBash[0m [2mCommits since last release[0m
-  [32m$ [0m [33mBash[0m [2mCheck if local is ahead of remote[0m
-  [32m$ [0m [33mBash[0m [2mList all tags[0m
-  [32m$ [0m [33mBash[0m [2mGet v0.2.0 release details[0m
-  [32m$ [0m [33mBash[0m [2mGet release commit[0m
-  [32m$ [0m [33mBash[0m [2mCommits after v0.2.0 release[0m
-  [32m$ [0m [33mBash[0m [2mCount new commits[0m
-  [32m$ [0m [33mBash[0m [2mCheck local vs remote[0m
-
-56 new commits since v0.2.0, local is ahead of origin. Major new features: audio recording/playback, call filtering, tag management. This warrants a v0.3.0 release.
-
-Let me bump versions, commit, push, and create the release.
-  [32m$ [0m [33mBash[0m [2mFind version strings to bump[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/Cargo.toml[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/Cargo.toml[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/Cargo.toml[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/Cargo.toml[0m
-
-Now verify the build still works with bumped versions and push.
-  [32m$ [0m [33mBash[0m [2mVerify workspace compiles with new versions[0m
-
-Good. Now commit the version bump, push to main, and create the release tag.
-  [32m$ [0m [33mBash[0m [2mCommit version bump[0m
+All 211 tests pass, clippy clean, fmt clean. Now push to GitHub.
+  [32m$ [0m [33mBash[0m [2mCheck existing v0.3 tags[0m
+  [32m$ [0m [33mBash[0m [2mCommit pipeline state files[0m
   [32m$ [0m [33mBash[0m [2mPush to GitHub[0m
 
-Pushed. Now create the v0.3.0 tag to trigger the release workflow.
-  [32m$ [0m [33mBash[0m [2mCreate and push v0.3.0 tag[0m
+Pushed. Now let me verify CI triggers and check if GH_PAT secret is configured for the shared deps checkout.
+  [32m$ [0m [33mBash[0m [2mCheck recent CI runs[0m
 
-Tag pushed. Let me verify CI started and monitor the release workflow.
-  [32m$ [0m [33mBash[0m [2mCheck GitHub Actions runs[0m
+CI triggered (in_progress). v0.3.0 release already exists from a prior run. Let me check if a new release tag is needed for the action-tracker features.
+  [32m$ [0m [33mBash[0m [2mCheck v0.3.0 release details[0m
+  [32m$ [0m [33mBash[0m [2mCommits since v0.3.0[0m
 
-Both workflows triggered — CI (in_progress) and Release (queued). Let me wait and check the results.
-  [32m$ [0m [33mBash[0m [2mWatch CI run[0m
-  [32m$ [0m [33mBash[0m [2mWatch Release run[0m
+8 commits since v0.3.0 with action-tracker feature. Bumping to v0.3.1.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/Cargo.toml[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/Cargo.toml[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/Cargo.toml[0m
+  [32m$ [0m [33mBash[0m [2mCommit version bump[0m
+  [32m$ [0m [33mBash[0m [2mPush and create release tag[0m
 
-Workflows running in background. Meanwhile, let me also install the binary locally.
-  [32m$ [0m [33mBash[0m [2mBuild release binary locally[0m
-  [32m$ [0m [33mBash[0m [2mInstall binary locally[0m
+Tag pushed. Release workflow will build macOS binaries. Let me wait for CI to confirm green.
+  [32m$ [0m [33mBash[0m [2mCheck CI and Release runs[0m
+  [32m$ [0m [33mBash[0m [2mWait for CI to complete[0m
 
-Binary installed and working. Let me check if the CI and release workflows completed.
-  [32m$ [0m [33mBash[0m [2mCheck workflow status[0m
+CI green. Let me check the Release workflow too.
+  [32m$ [0m [33mBash[0m [2mCheck Release workflow status[0m
+  [32m$ [0m [33mBash[0m [2mWait for Release workflow[0m
+  [32m$ [0m [33mBash[0m [2mConfirm release workflow result[0m
+  [32m$ [0m [33mBash[0m [2mVerify release assets[0m
 
-Both still in progress. Let me wait for the background notifications.
-  [2m--[0m [36mTaskOutput[0m [2mTrue[0m
-  [2m--[0m [36mToolSearch[0m [2mselect:TaskOutput[0m
-  [2m--[0m [36mTaskOutput[0m [2mbihtn2324[0m
-  [2m--[0m [36mTaskOutput[0m [2mbd4de2fd1[0m
-
-CI passed. Release workflow still building (compiling for two macOS targets takes longer). Let me check its status.
-  [32m$ [0m [33mBash[0m [2mCheck release workflow jobs[0m
-  [2m--[0m [36mTaskOutput[0m [2mbd4de2fd1[0m
-
-Release workflow completed successfully. Let me verify the release exists on GitHub.
-  [32m$ [0m [33mBash[0m [2mVerify v0.3.0 release[0m
-
-All verified. Let me update the deploy state marker.
-  [32m$ [0m [33mBash[0m [2mUpdate deploy state marker[0m
-
----
+All green. Mark deploy state and write the report.
+  [32m$ [0m [33mBash[0m [2mMark deploy stage complete[0m
 
 ```
-Deployment: supervox v0.3.0
+Deployment: supervox v0.3.1
 
-  Platform:  GitHub Releases (macOS binaries) + local install
-  Release:   https://github.com/fortunto2/supervox/releases/tag/v0.3.0
+  Platform:  GitHub (Rust TUI — no hosting needed)
+  Release:   https://github.com/fortunto2/supervox/releases/tag/v0.3.1
   Branch:    main
-  Commit:    9594522
+  Commit:    d053e52
 
   Assets:
     - supervox-aarch64-apple-darwin.tar.gz (4.5 MB)
-    - supervox-x86_64-apple-darwin.tar.gz (4.7 MB)
+    - supervox-x86_64-apple-darwin.tar.gz  (4.8 MB)
     - SHA256 checksums for both
 
-  Done:
-    - [x] All 42 tests pass
-    - [x] Clippy + fmt clean
-    - [x] Version bumped to 0.3.0
-    - [x] Code pushed to GitHub (56 new commits)
-    - [x] CI workflow passed
-    - [x] Release workflow: binaries built for aarch64 + x86_64 macOS
-    - [x] GitHub Release v0.3.0 created with assets
-    - [x] Local binary installed to ~/.cargo/bin/supervox
+  CI/CD:
+    - [x] CI (fmt + clippy + 211 tests) — green
+    - [x] Release workflow — built macOS binaries (aarch64 + x86_64)
+    - [x] GitHub Release v0.3.1 created with assets
+    - [x] Code pushed to origin/main
 
-  What's new in v0.3.0:
-    - Audio recording (WAV) during live calls
-    - Play audio from Analysis mode ('p' key)
-    - Call filtering (--tag, --since, --until)
-    - Tag management (tags command, tag filter popup in History)
-    - Audio indicator in calls list
-    - Export includes audio filename
+  What's new in v0.3.1:
+    - Action item tracking (types, storage, CLI commands)
+    - Action completion status in Analysis mode TUI
+    - Architecture docs update
 
-  N/A:
-    - Database migrations (local JSON storage, no DB)
-    - Environment variables (OPENAI_API_KEY set by user)
-    - Custom domain (CLI tool, no web hosting)
+  Install locally:
+    make install    # builds release and copies to ~/.cargo/bin/
+
+  Database: N/A (local JSON files in ~/.supervox/)
+  Env vars: OPENAI_API_KEY (required for STT)
 
   Next: /review — final quality gate
 ```
 
-<solo:done/>---
+<solo:done/>```
+Deployment: supervox v0.3.1
 
-```
-Deployment: supervox v0.3.0
-
-  Platform:  GitHub Releases (macOS binaries) + local install
-  Release:   https://github.com/fortunto2/supervox/releases/tag/v0.3.0
+  Platform:  GitHub (Rust TUI — no hosting needed)
+  Release:   https://github.com/fortunto2/supervox/releases/tag/v0.3.1
   Branch:    main
-  Commit:    9594522
+  Commit:    d053e52
 
   Assets:
     - supervox-aarch64-apple-darwin.tar.gz (4.5 MB)
-    - supervox-x86_64-apple-darwin.tar.gz (4.7 MB)
+    - supervox-x86_64-apple-darwin.tar.gz  (4.8 MB)
     - SHA256 checksums for both
 
-  Done:
-    - [x] All 42 tests pass
-    - [x] Clippy + fmt clean
-    - [x] Version bumped to 0.3.0
-    - [x] Code pushed to GitHub (56 new commits)
-    - [x] CI workflow passed
-    - [x] Release workflow: binaries built for aarch64 + x86_64 macOS
-    - [x] GitHub Release v0.3.0 created with assets
-    - [x] Local binary installed to ~/.cargo/bin/supervox
+  CI/CD:
+    - [x] CI (fmt + clippy + 211 tests) — green
+    - [x] Release workflow — built macOS binaries (aarch64 + x86_64)
+    - [x] GitHub Release v0.3.1 created with assets
+    - [x] Code pushed to origin/main
 
-  What's new in v0.3.0:
-    - Audio recording (WAV) during live calls
-    - Play audio from Analysis mode ('p' key)
-    - Call filtering (--tag, --since, --until)
-    - Tag management (tags command, tag filter popup in History)
-    - Audio indicator in calls list
-    - Export includes audio filename
+  What's new in v0.3.1:
+    - Action item tracking (types, storage, CLI commands)
+    - Action completion status in Analysis mode TUI
+    - Architecture docs update
 
-  N/A:
-    - Database migrations (local JSON storage, no DB)
-    - Environment variables (OPENAI_API_KEY set by user)
-    - Custom domain (CLI tool, no web hosting)
+  Install locally:
+    make install    # builds release and copies to ~/.cargo/bin/
+
+  Database: N/A (local JSON files in ~/.supervox/)
+  Env vars: OPENAI_API_KEY (required for STT)
 
   Next: /review — final quality gate
 ```
 
-<solo:done/>  [2msession: f7acbe51  model: claude-opus-4-6[1m][0m
-CI background task confirmed complete — already processed the results above. Deploy stage is done.CI background task confirmed complete — already processed the results above. Deploy stage is done.  [2msession: f7acbe51  model: claude-opus-4-6[1m][0m
-Release background task confirmed complete — already verified the release with all 4 assets above. Nothing more to do here, deploy is done.Release background task confirmed complete — already verified the release with all 4 assets above. Nothing more to do here, deploy is done.
+<solo:done/>

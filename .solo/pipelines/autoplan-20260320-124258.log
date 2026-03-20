@@ -1,0 +1,135 @@
+  [2msession: 82aaf892  model: claude-opus-4-6[1m][0m
+  [36m**[0m [36mGlob[0m [2m"docs/backlog*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/roadmap*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/*/plan.md" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/prd.md[0m
+
+Let me check the evolution doc, recent commits, and current codebase state to find the next priority.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [32m$ [0m [33mBash[0m [2mRecent 30 commits[0m
+  [32m$ [0m [33mBash[0m [2mList docs directory[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mList active plans[0m
+
+Let me explore the codebase to understand what's implemented and what Phase 3 items remain.
+  [2m--[0m [36mAgent[0m [2mExplore codebase for unimplemented features[0m
+  [36m**[0m [36mGlob[0m [2m"**/plan.md" ~/startups/active/supervox[0m
+  [36m// [36mGrep[0m [2m"bookmark" ~/startups/active/supervox[0m
+  [36m// [36mGrep[0m [2m"waveform|wave" ~/startups/active/supervox[0m
+  [36m// [36mGrep[0m [2m"diarization|diarize" ~/startups/active/supervox[0m
+  [36m// [36mGrep[0m [2m"deepgram|whisper" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan.md[0m
+  [36m**[0m [36mGlob[0m [2m"crates/voxkit/src/*.rs" ~/startups/active/supervox[0m
+  [36m// [36mGrep[0m [2m"TODO|FIXME|AI-TODO|AI-NOTE" ~/startups/active/supervox/crates/supervox-tui[0m
+  [36m// [36mGrep[0m [2m"TODO|FIXME|AI-TODO|AI-NOTE" ~/startups/active/supervox/crates/supervox-agent[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
+  [36m// [36mGrep[0m [2m"KeyCode::" ~/startups/active/supervox/crates/supervox-tui/src[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/stt.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+  [36m// [36mGrep[0m [2m"export.*markdown|export_call|export" ~/startups/active/supervox/crates/supervox-tui[0m
+  [36m// [36mGrep[0m [2m"ollama|local.*llm" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+  [36m// [36mGrep[0m [2m"stt_backend|deepgram|whisper" ~/startups/active/supervox/crates/supervox-agent[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+  [36m// [36mGrep[0m [2m"--local" ~/startups/active/supervox/crates/supervox-tui[0m
+  [32m$ [0m [33mBash[0m [2mList voxkit STT-related files[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
+  [36m// [36mGrep[0m [2m"KeyCode::Char\('b'\)|bookmark|mark" ~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
+  [36m// [36mGrep[0m [2m"waveform|sparkline|barChart" ~/startups/active/supervox/crates/supervox-tui[0m
+  [36m// [36mGrep[0m [2m"diarization|speaker|You.*Them" ~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
+  [36m// [36mGrep[0m [2m"AudioSource" ~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+  [32m$ [0m [33mBash[0m [2mShow recent commits[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/README.md[0m
+  [36m// [36mGrep[0m [2m"phase.*3|Phase.*3" ~/startups/active/supervox/docs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase3/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mCount voxkit source files[0m
+  [36m// [36mGrep[0m [2m"feature.*whisper|whisper.*feature" ~/startups/active/supervox/crates/voxkit[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/Cargo.toml[0m
+  [32m$ [0m [33mBash[0m [2mList voxkit source files[0m
+  [36m// [36mGrep[0m [2m"deepgram|whisper" ~/startups/active/supervox/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase3/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [36m// [36mGrep[0m [2m"structured.*section|format.*clipboard|export.*markdown" ~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
+  [32m$ [0m [33mBash[0m [2mList public storage functions[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [32m$ [0m [33mBash[0m [2mSearch for waveform implementation[0m
+  [32m$ [0m [33mBash[0m [2mSearch for bookmark implementation[0m
+  [32m$ [0m [33mBash[0m [2mCheck for bookmark hotkey in live mode[0m
+  [32m$ [0m [33mBash[0m [2mCheck for Deepgram or Whisper backends[0m
+  [32m$ [0m [33mBash[0m [2mCheck export markdown function[0m
+  [32m$ [0m [33mBash[0m [2mCheck Ollama/local LLM support[0m
+  [32m$ [0m [33mBash[0m [2mCheck STT backend options in config[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/schemas/config.json[0m
+  [32m$ [0m [33mBash[0m [2mCheck speaker diarization labels[0m
+  [32m$ [0m [33mBash[0m [2mCheck AudioSource label implementation[0m
+  [32m$ [0m [33mBash[0m [2mCheck AudioSource label method[0m
+
+Good. Three Phase 3 items remain: audio waveform, bookmarks, configurable STT. Let me determine priority and research the codebase for the plan.
+
+**Bookmarks during live calls** is the highest-priority remaining feature — it's a core productivity tool that helps users mark key moments for later review. Let me research the affected files.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
+
+Now let me read the live mode and check schemas to understand the full data model.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
+  [36m**[0m [36mGlob[0m [2m"schemas/*.json" ~/startups/active/supervox[0m
+
+Now let me check the help overlay and read the rest of the audio module to see how calls are saved.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/help.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
+
+I have a thorough understanding of the codebase. Let me check the analysis mode rendering to complete my research.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/schemas/call.json[0m
+
+Now I have full context. Let me create the plan.
+  [32m$ [0m [33mBash[0m [2mCreate track directory[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/live-bookmarks_20260320/spec.md[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/live-bookmarks_20260320/plan.md[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': "Plan ready for live-bookmarks_20260320. 3 pha[0m
+
+Track created: **live-bookmarks_20260320**
+
+```
+Type:   Feature
+Phases: 3
+Tasks:  13
+Spec:   docs/plan/live-bookmarks_20260320/spec.md
+Plan:   docs/plan/live-bookmarks_20260320/plan.md
+
+Research findings:
+  - 3 Phase 3 items remain: bookmarks, audio waveform, configurable STT
+  - Bookmarks highest priority — core productivity feature for call assistant
+  - Call struct already uses #[serde(default)] pattern (audio_path, tags) — same approach for bookmarks
+  - LiveState.elapsed_secs() already returns recording time — bookmark timestamp source
+  - handle_live_key() has clear pattern for adding new keys ('r', 's', 'h')
+  - export_call_markdown() has clean section pattern to extend
+
+Next: /build live-bookmarks_20260320
+```Track created: **live-bookmarks_20260320**
+
+```
+Type:   Feature
+Phases: 3
+Tasks:  13
+Spec:   docs/plan/live-bookmarks_20260320/spec.md
+Plan:   docs/plan/live-bookmarks_20260320/plan.md
+
+Research findings:
+  - 3 Phase 3 items remain: bookmarks, audio waveform, configurable STT
+  - Bookmarks highest priority — core productivity feature for call assistant
+  - Call struct already uses #[serde(default)] pattern (audio_path, tags) — same approach for bookmarks
+  - LiveState.elapsed_secs() already returns recording time — bookmark timestamp source
+  - handle_live_key() has clear pattern for adding new keys ('r', 's', 'h')
+  - export_call_markdown() has clean section pattern to extend
+
+Next: /build live-bookmarks_20260320
+```

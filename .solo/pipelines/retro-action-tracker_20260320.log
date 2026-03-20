@@ -1,119 +1,176 @@
-  [2msession: f45b722a  model: claude-opus-4-6[1m][0m
+  [2msession: d50eb9ec  model: claude-opus-4-6[1m][0m
 Starting retro for **supervox**. Let me locate all artifacts first.
-  [36m**[0m [36mGlob[0m [2m".solo/pipelines/iter-*.log" ~/startups/active/supervox[0m
-  [36m**[0m [36mGlob[0m [2m".solo/pipelines/pipeline*.log" ~/startups/active/supervox[0m
-  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*.md" ~/startups/active/supervox[0m
-  [36m**[0m [36mGlob[0m [2m"docs/plan/**/*.md" ~/startups/active/supervox[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/progress.md[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/**/*" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan/**/*" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/solo-pipeline-supervox.local.md" ~/startups/active/supervox[0m
   [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/eval-dimensions.md[0m
   [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/failure-catalog.md[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
 
-Found 8 iter logs, 3 pipeline logs, 11 completed plan tracks, 1 active plan. Let me read the pipeline log and sample key iter logs.
+Found 13 completed plan tracks and pipeline logs. Let me parse them all in parallel.
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/pipeline.log[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-005-build.log[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-007-review.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/progress.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/pipeline-20260320-013628.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/pipeline-20260320-014937.log[0m
 
-Now let me gather plan fidelity data and git/code quality metrics.
-  [32m$ [0m [33mBash[0m [2mRecent commits[0m
+Good — I have the full pipeline log. Now let me parse plan fidelity and gather git/code quality data in parallel.
+  [2m--[0m [36mAgent[0m [2mParse plan fidelity for all tracks[0m
+  [32m$ [0m [33mBash[0m [2mRecent commit history[0m
   [32m$ [0m [33mBash[0m [2mTotal commit count[0m
-  [32m$ [0m [33mBash[0m [2mCount conventional commits[0m
   [32m$ [0m [33mBash[0m [2mCommitter breakdown[0m
-  [32m$ [0m [33mBash[0m [2mRun test suite[0m
-  [32m$ [0m [33mBash[0m [2mPlan fidelity check for all tracks[0m
-  [32m$ [0m [33mBash[0m [2mGet all test result lines[0m
+  [32m$ [0m [33mBash[0m [2mRun workspace tests[0m
   [32m$ [0m [33mBash[0m [2mRun clippy[0m
+  [36m**[0m [36mGlob[0m [2m"**/spec.md" ~/startups/active/supervox/docs/plan-done[0m
+  [36m**[0m [36mGlob[0m [2m"**/plan.md" ~/startups/active/supervox/docs/plan-done[0m
+  [36m**[0m [36mGlob[0m [2m"**/spec.md" ~/startups/active/supervox/docs/plan[0m
+  [36m**[0m [36mGlob[0m [2m"**/plan.md" ~/startups/active/supervox/docs/plan[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase1/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase1/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase2/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase2/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase3/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase3/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase4/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase4/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/realtime-live_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/realtime-live_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/analysis-agent-wire_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/analysis-agent-wire_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/ux-polish_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/ux-polish_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-management_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-management_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-insights_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-insights_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-stats_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-stats_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-filter_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-filter_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/action-tracker_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/action-tracker_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/audio-save_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/audio-save_20260320/plan.md[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/spec.md[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
-  [32m$ [0m [33mBash[0m [2mCount conventional commits (with or without scope)[0m
+
+Now let me count conventional commits and check the failed iter logs.
+  [32m$ [0m [33mBash[0m [2mCount conventional commits[0m
   [32m$ [0m [33mBash[0m [2mShow non-conventional commits[0m
-  [32m$ [0m [33mBash[0m [2mCheck CLAUDE.md size[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-002-deploy.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-004-review.log[0m
 
-Now I have the complete picture. The existing retro at `docs/retro/2026-03-20-retro.md` already comprehensively covers all 8 pipeline runs. Since the last retro, only one thing changed: auto-plan generated action-tracker_20260320, hit the 6h global timeout, and no new build iterations occurred.
+Let me get the committer info and check the false starts timeline.
+  [32m$ [0m [33mBash[0m [2mCommitter breakdown with --all flag[0m
+  [32m$ [0m [33mBash[0m [2mCLAUDE.md size[0m
 
-Let me update the retro and CLAUDE.md to reflect the final state.
+Let me check the end of the failed deploy iter log and the earlier false start details.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-002-deploy.log[0m
+
+Good — the current deploy log has doubled `<solo:done/>` signal. The original failed deploy from Phase 1 was overwritten by later runs. Now let me check the earlier run's failed deploy log if available, and create the retro report.
+  [32m$ [0m [33mBash[0m [2mCheck retro directory[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-003-deploy.log[0m
+
+Now let me check if evolution.md exists and read the existing retro for reference.
+  [32m$ [0m [33mBash[0m [2mCheck evolution.md[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/CLAUDE.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
 
-All data collected. Let me write the updated retro report.
+I have all the data. Let me compile the updated retro — the previous one covered 10 runs, now there are 12 (action-tracker was successfully recovered). Let me write the report and check the factory skills in parallel.
+  [2m--[0m [36mAgent[0m [2mRead factory skills for critique[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/build/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/deploy/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/review/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [36m// [36mGrep[0m [2m"TIMEOUT.*state|timeout.*STATES_DIR|rm.*STATES_DIR.*timeout" ~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [36m// [36mGrep[0m [2m"Global timeout|MAX_SECONDS|ELAPSED.*MAX" ~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [36m// [36mGrep[0m [2m"^check_timeout\(\)|function check_timeout" ~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [32m$ [0m [33mBash[0m [2mFind all mentions of check_timeout function[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [32m$ [0m [33mBash[0m [2mFind check_timeout function definition with context[0m
+  [32m$ [0m [33mBash[0m [2mFind check_timeout context in file[0m
+  [32m$ [0m [33mBash[0m [2mExtract check_timeout function body[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [32m$ [0m [33mBash[0m [2mFind all check_ function definitions[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [32m$ [0m [33mBash[0m [2mFind check_timeout function with awk[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [32m$ [0m [33mBash[0m [2mCount total lines in solo-dev.sh[0m
+  [32m$ [0m [33mBash[0m [2mSearch for check_timeout in first 200 lines[0m
+  [32m$ [0m [33mBash[0m [2mFind context before check_timeout call[0m
+  [32m$ [0m [33mBash[0m [2mTry to find check_timeout definition[0m
+  [36m// [36mGrep[0m [2m"signal|SIGINT|trap|interrupt|cancel" ~/.claude/plugins/cache/solo/solo/1.19.0/skills/build/SKILL.md[0m
+  [36m// [36mGrep[0m [2m"project.type|project_type|detect.*type|stack.*type" ~/.claude/plugins/cache/solo/solo/1.19.0/skills/deploy/SKILL.md[0m
+  [36m// [36mGrep[0m [2m"library|CLI|tool|package" ~/.claude/plugins/cache/solo/solo/1.19.0/skills/deploy/SKILL.md[0m
+  [36m// [36mGrep[0m [2m"redo|re-do|repeat|retry|cycle|go back" ~/.claude/plugins/cache/solo/solo/1.19.0/skills/review/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/review/SKILL.md[0m
 
-**Summary of findings:**
-- 8 pipeline runs, 28 iterations, 26 productive (93%)
-- 187 tests passing, clippy clean, 106/106 commits conventional
-- 11 tracks done (84 criteria, 253 tasks, all with SHAs)
-- Next track queued: action-tracker_20260320 (10 criteria, 14 tasks)
-- 6h global timeout hit cleanly after run 8
-- Score: 9.1/10 (unchanged)
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+Good. Factory analysis confirms the state cleanup on timeout was **NOT fixed** since last retro. Let me update evolution.md and present the summary.
   [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/evolution.md[0m
 
-Now the interactive phase — presenting the summary.
+Now the summary and interactive patching.
+
+## Retro Summary: supervox (2026-03-20)
+
+**Overall Score: 8.6/10** (up from 8.4)
+
+### Key Metrics
+- **34 iterations**, 32 productive (94%), 2 wasted (6%)
+- **10 tracks built**, all at **100% plan fidelity** with SHA annotations
+- **131 commits**, 100% conventional format
+- **211 tests** passing, clippy clean, build green
+- **~7h 15m** total for 10 feature tracks (~33 min avg)
+
+### Top 3 Failure Patterns
+1. **State leak on timeout** (CRITICAL) — action-tracker falsely archived. Workaround applied (re-built), but `solo-dev.sh` fix NOT applied.
+2. **Pre-start instability** — 6 aborted starts from rate limits
+3. **Deploy scope confusion** — 1 wasted iter on CLI/TUI project (self-corrected)
+
+### Top 3 Recommendations
+1. **[CRITICAL]** Fix `solo-dev.sh` — state cleanup on timeout (defect persists)
+2. **[HIGH]** Deploy skill — add CLI/TUI project-type detection
+3. **[MEDIUM]** Pre-flight validation in `solo-dev.sh`
+
+### Three-Axis Growth
+- **Technical: 10/10** — full voice pipeline, 6 agent tools, 10 feature tracks
+- **Cognitive: 10/10** — state leak identified and recovered, progressive learning
+- **Process: 8/10** — state leak defect in factory, pre-start instability
 
 ---
 
-## Retro: supervox (2026-03-20) — Score: 9.1/10
+Both suggested patches target **factory files** (solo-dev.sh, deploy SKILL.md), not the supervox project itself. CLAUDE.md is at 12,292 bytes — well under the 40K limit, content is current, no revision needed.
 
-### Pipeline Summary
+<solo:done/>Now the summary and interactive patching.
 
-| Metric | Value |
-|--------|-------|
-| Runs | 8 completed, 1 queued |
-| Iterations | 28 total, 26 productive (93%) |
-| Wasted | 2 (7%) — both in Run 1 only |
-| Duration | ~314 min (5h 14m) |
-| Tracks completed | 8 (phase1, realtime-live, analysis-agent-wire, ux-polish, call-management, call-insights, call-stats, call-filter) |
-| Tests | 187 pass, 0 fail |
-| Commits | 106, 100% conventional |
+## Retro Summary: supervox (2026-03-20)
 
-### Top 3 Findings
+**Overall Score: 8.6/10** (up from 8.4)
 
-1. **Runs 2-8 flawless** — 21/21 productive iterations, zero waste. Auto-plan progressively improved: 124m -> 32m -> 28m -> 32m -> 23m -> 30m -> 23m -> 22m.
+### Key Metrics
+- **34 iterations**, 32 productive (94%), 2 wasted (6%)
+- **10 tracks built**, all at **100% plan fidelity** with SHA annotations
+- **131 commits**, 100% conventional format
+- **211 tests** passing, clippy clean, build green
+- **~7h 15m** total for 10 feature tracks (~33 min avg)
 
-2. **Single failure pattern** — Deploy iter 2 in Run 1 stalled on AskUserQuestion (CLI/TUI scope confusion). Self-corrected in all subsequent runs.
+### Top 3 Failure Patterns
+1. **State leak on timeout** (CRITICAL) — action-tracker falsely archived. Workaround applied (re-built), but `solo-dev.sh` fix NOT applied.
+2. **Pre-start instability** — 6 aborted starts from rate limits
+3. **Deploy scope confusion** — 1 wasted iter on CLI/TUI project (self-corrected)
 
-3. **action-tracker_20260320 queued** — Auto-plan generated next track (action items with persistent completion state). Ready for `/build`.
+### Top 3 Recommendations
+1. **[CRITICAL]** Fix `solo-dev.sh` — state cleanup on timeout (defect persists)
+2. **[HIGH]** Deploy skill — add CLI/TUI project-type detection
+3. **[MEDIUM]** Pre-flight validation in `solo-dev.sh`
 
-### Recommendations
-
-1. **[HIGH]** Deploy skill needs CLI/TUI project-type detection to prevent AskUserQuestion stalls
-2. **[MEDIUM]** Add `cargo-tarpaulin` for coverage metrics (187 tests but coverage % unknown)
-3. **[LOW]** GitHub Actions CI for PR validation
-
-No patches to apply — codebase is clean. CLAUDE.md at 9.8K, well under limit, no trimming needed.
-
-<solo:done/>Now the interactive phase — presenting the summary.
+### Three-Axis Growth
+- **Technical: 10/10** — full voice pipeline, 6 agent tools, 10 feature tracks
+- **Cognitive: 10/10** — state leak identified and recovered, progressive learning
+- **Process: 8/10** — state leak defect in factory, pre-start instability
 
 ---
 
-## Retro: supervox (2026-03-20) — Score: 9.1/10
-
-### Pipeline Summary
-
-| Metric | Value |
-|--------|-------|
-| Runs | 8 completed, 1 queued |
-| Iterations | 28 total, 26 productive (93%) |
-| Wasted | 2 (7%) — both in Run 1 only |
-| Duration | ~314 min (5h 14m) |
-| Tracks completed | 8 (phase1, realtime-live, analysis-agent-wire, ux-polish, call-management, call-insights, call-stats, call-filter) |
-| Tests | 187 pass, 0 fail |
-| Commits | 106, 100% conventional |
-
-### Top 3 Findings
-
-1. **Runs 2-8 flawless** — 21/21 productive iterations, zero waste. Auto-plan progressively improved: 124m -> 32m -> 28m -> 32m -> 23m -> 30m -> 23m -> 22m.
-
-2. **Single failure pattern** — Deploy iter 2 in Run 1 stalled on AskUserQuestion (CLI/TUI scope confusion). Self-corrected in all subsequent runs.
-
-3. **action-tracker_20260320 queued** — Auto-plan generated next track (action items with persistent completion state). Ready for `/build`.
-
-### Recommendations
-
-1. **[HIGH]** Deploy skill needs CLI/TUI project-type detection to prevent AskUserQuestion stalls
-2. **[MEDIUM]** Add `cargo-tarpaulin` for coverage metrics (187 tests but coverage % unknown)
-3. **[LOW]** GitHub Actions CI for PR validation
-
-No patches to apply — codebase is clean. CLAUDE.md at 9.8K, well under limit, no trimming needed.
+Both suggested patches target **factory files** (solo-dev.sh, deploy SKILL.md), not the supervox project itself. CLAUDE.md is at 12,292 bytes — well under the 40K limit, content is current, no revision needed.
 
 <solo:done/>
