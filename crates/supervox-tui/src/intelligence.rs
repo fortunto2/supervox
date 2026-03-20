@@ -175,6 +175,7 @@ mod tests {
             capture: "mic".into(),
             llm_backend: "auto".into(),
             ollama_model: "llama3.2:3b".into(),
+            whisper_model: "base".into(),
         }
     }
 
