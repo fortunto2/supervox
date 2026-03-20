@@ -17,14 +17,14 @@ This track adds:
 
 ## Acceptance Criteria
 
-- [ ] `supervox stats` shows: total calls, total duration, analysis coverage %, top 5 themes, calls this week/month
-- [ ] `supervox stats --json` outputs CallStats as JSON
-- [ ] `supervox analyze-all` processes all calls without `.analysis.json`, shows progress
-- [ ] `supervox analyze-all --dry-run` lists unanalyzed calls without processing
-- [ ] `supervox calls` output shows analysis indicator (✓/✗) per call
-- [ ] History mode header shows total calls count + total duration
-- [ ] CallStats type defined in types.rs with JSON schema
-- [ ] Tests cover stats computation, batch analysis logic, and edge cases (empty dir, all analyzed)
+- [x] `supervox stats` shows: total calls, total duration, analysis coverage %, top 5 themes, calls this week/month
+- [x] `supervox stats --json` outputs CallStats as JSON
+- [x] `supervox analyze-all` processes all calls without `.analysis.json`, shows progress
+- [x] `supervox analyze-all --dry-run` lists unanalyzed calls without processing
+- [x] `supervox calls` output shows analysis indicator (✓/✗) per call
+- [x] History mode header shows total calls count + total duration
+- [x] CallStats type defined in types.rs with JSON schema
+- [x] Tests cover stats computation, batch analysis logic, and edge cases (empty dir, all analyzed)
 
 ## Dependencies
 
