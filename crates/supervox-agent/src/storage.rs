@@ -129,6 +129,11 @@ pub fn export_call_markdown(call: &Call, analysis: Option<&CallAnalysis>) -> Str
     if !call.tags.is_empty() {
         md.push_str(&format!("**Tags:** {}\n", call.tags.join(", ")));
     }
+    if let Some(audio) = &call.audio_path
+        && let Some(filename) = std::path::Path::new(audio).file_name()
+    {
+        md.push_str(&format!("**Audio:** {}\n", filename.to_string_lossy()));
+    }
 
     md.push_str("\n## Transcript\n\n");
     md.push_str(&call.transcript);
@@ -608,6 +613,21 @@ mod tests {
         let md = export_call_markdown(&call, None);
         assert!(md.contains("## Translation"));
         assert!(md.contains("Translated text"));
+    }
+
+    #[test]
+    fn export_markdown_with_audio_path() {
+        let mut call = make_call("exp4", "Audio call");
+        call.audio_path = Some("/home/user/.supervox/calls/20260320-exp4.wav".into());
+        let md = export_call_markdown(&call, None);
+        assert!(md.contains("**Audio:** 20260320-exp4.wav"));
+    }
+
+    #[test]
+    fn export_markdown_without_audio_path() {
+        let call = make_call("exp5", "No audio");
+        let md = export_call_markdown(&call, None);
+        assert!(!md.contains("**Audio:**"));
     }
 
     fn make_analysis() -> CallAnalysis {
