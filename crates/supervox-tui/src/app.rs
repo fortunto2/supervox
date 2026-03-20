@@ -271,6 +271,8 @@ impl App {
                 duration_secs,
                 audio_path,
             } => {
+                // Take bookmarks from LiveState (pipeline doesn't know about them)
+                let bookmarks = std::mem::take(&mut self.live_state.bookmarks);
                 self.live_state.stop_recording();
                 let calls_dir = supervox_agent::storage::default_calls_dir();
                 match crate::audio::save_recorded_call(
@@ -278,6 +280,7 @@ impl App {
                     duration_secs,
                     &calls_dir,
                     audio_path.as_deref(),
+                    &bookmarks,
                 ) {
                     Ok(_call_id) => {
                         if transcript.is_empty() {
@@ -641,6 +644,19 @@ fn handle_live_key(app: &mut App, key: crossterm::event::KeyEvent) {
                     app.status = format!("Mic error: {e}");
                 }
             }
+        }
+        KeyCode::Char('b') if app.live_state.is_recording => {
+            let bm = app.live_state.add_bookmark();
+            let secs = bm.timestamp_secs as u64;
+            let mins = secs / 60;
+            let s = secs % 60;
+            app.status = format!("Bookmark added ({mins}:{s:02})");
+            // Insert visual marker in transcript
+            app.live_state.lines.push(modes::live::TranscriptLine {
+                source: crate::audio::AudioSource::Mic,
+                text: format!("▶ Bookmark at {mins}:{s:02}"),
+                is_translation: false,
+            });
         }
         KeyCode::Char('s') if app.live_state.is_recording => {
             app.audio.stop();

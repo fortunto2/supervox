@@ -5,6 +5,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use std::time::Instant;
+use supervox_agent::types::Bookmark;
 
 /// A single line in the transcript view — either speech or its translation.
 #[derive(Debug, Clone)]
@@ -24,6 +25,7 @@ pub struct LiveState {
     pub recording_start: Option<Instant>,
     pub audio_level: f32,
     pub stt_backend: String,
+    pub bookmarks: Vec<Bookmark>,
 }
 
 impl Default for LiveState {
@@ -36,6 +38,7 @@ impl Default for LiveState {
             recording_start: None,
             audio_level: 0.0,
             stt_backend: "realtime".into(),
+            bookmarks: Vec::new(),
         }
     }
 }
@@ -53,6 +56,18 @@ impl LiveState {
         self.lines.clear();
         self.summary_lines.clear();
         self.current_delta = None;
+        self.bookmarks.clear();
+    }
+
+    /// Add a bookmark at the current elapsed time.
+    pub fn add_bookmark(&mut self) -> Bookmark {
+        let timestamp_secs = self.elapsed_secs() as f64;
+        let bookmark = Bookmark {
+            timestamp_secs,
+            note: None,
+        };
+        self.bookmarks.push(bookmark.clone());
+        bookmark
     }
 
     pub fn stop_recording(&mut self) {
@@ -219,7 +234,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
         " 0:00 ".into()
     };
 
-    let status_line = Line::from(vec![
+    let mut status_spans = vec![
         mic_indicator,
         Span::styled(level_bar, Style::default().fg(Color::Green)),
         Span::raw(" │ "),
@@ -229,12 +244,24 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
         ),
         Span::raw(" │ "),
         Span::styled(timer, Style::default().fg(Color::White)),
-        Span::raw(" │ "),
-        Span::styled(
-            " r=record s=stop ?=help q=quit ",
-            Style::default().fg(Color::DarkGray),
-        ),
-    ]);
+    ];
+
+    if !state.bookmarks.is_empty() {
+        let count = state.bookmarks.len();
+        status_spans.push(Span::raw(" │ "));
+        status_spans.push(Span::styled(
+            format!("{count} bookmark{}", if count == 1 { "" } else { "s" }),
+            Style::default().fg(Color::Yellow),
+        ));
+    }
+
+    status_spans.push(Span::raw(" │ "));
+    status_spans.push(Span::styled(
+        " r=record s=stop ?=help q=quit ",
+        Style::default().fg(Color::DarkGray),
+    ));
+
+    let status_line = Line::from(status_spans);
 
     f.render_widget(
         Paragraph::new(status_line).style(Style::default().bg(Color::Black)),
@@ -324,6 +351,41 @@ mod tests {
         state.set_summary("Line 1\nLine 2\nLine 3");
         assert_eq!(state.summary_lines.len(), 3);
         assert_eq!(state.summary_lines[0], "Line 1");
+    }
+
+    #[test]
+    fn add_bookmark_during_recording() {
+        let mut state = LiveState::default();
+        state.start_recording();
+        assert!(state.bookmarks.is_empty());
+
+        let bm = state.add_bookmark();
+        assert_eq!(state.bookmarks.len(), 1);
+        assert!(bm.note.is_none());
+        // Timestamp should be >= 0 (recording just started)
+        assert!(bm.timestamp_secs >= 0.0);
+    }
+
+    #[test]
+    fn bookmarks_cleared_on_start() {
+        let mut state = LiveState::default();
+        state.start_recording();
+        state.add_bookmark();
+        assert_eq!(state.bookmarks.len(), 1);
+
+        // Starting new recording clears bookmarks
+        state.start_recording();
+        assert!(state.bookmarks.is_empty());
+    }
+
+    #[test]
+    fn multiple_bookmarks() {
+        let mut state = LiveState::default();
+        state.start_recording();
+        state.add_bookmark();
+        state.add_bookmark();
+        state.add_bookmark();
+        assert_eq!(state.bookmarks.len(), 3);
     }
 
     #[test]

@@ -206,6 +206,42 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         lines.push(Line::from(""));
     }
 
+    // Show bookmarks if present
+    {
+        let bookmarks = state
+            .call_id
+            .as_ref()
+            .and_then(|id| {
+                let calls_dir = supervox_agent::storage::default_calls_dir();
+                supervox_agent::storage::load_call(&calls_dir, id)
+                    .ok()
+                    .filter(|call| !call.bookmarks.is_empty())
+                    .map(|call| call.bookmarks)
+            })
+            .unwrap_or_default();
+        if !bookmarks.is_empty() {
+            lines.push(Line::from(Span::styled(
+                "Bookmarks:",
+                Style::default().add_modifier(Modifier::BOLD),
+            )));
+            for bm in &bookmarks {
+                let secs = bm.timestamp_secs as u64;
+                let mins = secs / 60;
+                let s = secs % 60;
+                let label = if let Some(note) = &bm.note {
+                    format!("  ▶ {mins}:{s:02} — {note}")
+                } else {
+                    format!("  ▶ {mins}:{s:02}")
+                };
+                lines.push(Line::from(Span::styled(
+                    label,
+                    Style::default().fg(Color::Yellow),
+                )));
+            }
+            lines.push(Line::from(""));
+        }
+    }
+
     if !state.action_items.is_empty() {
         lines.push(Line::from(Span::styled(
             "Action Items:",

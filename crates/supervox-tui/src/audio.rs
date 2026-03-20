@@ -352,6 +352,7 @@ pub fn save_recorded_call(
     duration_secs: f64,
     calls_dir: &Path,
     temp_audio_path: Option<&str>,
+    bookmarks: &[supervox_agent::types::Bookmark],
 ) -> Result<String, String> {
     use chrono::Utc;
     use supervox_agent::types::Call;
@@ -398,7 +399,7 @@ pub fn save_recorded_call(
         translation: None,
         tags: vec![],
         audio_path: final_audio_path,
-        bookmarks: vec![],
+        bookmarks: bookmarks.to_vec(),
     };
 
     supervox_agent::storage::save_call(calls_dir, &call).map_err(|e| format!("Save error: {e}"))?;

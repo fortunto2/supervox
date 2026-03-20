@@ -8,6 +8,7 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 const LIVE_KEYS: &[(&str, &str)] = &[
     ("r", "Start recording"),
     ("s", "Stop recording"),
+    ("b", "Add bookmark"),
     ("h", "Call history"),
     ("q", "Quit"),
     ("Esc", "Quit (when idle)"),
