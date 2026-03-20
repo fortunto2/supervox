@@ -33,6 +33,27 @@ supervox agent                   # chat with history
 supervox calls                   # list past calls
 ```
 
+### Analysis mode
+
+Opens a call JSON file, runs LLM analysis automatically (summary, action items, mood, themes).
+
+| Key | Action |
+|-----|--------|
+| `f` | Generate follow-up email |
+| `c` | Copy analysis to clipboard |
+| `C` | Copy follow-up to clipboard |
+| Arrow keys | Scroll |
+| `q` | Quit |
+
+### Agent mode
+
+Chat with your call history. The agent loads the last 10 calls as context and streams LLM responses in real-time.
+
+| Key | Action |
+|-----|--------|
+| Type + Enter | Send question |
+| Esc | Quit |
+
 ## Tech Stack
 
 | Layer | Technology |

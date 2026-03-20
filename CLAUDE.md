@@ -15,7 +15,7 @@ supervox/
   crates/
     voxkit/              — Voice pipeline: STT, VAD, TTS (Rust, 148 tests) ✓ DONE
     supervox-agent/      — 3-mode agent: tools + storage + config ✓ DONE
-    supervox-tui/        — ratatui TUI with mode switching ✓ Live mode DONE
+    supervox-tui/        — ratatui TUI with mode switching ✓ All 3 modes DONE
   schemas/               — JSON schemas: call, analysis, config
   docs/
     plan/                — Track-based implementation plans
@@ -87,8 +87,22 @@ system audio → SystemAudioCapture::start_raw() → resample_to_24k() → separ
                                                                      ↓
                                                ┌─ translate (async per final) → left panel
                                                └─ rolling_summary (timer) → right panel
-on stop → save call → auto-switch to Analysis mode
+on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 ```
+
+### Analysis Mode
+- Auto-triggers `analyze_call` (structured LLM output → CallAnalysis)
+- Maps results to AnalysisState: summary, action_items, decisions, open_questions, mood, themes
+- 'f' key: generate follow-up email via `draft_follow_up`
+- 'c' key: copy analysis to clipboard
+- 'C' key: copy follow-up to clipboard
+- Loading state shown during LLM call
+
+### Agent Mode
+- Loads last 10 calls as context on startup
+- Streams LLM responses via `Llm::stream_complete`
+- System prompt with call history injected
+- "Thinking..." state while awaiting response
 
 ### Key types
 - `AudioSource::Mic | System` — "You:" vs "Them:" labels
@@ -99,6 +113,19 @@ on stop → save call → auto-switch to Analysis mode
 ### Intelligence module (`crates/supervox-tui/src/intelligence.rs`)
 - `start_translation_pipeline()` — spawns async task per final transcript
 - `start_summary_pipeline()` — timer-based (config `summary_lag_secs`), keeps prior context
+
+### Analysis pipeline (`crates/supervox-tui/src/analysis_pipeline.rs`)
+- `analyze_transcript()` — structured LLM output → CallAnalysis
+- `draft_follow_up()` — LLM generates follow-up email
+
+### Agent loop (`crates/supervox-tui/src/agent_loop.rs`)
+- `build_calls_context()` — loads recent calls as LLM context
+- `run_agent_query()` — streaming LLM query with call history
+
+### AppEvent (`crates/supervox-tui/src/app.rs`)
+- `AnalysisReady(CallAnalysis)` / `AnalysisError(String)` — analysis results
+- `FollowUpReady(String)` / `FollowUpError(String)` — follow-up results
+- `AgentChunk(String)` / `AgentDone` / `AgentError(String)` — agent streaming
 
 ## Config
 
