@@ -161,6 +161,8 @@ pub struct Config {
     pub llm_backend: String,
     #[serde(default = "default_ollama_model")]
     pub ollama_model: String,
+    #[serde(default = "default_whisper_model")]
+    pub whisper_model: String,
 }
 
 fn default_language() -> String {
@@ -183,6 +185,9 @@ fn default_llm_backend() -> String {
 }
 fn default_ollama_model() -> String {
     "llama3.2:3b".into()
+}
+fn default_whisper_model() -> String {
+    "base".into()
 }
 
 impl Config {
@@ -209,6 +214,7 @@ impl Default for Config {
             capture: default_capture(),
             llm_backend: default_llm_backend(),
             ollama_model: default_ollama_model(),
+            whisper_model: default_whisper_model(),
         }
     }
 }
@@ -450,6 +456,7 @@ mod tests {
         assert_eq!(cfg.capture, "mic+system");
         assert_eq!(cfg.llm_backend, "auto");
         assert_eq!(cfg.ollama_model, "llama3.2:3b");
+        assert_eq!(cfg.whisper_model, "base");
     }
 
     #[test]
