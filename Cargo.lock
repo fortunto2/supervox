@@ -726,6 +726,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dotenvy"
+version = "0.15.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
+
+[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3011,7 +3017,7 @@ dependencies = [
 
 [[package]]
 name = "sgr-agent-tui"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "crossterm 0.27.0",
@@ -3200,7 +3206,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "supervox-agent"
-version = "0.4.0"
+version = "0.6.1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -3221,13 +3227,14 @@ dependencies = [
 
 [[package]]
 name = "supervox-tui"
-version = "0.4.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "arboard",
  "chrono",
  "clap",
  "crossterm 0.27.0",
+ "dotenvy",
  "hound",
  "ratatui",
  "serde",
@@ -3992,7 +3999,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "voxkit"
-version = "0.1.0"
+version = "0.6.1"
 dependencies = [
  "async-trait",
  "base64",
