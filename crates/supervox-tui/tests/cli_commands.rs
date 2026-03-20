@@ -195,3 +195,74 @@ fn insights_cli_help_shows_command() {
         "CLI help should list 'insights' command"
     );
 }
+
+#[test]
+fn import_cli_help_shows_command() {
+    let output = std::process::Command::new("cargo")
+        .args(["run", "-p", "supervox-tui", "--", "import", "--help"])
+        .output()
+        .expect("failed to run cargo");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("audio file"),
+        "import --help should mention audio file"
+    );
+    assert!(
+        stdout.contains("--no-analyze"),
+        "import --help should list --no-analyze flag"
+    );
+    assert!(
+        stdout.contains("--json"),
+        "import --help should list --json flag"
+    );
+    assert!(
+        stdout.contains("--language"),
+        "import --help should list --language option"
+    );
+}
+
+#[test]
+fn import_rejects_unsupported_format() {
+    let tmp = tempfile::tempdir().unwrap();
+    let txt_file = tmp.path().join("recording.txt");
+    std::fs::write(&txt_file, b"not audio").unwrap();
+
+    let output = std::process::Command::new("cargo")
+        .args([
+            "run",
+            "-p",
+            "supervox-tui",
+            "--",
+            "import",
+            txt_file.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to run cargo");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Unsupported format"),
+        "Should reject .txt files: {stderr}"
+    );
+}
+
+#[test]
+fn import_rejects_missing_file() {
+    let output = std::process::Command::new("cargo")
+        .args([
+            "run",
+            "-p",
+            "supervox-tui",
+            "--",
+            "import",
+            "/tmp/nonexistent_supervox_test.wav",
+        ])
+        .output()
+        .expect("failed to run cargo");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("File not found"),
+        "Should reject missing files: {stderr}"
+    );
+}

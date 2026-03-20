@@ -136,6 +136,23 @@ impl WhisperStt {
             duration_secs,
         })
     }
+
+    /// Convenience: load model from path, transcribe an AudioChunk, return Transcript.
+    ///
+    /// One-shot batch transcription — loads context, transcribes, done.
+    pub fn transcribe_file(
+        model_path: &Path,
+        audio: &AudioChunk,
+        language: &str,
+    ) -> Result<Transcript, SttError> {
+        let ctx = WhisperContext::new_with_params(
+            model_path.to_str().unwrap_or(""),
+            WhisperContextParameters::default(),
+        )
+        .map_err(|e| SttError::Other(format!("Load Whisper model: {e}")))?;
+
+        Self::transcribe_chunk(&ctx, audio, language)
+    }
 }
 
 /// Download a Whisper GGML model if not already present.

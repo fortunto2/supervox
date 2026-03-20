@@ -138,6 +138,20 @@ enum Commands {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Import an external audio file — transcribe, save as Call, optionally analyze
+    Import {
+        /// Path to audio file (WAV, MP3, M4A, FLAC, OGG, WebM)
+        file: String,
+        /// Skip auto-analysis after transcription
+        #[arg(long)]
+        no_analyze: bool,
+        /// Output resulting Call as JSON
+        #[arg(long)]
+        json: bool,
+        /// Override language (ISO 639-1, e.g. "en", "ru")
+        #[arg(long)]
+        language: Option<String>,
+    },
     /// Play audio recording for a call
     Play {
         /// Call ID (suffix match)
@@ -218,6 +232,14 @@ async fn main() -> Result<()> {
         Some(Commands::AnalyzeAll { dry_run }) => {
             cmd_analyze_all(dry_run).await?;
         }
+        Some(Commands::Import {
+            file,
+            no_analyze,
+            json,
+            language,
+        }) => {
+            cmd_import(&file, no_analyze, json, language.as_deref()).await?;
+        }
         Some(Commands::Play { call_id }) => {
             cmd_play(&call_id)?;
         }
@@ -295,6 +317,169 @@ fn cmd_play(call_id: &str) -> Result<()> {
         .arg(&wav_path)
         .status()
         .map_err(|e| anyhow::anyhow!("Failed to open audio player: {e}"))?;
+
+    Ok(())
+}
+
+/// Map file extension to MIME type for supported audio formats.
+fn mime_for_extension(ext: &str) -> Option<&'static str> {
+    match ext.to_ascii_lowercase().as_str() {
+        "wav" => Some("audio/wav"),
+        "mp3" => Some("audio/mpeg"),
+        "m4a" => Some("audio/mp4"),
+        "flac" => Some("audio/flac"),
+        "ogg" => Some("audio/ogg"),
+        "webm" => Some("audio/webm"),
+        _ => None,
+    }
+}
+
+/// Import an external audio file: transcribe → save as Call → optionally analyze.
+async fn cmd_import(
+    file: &str,
+    no_analyze: bool,
+    json: bool,
+    language_override: Option<&str>,
+) -> Result<()> {
+    let path = std::path::Path::new(file);
+
+    // Validate file exists
+    if !path.exists() {
+        anyhow::bail!("File not found: {file}");
+    }
+
+    // Validate extension and get MIME type
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let mime = mime_for_extension(ext).ok_or_else(|| {
+        anyhow::anyhow!("Unsupported format: .{ext}\nSupported: wav, mp3, m4a, flac, ogg, webm")
+    })?;
+
+    let config_path = supervox_agent::storage::default_config_path();
+    let config = supervox_agent::storage::load_config(&config_path)
+        .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;
+    let language = language_override.unwrap_or(&config.my_language);
+
+    let stt_backend = audio::effective_stt_backend(&config);
+
+    eprintln!("Transcribing: {file} ({ext}, {mime})");
+
+    // Transcribe based on backend
+    let transcript = match stt_backend {
+        supervox_agent::types::SttBackend::Whisper => {
+            // Whisper only supports WAV
+            if !ext.eq_ignore_ascii_case("wav") {
+                anyhow::bail!(
+                    "Whisper backend only supports WAV files. Convert first:\n  \
+                     ffmpeg -i {file} output.wav"
+                );
+            }
+            eprintln!("Using Whisper (local) backend...");
+
+            #[cfg(feature = "whisper")]
+            {
+                let model_path = audio::ensure_whisper_model(&config)
+                    .await
+                    .map_err(|e| anyhow::anyhow!(e))?;
+                let chunk =
+                    voxkit::read_wav_file(path).map_err(|e| anyhow::anyhow!("Read WAV: {e}"))?;
+                voxkit::whisper_stt::WhisperStt::transcribe_file(&model_path, &chunk, language)
+                    .map_err(|e| anyhow::anyhow!("Whisper transcribe: {e}"))?
+            }
+            #[cfg(not(feature = "whisper"))]
+            {
+                anyhow::bail!(
+                    "Whisper feature not enabled. Use OpenAI backend or rebuild with --features whisper"
+                );
+            }
+        }
+        supervox_agent::types::SttBackend::Realtime => {
+            // Use OpenAI batch API for import (not realtime streaming)
+            eprintln!("Using OpenAI batch API...");
+            let api_key = std::env::var("OPENAI_API_KEY")
+                .map_err(|_| anyhow::anyhow!("OPENAI_API_KEY not set"))?;
+            let stt = voxkit::openai_stt::OpenAiStt::new(&api_key).with_language(language);
+            let bytes = std::fs::read(path)?;
+            let filename = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("audio.wav");
+            stt.transcribe_file_bytes(&bytes, filename, mime)
+                .await
+                .map_err(|e| anyhow::anyhow!("OpenAI transcribe: {e}"))?
+        }
+    };
+
+    eprintln!(
+        "Transcribed: {} chars, {:.1}s duration",
+        transcript.text.len(),
+        transcript.duration_secs
+    );
+
+    // Create Call
+    let call_id = uuid::Uuid::now_v7().to_string();
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    let now = chrono::Utc::now();
+    let date = now.format("%Y%m%d");
+
+    // Copy audio file to calls dir with canonical name
+    std::fs::create_dir_all(&calls_dir)?;
+    let dest_filename = format!("{date}-{call_id}.{ext}");
+    let dest_path = calls_dir.join(&dest_filename);
+    std::fs::copy(path, &dest_path)?;
+    eprintln!("Audio copied to: {}", dest_path.display());
+
+    let call = supervox_agent::types::Call {
+        id: call_id.clone(),
+        created_at: now,
+        duration_secs: transcript.duration_secs,
+        participants: Vec::new(),
+        language: transcript.language.clone(),
+        transcript: transcript.text.clone(),
+        translation: None,
+        tags: Vec::new(),
+        audio_path: Some(dest_filename),
+        bookmarks: Vec::new(),
+    };
+
+    supervox_agent::storage::save_call(&calls_dir, &call)
+        .map_err(|e| anyhow::anyhow!("Save call: {e}"))?;
+    eprintln!("Call saved: {call_id}");
+
+    // Auto-analyze unless skipped
+    if !no_analyze && !transcript.text.is_empty() {
+        eprintln!("Analyzing...");
+        match analysis_pipeline::analyze_transcript(&transcript.text, config.effective_model())
+            .await
+        {
+            Ok(analysis) => {
+                supervox_agent::storage::save_analysis(&calls_dir, &call_id, &analysis)
+                    .map_err(|e| anyhow::anyhow!("Save analysis: {e}"))?;
+                supervox_agent::storage::update_call_tags(&calls_dir, &call_id, &analysis.themes)
+                    .ok();
+                eprintln!(
+                    "Analysis: {}",
+                    analysis.summary.chars().take(80).collect::<String>()
+                );
+            }
+            Err(e) => {
+                eprintln!("Analysis failed (call still saved): {e}");
+            }
+        }
+    }
+
+    if json {
+        // Re-load to get updated tags
+        let final_call = supervox_agent::storage::load_call(&calls_dir, &call_id)
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+        println!("{}", serde_json::to_string_pretty(&final_call)?);
+    } else {
+        println!("Imported: {call_id}");
+        println!("  Duration: {:.1}s", transcript.duration_secs);
+        println!("  Transcript: {} chars", transcript.text.len());
+        if let Some(lang) = &transcript.language {
+            println!("  Language: {lang}");
+        }
+    }
 
     Ok(())
 }
