@@ -1,0 +1,92 @@
+  [2msession: 496448d3  model: claude-opus-4-6[1m][0m
+Let me gather context in parallel — backlog, completed plans, retro, and recent git history.
+  [36m**[0m [36mGlob[0m [2m"docs/backlog*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan/**/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/retro/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/roadmap*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/prd.md" ~/startups/active/supervox[0m
+  [32m$ [0m [33mBash[0m [2mRecent git history[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/prd.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+
+Let me explore the current codebase to find feature gaps.
+  [32m$ [0m [33mBash[0m [2mList TUI source files[0m
+  [32m$ [0m [33mBash[0m [2mList agent source files[0m
+  [32m$ [0m [33mBash[0m [2mList schemas[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Makefile[0m
+  [32m$ [0m [33mBash[0m [2mList TUI modes[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+  [36m// [36mGrep[0m [2m"TODO|FIXME|HACK|AI-TODO" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/analysis_pipeline.rs[0m
+
+Let me check the workspace setup and any existing CI configuration.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Cargo.toml[0m
+  [36m**[0m [36mGlob[0m [2m".github/**/*" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/Cargo.toml[0m
+
+CI and release workflows already exist. Let me read them.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.github/workflows/ci.yml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.github/workflows/release.yml[0m
+
+CI and release workflows already exist. The infrastructure recommendations from the retro are addressed. Let me identify the next user-facing feature.
+
+Looking at the complete feature set: all 4 modes, 13 CLI commands, analysis, insights, stats, filtering — all done. The natural next high-value feature is **action item tracking**: the LLM extracts action items but users can't mark them done or track them across calls. For a "productivity TUI," this closes the loop.
+
+Let me create the plan.
+  [32m$ [0m [33mBash[0m [2mCreate track directory[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools[0m
+  [32m$ [0m [33mBash[0m [2mList agent tools directory[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/agent_loop.rs[0m
+
+Now I have full context. Let me write the spec and plan.
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/spec.md[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Track: action-tracker_20260320 — persistent a[0m
+
+```
+Track created: action-tracker_20260320
+
+  Type:   Feature
+  Phases: 3
+  Tasks:  11
+  Spec:   docs/plan/action-tracker_20260320/spec.md
+  Plan:   docs/plan/action-tracker_20260320/plan.md
+
+Research findings:
+  - ActionItem has description/assignee/deadline but no ID or completion state
+  - Analysis persisted as .analysis.json — action state needs separate store
+  - AnalysisState renders action items as plain strings with ☐ — easy to enrich
+  - CI + release workflows already exist (.github/workflows/)
+  - All 8 prior tracks complete (187 tests, 106 commits)
+  - Retro recommendations (CI, coverage) already addressed by existing workflows
+
+Next: /build action-tracker_20260320
+``````
+Track created: action-tracker_20260320
+
+  Type:   Feature
+  Phases: 3
+  Tasks:  11
+  Spec:   docs/plan/action-tracker_20260320/spec.md
+  Plan:   docs/plan/action-tracker_20260320/plan.md
+
+Research findings:
+  - ActionItem has description/assignee/deadline but no ID or completion state
+  - Analysis persisted as .analysis.json — action state needs separate store
+  - AnalysisState renders action items as plain strings with ☐ — easy to enrich
+  - CI + release workflows already exist (.github/workflows/)
+  - All 8 prior tracks complete (187 tests, 106 commits)
+  - Retro recommendations (CI, coverage) already addressed by existing workflows
+
+Next: /build action-tracker_20260320
+```

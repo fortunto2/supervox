@@ -1,0 +1,88 @@
+  [2msession: 431ca798  model: claude-opus-4-6[1m][0m
+Starting retro for **supervox**. Let me locate all artifacts first.
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/*.log" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/iter-*.log" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan/**/*.md" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/progress.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/pipeline.log[0m
+
+Found comprehensive pipeline data. 8 pipeline runs, 10 plan tracks cycled. Let me now analyze everything in parallel.
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/eval-dimensions.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/failure-catalog.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [32m$ [0m [33mBash[0m [2mShow recent commits[0m
+  [32m$ [0m [33mBash[0m [2mCount total commits[0m
+  [32m$ [0m [33mBash[0m [2mCommitter breakdown[0m
+
+Good, I have the existing retro covering 7 runs. Now I need to add Run 8 (call-filter_20260320). Let me gather the remaining data.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/call-filter_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/call-filter_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-stats_20260320/spec.md[0m
+  [32m$ [0m [33mBash[0m [2mRun test suite[0m
+  [32m$ [0m [33mBash[0m [2mCount conventional commits[0m
+  [32m$ [0m [33mBash[0m [2mRun clippy[0m
+
+Let me get the full test count and read the evolution doc.
+  [32m$ [0m [33mBash[0m [2mGet test result summary lines[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/deploy/SKILL.md[0m
+
+Now I have everything. Let me read the retro log for call-filter and the pipeline script for factory critique.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/retro-call-filter_20260320.log[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+
+All data collected. Now generating the full retro report for all 8 runs.
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+
+Now update evolution.md with the final 8-run entry.
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+
+Now let me check CLAUDE.md size and see if it needs trimming (Phase 9).
+  [32m$ [0m [33mBash[0m [2mCheck CLAUDE.md size[0m
+
+9.8K — well under 40K. No trimming needed. CLAUDE.md is already up to date with call-filter features (tags command, filter flags, `t` key in History).
+
+Here's the retro summary:
+
+---
+
+## Retro: supervox — 9.1/10
+
+**8 pipeline runs**, 28 iterations, 93% productive (2 wasted in Run 1 only), ~5h 14m total.
+
+**Highlights:**
+- Runs 2-8 all **flawless** (21/21 productive, zero waste)
+- 126/126 tasks done, 84/84 acceptance criteria met — all with SHA annotations
+- 187 tests passing, 106 commits (100% conventional), clippy clean
+- Progressive speedup: 124 min → 22 min per run
+
+**Only defect:** Deploy skill stalled on AskUserQuestion for CLI/TUI project in Run 1 iter 2. Self-corrected in all subsequent runs.
+
+**Top recommendation:** Add project-type detection to deploy skill (Cargo.toml binary targets + TUI/CLI keywords → auto CI/CD defaults).
+
+Report: `docs/retro/2026-03-20-retro.md`
+
+<solo:done/>9.8K — well under 40K. No trimming needed. CLAUDE.md is already up to date with call-filter features (tags command, filter flags, `t` key in History).
+
+Here's the retro summary:
+
+---
+
+## Retro: supervox — 9.1/10
+
+**8 pipeline runs**, 28 iterations, 93% productive (2 wasted in Run 1 only), ~5h 14m total.
+
+**Highlights:**
+- Runs 2-8 all **flawless** (21/21 productive, zero waste)
+- 126/126 tasks done, 84/84 acceptance criteria met — all with SHA annotations
+- 187 tests passing, 106 commits (100% conventional), clippy clean
+- Progressive speedup: 124 min → 22 min per run
+
+**Only defect:** Deploy skill stalled on AskUserQuestion for CLI/TUI project in Run 1 iter 2. Self-corrected in all subsequent runs.
+
+**Top recommendation:** Add project-type detection to deploy skill (Cargo.toml binary targets + TUI/CLI keywords → auto CI/CD defaults).
+
+Report: `docs/retro/2026-03-20-retro.md`
+
+<solo:done/>

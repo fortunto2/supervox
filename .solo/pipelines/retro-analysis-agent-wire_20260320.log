@@ -1,0 +1,105 @@
+  [2msession: 2c98e226  model: claude-opus-4-6[1m][0m
+Starting retro for **supervox**. Phase 1: locating artifacts.
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/*.log" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/iter-*.log" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/progress.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan/**/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/solo-pipeline-supervox.local.md" ~/startups/active/supervox[0m
+
+Found: pipeline.log, 8 iter logs, progress.md, 5 plan-done tracks + 1 active plan. Reading core artifacts now.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/pipeline.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/progress.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/eval-dimensions.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/failure-catalog.md[0m
+
+Phase 2 parsed. Now reading plan fidelity artifacts and running git/quality checks.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase1/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase1/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase2/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase2/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase3/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase3/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase4/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase4/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/realtime-live_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/realtime-live_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/analysis-agent-wire_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/analysis-agent-wire_20260320/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mShow recent commit history[0m
+  [32m$ [0m [33mBash[0m [2mCount total commits[0m
+  [32m$ [0m [33mBash[0m [2mCommitter breakdown[0m
+
+Now running quality checks and sampling iter logs.
+  [32m$ [0m [33mBash[0m [2mRun workspace tests[0m
+  [32m$ [0m [33mBash[0m [2mRun clippy linter[0m
+  [32m$ [0m [33mBash[0m [2mCount conventional commits[0m
+  [32m$ [0m [33mBash[0m [2mCommitter breakdown[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-002-deploy.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-004-review.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-007-review.log[0m
+  [32m$ [0m [33mBash[0m [2mGet test counts per crate[0m
+  [32m$ [0m [33mBash[0m [2mShow earliest commits[0m
+  [36m**[0m [36mGlob[0m [2m"docs/retro/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/evolution.md" ~/startups/active/supervox[0m
+
+Let me check existing retro/evolution files before generating the new report.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/SKILL.md[0m
+
+Existing retro covers runs 1-2. Need to update for the full pipeline including run 3 (analysis-agent-wire). Let me read the complete existing files.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+
+Now I have all the data. Let me read the factory skill files for Phase 10 critique, then write the updated retro.
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/build/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/deploy/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/review/SKILL.md[0m
+
+All data collected. Writing the updated retro report.
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+
+Now updating evolution.md.
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+
+Now Phase 9: CLAUDE.md revision. Let me check its current size.
+  [32m$ [0m [33mBash[0m [2mCheck CLAUDE.md size[0m
+
+CLAUDE.md is 6,626 bytes — well under 40K. Already read it at conversation start. It's accurate and up-to-date with all three modes documented. No revision needed.
+
+Now let me present the summary and offer patches.
+
+---
+
+## Retro Summary: supervox (2026-03-20)
+
+**Overall Score: 8.9/10** (up from 8.5 in previous retro)
+
+### Key Metrics
+- **13 iterations** across 3 pipeline runs, **84.6% productive** (11/13)
+- **110 tests**, 0 failures, clippy clean
+- **52 commits**, 100% conventional format
+- **51/51 plan tasks** completed with SHA annotations across 3 tracks
+- **Total duration:** 178 min (runs got progressively faster: 124m -> 32m -> 22m)
+
+### Top 3 Failure Patterns
+1. **Deploy scope confusion** (Run 1 iter 2) — deploy skill asked AskUserQuestion on CLI/TUI project, stalling pipeline. Fixed itself in Runs 2+3.
+2. **Valid redo cycle** (Run 1 iter 4-7) — review caught UTF-8 slicing bug + missing docs. Not waste — process working correctly.
+3. **Pre-start friction** — 6 aborted starts before successful pipeline (config/rate-limit).
+
+### Top 3 Recommendations
+1. **[HIGH]** Deploy skill needs CLI/TUI project-type auto-detection
+2. **[MEDIUM]** Pre-start validation in solo-dev.sh (catch issues before main loop)
+3. **[MEDIUM]** Phase 4 backlog ready for next pipeline (Ollama, help overlay, history browser)
+
+### Factory Score: 8.8/10
+- Build: 10/10 (flawless across all runs)
+- Deploy: 8/10 (improved from Run 1 failure)
+- Review: 9/10 (caught real bugs, clean passes)
+- Auto-plan: 10/10 (two successful plan evolutions)
+
+Report written to `docs/retro/2026-03-20-retro.md`. Evolution log updated at `docs/evolution.md`.
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Apply patch to deploy SKILL.md? Adds CLI/TUI [0m
+

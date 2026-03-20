@@ -1,0 +1,115 @@
+  [2msession: ebfeabef  model: claude-opus-4-6[1m][0m
+Let me gather all context in parallel — backlog, completed plans, retro, and recent git history.
+  [36m**[0m [36mGlob[0m [2m"docs/backlog*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/roadmap*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*.md" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/prd.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [32m$ [0m [33mBash[0m [2mRecent git history[0m
+
+Let me check the archived Phase 4 plan (marked as unbuilt backlog) and the current codebase state.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase4/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase4/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [32m$ [0m [33mBash[0m [2mList crates[0m
+
+Now let me research the codebase to understand current state and create a focused plan.
+  [2m--[0m [36mAgent[0m [2mResearch supervox codebase state[0m
+  [36m**[0m [36mGlob[0m [2m"**/src/**/*.rs" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"**/Cargo.toml" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"schemas/**/*.json" ~/startups/active/supervox[0m
+  [32m$ [0m [33mBash[0m [2mFind all TOML configuration files[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/agent.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/search.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/lib.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/intelligence.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/analysis_pipeline.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/agent_loop.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/clipboard.rs[0m
+  [36m// [36mGrep[0m [2m"\b(panic!|unwrap\(\)|expect\()" ~/startups/active/supervox/crates/supervox-tui/src[0m
+  [36m// [36mGrep[0m [2m"\b(panic!|unwrap\(\)|expect\()" ~/startups/active/supervox/crates/supervox-agent/src[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/schemas/call.json[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/schemas/call-analysis.json[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/schemas/config.json[0m
+  [36m// [36mGrep[0m [2m"\bunwrap\(|expect\(" ~/startups/active/supervox/crates/supervox-tui/src[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/mod.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/mod.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/analyze.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/translate.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Makefile[0m
+  [32m$ [0m [33mBash[0m [2mList all files in supervox root directory[0m
+  [32m$ [0m [33mBash[0m [2mFind markdown documentation files[0m
+  [36m// [36mGrep[0m [2m"\bhelp|overlay|modal|popup" ~/startups/active/supervox/crates/supervox-tui/src[0m
+  [36m// [36mGrep[0m [2m"KeyCode::Char\('" ~/startups/active/supervox/crates/supervox-tui/src[0m
+
+Now I have a complete picture. The retro explicitly recommends Phase 4 as the next priority. Let me create a focused track based on research findings.
+  [2m--[0m [36mToolSearch[0m [2mselect:TodoWrite[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Research codebase and identify priority items'[0m
+  [32m$ [0m [33mBash[0m [2mCreate track directory[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/ux-polish_20260320/spec.md[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Research codebase and identify priority items'[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/ux-polish_20260320/plan.md[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Research codebase and identify priority items'[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Track ux-polish_20260320 ready. 4 phases, 16 [0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Research codebase and identify priority items'[0m
+
+```
+Track created: ux-polish_20260320
+
+  Type:   Feature
+  Phases: 4
+  Tasks:  16
+  Spec:   docs/plan/ux-polish_20260320/spec.md
+  Plan:   docs/plan/ux-polish_20260320/plan.md
+
+Research findings:
+  - LiveState uses Vec<String> for transcripts — needs TranscriptLine struct for speaker coloring
+  - sgr-agent genai already supports Ollama via LlmConfig::auto() — just needs config wiring
+  - Call/CallAnalysis already derive Serialize — --json is straightforward
+  - No help overlay system exists — hotkeys only shown in status bar text
+  - storage::list_calls() returns sorted Vec<Call> — ready for history browser
+  - Error handling is clean (Result everywhere) but no TUI status bar error display
+
+Phase breakdown:
+  1. TUI Polish — help overlay (?), speaker colors (You:/Them:) [4 tasks]
+  2. Call History Browser — h key, scrollable list, Enter→Analysis [4 tasks]
+  3. CLI Improvements — --json, Ollama config, error resilience [5 tasks]
+  4. Docs & Cleanup — CLAUDE.md, README, clippy clean [3 tasks]
+
+Next: /build ux-polish_20260320
+``````
+Track created: ux-polish_20260320
+
+  Type:   Feature
+  Phases: 4
+  Tasks:  16
+  Spec:   docs/plan/ux-polish_20260320/spec.md
+  Plan:   docs/plan/ux-polish_20260320/plan.md
+
+Research findings:
+  - LiveState uses Vec<String> for transcripts — needs TranscriptLine struct for speaker coloring
+  - sgr-agent genai already supports Ollama via LlmConfig::auto() — just needs config wiring
+  - Call/CallAnalysis already derive Serialize — --json is straightforward
+  - No help overlay system exists — hotkeys only shown in status bar text
+  - storage::list_calls() returns sorted Vec<Call> — ready for history browser
+  - Error handling is clean (Result everywhere) but no TUI status bar error display
+
+Phase breakdown:
+  1. TUI Polish — help overlay (?), speaker colors (You:/Them:) [4 tasks]
+  2. Call History Browser — h key, scrollable list, Enter→Analysis [4 tasks]
+  3. CLI Improvements — --json, Ollama config, error resilience [5 tasks]
+  4. Docs & Cleanup — CLAUDE.md, README, clippy clean [3 tasks]
+
+Next: /build ux-polish_20260320
+```

@@ -43,15 +43,15 @@ Wire tracked actions into CLI with filter support.
 - [x] `supervox actions --json` outputs valid JSON array of TrackedAction
 - [x] Filter flags narrow the call scope
 
-## Phase 3: TUI + Docs
+## Phase 3: TUI + Docs <!-- checkpoint:5928138 -->
 
 Show action item completion status in Analysis mode and update documentation.
 
 ### Tasks
 
-- [x] Task 3.1: Update Analysis mode rendering in `crates/supervox-tui/src/modes/analysis.rs` — load action store, show ☑ (green) for completed items and ☐ for open items instead of always ☐.
-- [x] Task 3.2: Update CLAUDE.md — add `supervox actions` command docs, `ActionState`/`TrackedAction` types, 'a' key binding for Analysis mode.
-- [x] Task 3.3: Remove dead code — unused imports, stale comments. Run `cargo clippy --workspace -- -D warnings` and `cargo fmt --all`.
+- [x] Task 3.1: Update Analysis mode rendering in `crates/supervox-tui/src/modes/analysis.rs` — load action store, show ☑ (green) for completed items and ☐ for open items instead of always ☐. <!-- sha:5928138 -->
+- [x] Task 3.2: Update CLAUDE.md — add `supervox actions` command docs, `ActionState`/`TrackedAction` types, 'a' key binding for Analysis mode. <!-- sha:5928138 -->
+- [x] Task 3.3: Remove dead code — unused imports, stale comments. Run `cargo clippy --workspace -- -D warnings` and `cargo fmt --all`. <!-- sha:5928138 -->
 
 ### Verification
 

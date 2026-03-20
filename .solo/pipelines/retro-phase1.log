@@ -1,0 +1,80 @@
+  [2msession: a83af8ca  model: claude-opus-4-6[1m][0m
+Starting retro for **supervox**. Let me locate all artifacts first.
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/*" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan/**/*" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/solo-pipeline-supervox.local.md" ~/startups/active/supervox[0m
+  [32m$ [0m [33mBash[0m [2mCheck for pipeline state file and count iter logs[0m
+
+Pipeline state file exists — pipeline may have been recently active. Found pipeline.log, 7 iter logs, and progress.md. Let me read the key artifacts now.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/pipeline.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/progress.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.solo/pipelines/solo-pipeline-supervox.local.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/eval-dimensions.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/failure-catalog.md[0m
+
+Good, I have all the key data. Let me now gather remaining data — plan fidelity, git history, tests, and sample iter logs.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/phase1/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/phase1/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/phase2/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/phase2/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mRecent commit history[0m
+  [32m$ [0m [33mBash[0m [2mCommitter breakdown[0m
+  [32m$ [0m [33mBash[0m [2mRun workspace tests[0m
+  [32m$ [0m [33mBash[0m [2mRun clippy check[0m
+
+Let me get remaining plan files and sample the key iter logs.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/phase3/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/phase4/spec.md[0m
+  [32m$ [0m [33mBash[0m [2mRead first deploy failure iter log (stripped ANSI)[0m
+  [32m$ [0m [33mBash[0m [2mRead review redo iter log tail[0m
+  [32m$ [0m [33mBash[0m [2mRead final review iter log tail[0m
+  [32m$ [0m [33mBash[0m [2mGet exact test counts[0m
+  [32m$ [0m [33mBash[0m [2mCount total and conventional commits[0m
+
+All data collected. Now let me read the factory skill files for Phase 10 analysis, then generate the full report.
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/deploy/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/review/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/build/SKILL.md[0m
+  [32m$ [0m [33mBash[0m [2mCheck if retro dir exists[0m
+  [32m$ [0m [33mBash[0m [2mCheck CLAUDE.md size[0m
+
+Now generating the retro report. Let me also quickly check the pipeline script for factory analysis.
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [32m$ [0m [33mBash[0m [2mCreate retro directory[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+
+Now write the evolution log.
+  [32m$ [0m [33mBash[0m [2mCheck for existing evolution logs[0m
+  [36m>>[0m [36mRead[0m [2m~/.solo/evolution.md[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+
+Now append to the global evolution log.
+  [36m>>[0m [36mRead[0m [2m~/.solo/evolution.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/.solo/evolution.md[0m
+
+Now Phase 9 — CLAUDE.md revision. It's 4,251 bytes, well under 40K. Content is accurate and lean. No revision needed.
+
+Let me present the summary and ask about patches.
+
+---
+
+## Retro Summary: supervox — **8.7/10**
+
+**Pipeline:** 7 iterations, 5 productive (71.4%), 1 redo cycle, 0 restarts, ~2 hours
+
+**Top 3 findings:**
+1. **Deploy scope confusion** — deploy skill couldn't handle CLI/TUI project, asked user question, wasted iter 2
+2. **Valid redo cycle** — review found real UTF-8 bug + 2 hygiene issues, build fixed all 3 in 3 min
+3. **Perfect code quality** — 84/84 tests pass, 100% conventional commits, clippy clean
+
+**Scoring:** Stability 10, Fidelity 10, Quality 10, Commits 10, Docs 10 | Efficiency 6 (28.6% waste), Signals 7 (doubled redo), Speed 6 (2h)
+
+Report saved: `docs/retro/2026-03-20-retro.md`
+Evolution logs updated: `docs/evolution.md` + `~/.solo/evolution.md`
+CLAUDE.md: 4,251 bytes, no revision needed.
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Apply patch to skills/deploy/SKILL.md — add C[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Apply patch to skills/deploy/SKILL.md — add C[0m
+
+Waiting for your answer — should I apply the deploy skill patch (CLI/TUI auto-detection), show the diff first, or skip it?Waiting for your answer — should I apply the deploy skill patch (CLI/TUI auto-detection), show the diff first, or skip it?

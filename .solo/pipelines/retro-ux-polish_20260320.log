@@ -1,0 +1,104 @@
+  [2msession: 0ee0d803  model: claude-opus-4-6[1m][0m
+Starting retro for **supervox**. Let me locate all artifacts first.
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/*.log" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/progress.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan/**/*" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/solo-pipeline-supervox.local.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/retro/*.md" ~/startups/active/supervox[0m
+
+Found all artifacts. 7 iter logs, pipeline.log, progress.md, 6 completed plan tracks + 1 active. Let me read the key files in parallel.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/pipeline.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/progress.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/eval-dimensions.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/failure-catalog.md[0m
+
+Good, the existing retro covers runs 1-3 but **Run 4 (ux-polish)** is new. Let me gather the remaining data.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/ux-polish_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/ux-polish_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/realtime-live_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/analysis-agent-wire_20260320/spec.md[0m
+  [32m$ [0m [33mBash[0m [2mRecent commits[0m
+  [32m$ [0m [33mBash[0m [2mTotal commit count[0m
+  [32m$ [0m [33mBash[0m [2mCommitter breakdown[0m
+
+Now let me run tests, clippy, and get committer info.
+  [32m$ [0m [33mBash[0m [2mRun workspace tests[0m
+  [32m$ [0m [33mBash[0m [2mRun clippy[0m
+  [32m$ [0m [33mBash[0m [2mCommitter breakdown[0m
+  [32m$ [0m [33mBash[0m [2mCount conventional commits[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-004-review.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-007-review.log[0m
+
+Good data. Let me get precise test counts and check the retro logs from previous runs.
+  [32m$ [0m [33mBash[0m [2mTest result summary[0m
+  [32m$ [0m [33mBash[0m [2mCheck formatting[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/retro-ux-polish_20260320.log[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/deploy/SKILL.md[0m
+
+Now I have all the data. Let me read the factory skills for Phase 10 critique, then write the full retro.
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/build/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/review/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [32m$ [0m [33mBash[0m [2mCLAUDE.md size[0m
+
+All data collected. Writing the complete retro report covering all 4 pipeline runs.
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+
+Now update evolution.md with the final data including Run 4.
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+
+CLAUDE.md is 7,532 bytes — well under the 40K limit. No trimming needed. Let me verify it's current.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/CLAUDE.md[0m
+
+CLAUDE.md is current and well-structured at 7,532 bytes. All 4 modes, config fields, keybindings, and architecture are documented. No revision needed.
+
+Now let me present the summary and handle interactive patching.
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+
+
+
+## Retro Summary: supervox — 8.9/10
+
+**4 pipeline runs** | **16 iterations** | **87.5% productive** | **~3.5 hours** | **128 tests** | **65 commits**
+
+### Top 3 Patterns
+1. **Deploy scope confusion** (Run 1 only) — AskUserQuestion stall on CLI/TUI project, 1 wasted iter
+2. **Valid redo cycle** (Run 1 only) — Review caught UTF-8 bug, redo fixed it in 3 min
+3. **Progressive improvement** — Runs 2-4 were all flawless (9/9 productive, 0 waste)
+
+### Top 3 Recommendations
+1. **[HIGH]** Deploy skill needs CLI/TUI project-type detection
+2. **[MEDIUM]** Pre-start validation in solo-dev.sh (6 aborted starts)
+3. **[LOW]** Test coverage tooling (cargo-tarpaulin/llvm-cov)
+
+### Factory Score: 9.0/10
+- Build: 10/10 — 66 tasks, all SHAs, 100% completion
+- Deploy: 8/10 — 1 stall in Run 1, clean in Runs 2-4
+- Review: 10/10 — caught real bugs, clean passes
+- Auto-plan: 10/10 — 3 successful plan evolutions
+
+---
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Apply patch to Deploy SKILL.md? Adds CLI/TUI [0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Apply patch to Deploy SKILL.md? Adds CLI/TUI [0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Apply patch to Deploy SKILL.md? Adds CLI/TUI [0m
+
+Hmm, the interactive patching isn't going through. Let me proceed with the summary instead.
+
+The deploy SKILL.md patch lives in the solo-factory plugin (`~/.claude/plugins/cache/solo/solo/1.19.0/skills/deploy/SKILL.md`), not in this project. The patch would add project-type detection (CLI/TUI auto-detection from Cargo.toml binary targets) to prevent AskUserQuestion stalls.
+
+**Retro complete.** Report written to `docs/retro/2026-03-20-retro.md`, evolution log updated at `docs/evolution.md`. CLAUDE.md is current at 7.5K bytes — no revision needed.
+
+**Key takeaway:** The pipeline delivered a complete product (4 modes, 6 tools, 128 tests, Ollama support, JSON CLI) from zero in ~3.5 hours across 4 auto-planned runs. Runs 2-4 were all flawless — the system self-improved as it went.
+
+`<solo:done/>`Hmm, the interactive patching isn't going through. Let me proceed with the summary instead.
+
+The deploy SKILL.md patch lives in the solo-factory plugin (`~/.claude/plugins/cache/solo/solo/1.19.0/skills/deploy/SKILL.md`), not in this project. The patch would add project-type detection (CLI/TUI auto-detection from Cargo.toml binary targets) to prevent AskUserQuestion stalls.
+
+**Retro complete.** Report written to `docs/retro/2026-03-20-retro.md`, evolution log updated at `docs/evolution.md`. CLAUDE.md is current at 7.5K bytes — no revision needed.
+
+**Key takeaway:** The pipeline delivered a complete product (4 modes, 6 tools, 128 tests, Ollama support, JSON CLI) from zero in ~3.5 hours across 4 auto-planned runs. Runs 2-4 were all flawless — the system self-improved as it went.
+
+`<solo:done/>`

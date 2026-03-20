@@ -1,0 +1,107 @@
+  [2msession: 0ee29e1b  model: claude-opus-4-6[1m][0m
+Let me research the project state to find the next highest-priority item.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [36m**[0m [36mGlob[0m [2m"docs/backlog*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/roadmap*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/prd.md" ~/startups/active/supervox[0m
+  [32m$ [0m [33mBash[0m [2mList completed plans[0m
+  [32m$ [0m [33mBash[0m [2mList active plans[0m
+
+The retro mentions `action-tracker_20260320` as pending, but it's already in `plan-done/`. Let me read the PRD and check git history for what's actually been implemented.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/prd.md[0m
+  [32m$ [0m [33mBash[0m [2mRecent commit history[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/action-tracker_20260320/plan.md[0m
+
+Let me check what features have been built vs what remains, and look at the evolution doc.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [32m$ [0m [33mBash[0m [2mCheck for action-tracker commits[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/action-tracker_20260320/spec.md[0m
+
+Let me explore the codebase for TODOs and gaps to determine the next priority.
+  [36m// [36mGrep[0m [2m"TODO|FIXME|AI-TODO|HACK" ~/startups/active/supervox[0m
+  [32m$ [0m [33mBash[0m [2mList TUI source files[0m
+  [32m$ [0m [33mBash[0m [2mList agent source files[0m
+  [32m$ [0m [33mBash[0m [2mRun tests to check current health[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+
+Let me check the build setup and Cargo.toml to understand the full picture before planning.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Makefile[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Cargo.toml[0m
+  [32m$ [0m [33mBash[0m [2mCheck if GitHub Actions already exist[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/Cargo.toml[0m
+
+CI already exists! Let me read the existing workflows.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.github/workflows/ci.yml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.github/workflows/release.yml[0m
+  [32m$ [0m [33mBash[0m [2mCheck pre-commit hooks[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/README.md[0m
+  [32m$ [0m [33mBash[0m [2mList TUI mode files[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
+
+Let me check how the live transcript is assembled before saving to understand a key product gap.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
+  [36m// [36mGrep[0m [2m"transcript.*push|transcript.*format|build_transcript|save_call|finalize_call|stop_recording" ~/startups/active/supervox/crates/supervox-tui/src[0m
+
+Now I have the full picture. Let me check voxkit's WAV capabilities and audio pipeline to plan the next track.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
+  [32m$ [0m [33mBash[0m [2mList voxkit source files[0m
+  [36m// [36mGrep[0m [2m"wav|WavWriter|hound|write_wav" ~/startups/active/supervox/crates/voxkit[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/Cargo.toml[0m
+
+I now have a clear picture of the codebase, completed work, and retro recommendations. All 12 listed tracks are done. CI/CD already exists (`.github/workflows/ci.yml` + `release.yml`). The retro's [MEDIUM] test coverage recommendation remains, but the most impactful next step is a product feature.
+
+The biggest gap: **SuperVox records voice but discards the audio**. The transcript is saved but raw audio is lost. For a "voice-powered productivity TUI," this is fundamental — users can't replay calls to verify transcripts or re-listen to important moments.
+
+voxkit already has `hound` (WAV encoding) and `AudioChunk::to_wav_bytes()`. The audio pipeline receives raw chunks that can be stream-written to WAV incrementally.
+
+Let me create the plan.
+  [32m$ [0m [33mBash[0m [2mCreate track directory[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/spec.md[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:TodoWrite[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Research codebase and identify next priority',[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Track: audio-save_20260320 — Save mic audio a[0m
+
+Track created: **audio-save_20260320**
+
+```
+Type:   Feature
+Phases: 3
+Tasks:  12
+Spec:   docs/plan/audio-save_20260320/spec.md
+Plan:   docs/plan/audio-save_20260320/plan.md
+```
+
+**Research findings:**
+- Audio pipeline (`audio.rs`) receives raw `AudioChunk` from mic at ~48kHz — samples are resampled to 24k for STT but raw data is available
+- `hound` 3.5 already in workspace via voxkit `wav` feature — no new deps needed
+- `hound::WavWriter` supports incremental writes (stream to disk, no memory accumulation)
+- `Call.audio_path: Option<String>` with `#[serde(default)]` gives backward-compatible schema change
+- `delete_call()` currently only removes `.json` — needs to also clean up `.wav`
+
+**Why this track:** SuperVox is "voice-powered" but discards the voice. Users can't replay calls, verify transcripts, or share recordings. This is the most fundamental gap in the current product.
+
+Next: `/build audio-save_20260320`Track created: **audio-save_20260320**
+
+```
+Type:   Feature
+Phases: 3
+Tasks:  12
+Spec:   docs/plan/audio-save_20260320/spec.md
+Plan:   docs/plan/audio-save_20260320/plan.md
+```
+
+**Research findings:**
+- Audio pipeline (`audio.rs`) receives raw `AudioChunk` from mic at ~48kHz — samples are resampled to 24k for STT but raw data is available
+- `hound` 3.5 already in workspace via voxkit `wav` feature — no new deps needed
+- `hound::WavWriter` supports incremental writes (stream to disk, no memory accumulation)
+- `Call.audio_path: Option<String>` with `#[serde(default)]` gives backward-compatible schema change
+- `delete_call()` currently only removes `.json` — needs to also clean up `.wav`
+
+**Why this track:** SuperVox is "voice-powered" but discards the voice. Users can't replay calls, verify transcripts, or share recordings. This is the most fundamental gap in the current product.
+
+Next: `/build audio-save_20260320`

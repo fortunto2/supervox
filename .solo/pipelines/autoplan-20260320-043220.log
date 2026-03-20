@@ -1,0 +1,109 @@
+  [2msession: 4d00c9fe  model: claude-opus-4-6[1m][0m
+Let me gather context — backlog, completed work, and retro recommendations.
+  [36m**[0m [36mGlob[0m [2m"docs/backlog*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/roadmap*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*.md" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/prd.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [32m$ [0m [33mBash[0m [2mRecent commit history[0m
+
+Let me check what's in the archived phase plans and understand current codebase state.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase3/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase4/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [32m$ [0m [33mBash[0m [2mList TUI source files[0m
+  [32m$ [0m [33mBash[0m [2mList agent source files[0m
+
+Let me dig deeper into what's actually implemented vs stubbed.
+  [32m$ [0m [33mBash[0m [2mList TUI mode files[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools[0m
+  [36m// [36mGrep[0m [2m"TODO|todo!|unimplemented!|stub|FIXME" ~/startups/active/supervox/crates[0m
+  [32m$ [0m [33mBash[0m [2mList agent tool files[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/agent.rs[0m
+
+Let me check the app structure and agent tools to understand the wiring gap.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/mod.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/analyze.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/search.rs[0m
+
+Let me check the remaining key files for the plan.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/follow_up.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/ask.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/lib.rs[0m
+
+Let me check sgr-agent's capabilities for the agent session and the intelligence module.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/intelligence.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+  [36m// [36mGrep[0m [2m"pub (fn|struct|trait|enum)" ~/startups/shared/rust-code/crates/sgr-agent/src[0m
+
+Let me check sgr-agent's agent and session modules for the agent chat integration.
+  [36m// [36mGrep[0m [2m"pub (fn|struct|trait|enum)" ~/startups/shared/rust-code/crates/sgr-agent/src/agent[0m
+  [36m// [36mGrep[0m [2m"pub (fn|struct)" ~/startups/shared/rust-code/crates/sgr-agent/src/session[0m
+  [36m// [36mGrep[0m [2m"pub (fn|struct)" ~/startups/shared/rust-code/crates/sgr-agent-tui/src[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Cargo.toml[0m
+
+Let me check the Llm module and sgr-agent-tui ChatState for wiring patterns.
+  [36m// [36mGrep[0m [2m"pub (fn|async fn)" ~/startups/shared/rust-code/crates/sgr-agent/src/llm.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/shared/rust-code/crates/sgr-agent-tui/src/chat.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/shared/rust-code/crates/sgr-agent-tui/src/lib.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/shared/rust-code/crates/sgr-agent-tui/src/agent_task.rs[0m
+  [36m// [36mGrep[0m [2m"pub (fn|struct|trait|enum|async fn)" ~/startups/shared/rust-code/crates/sgr-agent/src/lib.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/shared/rust-code/crates/sgr-agent-tui/src/agent_task.rs[0m
+
+Now I have the full picture. Let me create the plan directory and generate the spec + plan.
+
+**Key findings from research:**
+- Live mode is fully done (realtime STT, translation, summary, auto-flow)
+- Analysis mode has UI but NO LLM wiring — `load_from_call()` just shows raw call data
+- Agent mode has chat UI but response is hardcoded placeholder ("not yet connected to LLM")
+- All 6 agent tools exist and tested (analyze_call, draft_follow_up, search_calls, ask_about_calls, translate, rolling_summary)
+- sgr-agent-tui provides `spawn_agent_loop`, `TuiAgent`, `ChannelHandler` — the full agent loop infrastructure
+
+The highest priority is: **wire LLM to Analysis and Agent modes** (Phase 3 scope from the original plan).
+  [32m$ [0m [33mBash[0m [2mCreate track directory[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/analysis-agent-wire_20260320/spec.md[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/analysis-agent-wire_20260320/plan.md[0m
+
+Now let me present the plan for approval.
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Track: analysis-agent-wire_20260320 — wire ex[0m
+
+```
+Track created: analysis-agent-wire_20260320
+
+  Type:   Feature
+  Phases: 4
+  Tasks:  14
+  Spec:   docs/plan/analysis-agent-wire_20260320/spec.md
+  Plan:   docs/plan/analysis-agent-wire_20260320/plan.md
+
+Research findings:
+  - Analysis UI exists (AnalysisState with all fields) but load_from_call() only shows raw data — no LLM call
+  - Agent UI exists (chat input + messages) but Enter key returns hardcoded placeholder
+  - All 6 agent tools implemented with 36+ tests (analyze_call, draft_follow_up, search_calls, ask_about_calls, translate, rolling_summary)
+  - sgr-agent-tui provides spawn_agent_loop + TuiAgent + ChannelHandler — full agent loop infra ready to use
+  - intelligence.rs already demonstrates the async LLM pattern (translate/summary pipelines) — same approach for analysis
+
+Next: /build analysis-agent-wire_20260320
+``````
+Track created: analysis-agent-wire_20260320
+
+  Type:   Feature
+  Phases: 4
+  Tasks:  14
+  Spec:   docs/plan/analysis-agent-wire_20260320/spec.md
+  Plan:   docs/plan/analysis-agent-wire_20260320/plan.md
+
+Research findings:
+  - Analysis UI exists (AnalysisState with all fields) but load_from_call() only shows raw data — no LLM call
+  - Agent UI exists (chat input + messages) but Enter key returns hardcoded placeholder
+  - All 6 agent tools implemented with 36+ tests (analyze_call, draft_follow_up, search_calls, ask_about_calls, translate, rolling_summary)
+  - sgr-agent-tui provides spawn_agent_loop + TuiAgent + ChannelHandler — full agent loop infra ready to use
+  - intelligence.rs already demonstrates the async LLM pattern (translate/summary pipelines) — same approach for analysis
+
+Next: /build analysis-agent-wire_20260320
+```

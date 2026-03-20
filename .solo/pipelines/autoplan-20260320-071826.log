@@ -1,0 +1,71 @@
+  [2msession: 8ccc5cd4  model: claude-opus-4-6[1m][0m
+Let me gather context to find the highest-priority unimplemented item.
+  [36m**[0m [36mGlob[0m [2m"docs/backlog*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/prd.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/roadmap*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/retro/2026-03-20-retro.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan/**/*" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/prd.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-stats_20260320/spec.md[0m
+  [32m$ [0m [33mBash[0m [2mRecent commit history[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [32m$ [0m [33mBash[0m [2mCheck current test status[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Makefile[0m
+  [36m**[0m [36mGlob[0m [2m"crates/supervox-tui/src/**/*.rs" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"crates/supervox-agent/src/**/*.rs" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".github/**/*" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.github/workflows/ci.yml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.github/workflows/release.yml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+
+Now let me understand the current types and storage to identify gaps.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+
+Now let me look at the History and app modes to understand what filtering would need to change.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/history.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
+
+Now I have full context. Let me create the plan for the highest-priority next feature: **Call Filtering** — tag and date filtering across CLI and TUI.
+  [32m$ [0m [33mBash[0m [2mCreate track directory[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/call-filter_20260320/spec.md[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/call-filter_20260320/plan.md[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:TodoWrite[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Track: call-filter_20260320 — Tag & Date Filt[0m
+
+Track created: **call-filter_20260320**
+
+```
+Type:   Feature
+Phases: 4
+Tasks:  15
+Spec:   docs/plan/call-filter_20260320/spec.md
+Plan:   docs/plan/call-filter_20260320/plan.md
+
+Research findings:
+  - Tags already populated via update_call_tags() from analysis themes
+  - All CLI commands load full call list via list_calls() — easy to add filter step
+  - History mode has calls in memory — client-side filter is straightforward
+  - No new deps needed (chrono NaiveDate already available)
+
+Next: /build call-filter_20260320
+```Track created: **call-filter_20260320**
+
+```
+Type:   Feature
+Phases: 4
+Tasks:  15
+Spec:   docs/plan/call-filter_20260320/spec.md
+Plan:   docs/plan/call-filter_20260320/plan.md
+
+Research findings:
+  - Tags already populated via update_call_tags() from analysis themes
+  - All CLI commands load full call list via list_calls() — easy to add filter step
+  - History mode has calls in memory — client-side filter is straightforward
+  - No new deps needed (chrono NaiveDate already available)
+
+Next: /build call-filter_20260320
+```

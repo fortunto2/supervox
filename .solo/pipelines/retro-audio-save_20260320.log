@@ -1,0 +1,95 @@
+  [2msession: cf2676b8  model: claude-opus-4-6[1m][0m
+Starting retro for **supervox**. Let me locate all artifacts first.
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/*.log" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/iter-*.log" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan/**/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/solo-pipeline-supervox*" ~/startups/active/supervox[0m
+
+Found 8 iter logs, 12 completed plan tracks, 1 active plan. Let me read the key artifacts.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/pipeline.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/progress.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/eval-dimensions.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/failure-catalog.md[0m
+
+Good — I have the full pipeline log (10 runs spanning 01:51–12:04) and the existing retro (covers runs 1-8). Now I need to check the new tracks and current codebase state. Let me gather remaining data in parallel.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/action-tracker_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/action-tracker_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [32m$ [0m [33mBash[0m [2mShow recent commit history[0m
+  [32m$ [0m [33mBash[0m [2mCount total commits[0m
+  [32m$ [0m [33mBash[0m [2mShow committer breakdown[0m
+
+Let me run tests, check build, and count conventional commits.
+  [32m$ [0m [33mBash[0m [2mRun workspace tests[0m
+  [32m$ [0m [33mBash[0m [2mCount conventional commits[0m
+  [32m$ [0m [33mBash[0m [2mShow committer breakdown[0m
+  [32m$ [0m [33mBash[0m [2mCheck CLAUDE.md size[0m
+  [32m$ [0m [33mBash[0m [2mGet detailed test counts[0m
+  [32m$ [0m [33mBash[0m [2mRun clippy[0m
+  [32m$ [0m [33mBash[0m [2mCheck formatting[0m
+
+Now let me sample key iter logs and read factory files for the critic phase.
+  [32m$ [0m [33mBash[0m [2mRead first failed deploy iter log (Run 1, stall)[0m
+  [32m$ [0m [33mBash[0m [2mRead redo review iter log tail[0m
+  [32m$ [0m [33mBash[0m [2mRead final review pass tail[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/deploy/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [36m// [36mGrep[0m [2m"rm.*states|clean.*state|STATES_DIR|rm -f.*build|rm -f.*deploy|rm -f.*review" ~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [36m// [36mGrep[0m [2m"RETRO|retro|archive|ARCHIVE|QUEUE|cycling|Cycling" ~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/scripts/solo-dev.sh[0m
+
+Now I have the full picture. Let me check the pre-start aborted runs briefly.
+  [32m$ [0m [33mBash[0m [2mCheck pre-start aborted pipeline log[0m
+  [32m$ [0m [33mBash[0m [2mCheck earliest pipeline log[0m
+
+Now I have all the data. Let me write the comprehensive retro report.
+  [2m--[0m [36mToolSearch[0m [2mselect:TodoWrite[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Parse pipeline log (quantitative metrics)', 's[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Parse pipeline log (quantitative metrics)', 's[0m
+
+Now let me update the evolution log and check `~/.solo/evolution.md`.
+  [32m$ [0m [33mBash[0m [2mCheck global evolution log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+
+Now update the global evolution log.
+  [36m>>[0m [36mRead[0m [2m~/.solo/evolution.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.solo/evolution.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/.solo/evolution.md[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Parse pipeline log (quantitative metrics)', 's[0m
+
+Now CLAUDE.md revision. Let me check the current state.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/CLAUDE.md[0m
+
+CLAUDE.md is 10,334 bytes — well under 40K, content is current and accurate after audio-save. No revision needed.
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Parse pipeline log (quantitative metrics)', 's[0m
+
+Now for interactive patching. Here's the summary and patches:
+
+---
+
+## Retro Summary: supervox — 8.4/10
+
+**31 iterations, 94% productive, 10 runs, 9 tracks built, 121 commits, 196 tests**
+
+### Top 3 Failure Patterns:
+1. **CRITICAL — State leak on timeout**: `solo-dev.sh:925` doesn't clean state files when global timeout fires. Caused action-tracker to be falsely archived with 0% completion.
+2. **Pre-start instability**: 6 aborted starts before successful pipeline (rate limits + config)
+3. **Deploy scope confusion**: AskUserQuestion stall on CLI/TUI project (Run 1 only, self-corrected)
+
+### Top 3 Recommendations:
+1. **[CRITICAL]** Fix state leak in `solo-dev.sh:925`
+2. **[HIGH]** Re-plan and build action-tracker (falsely archived)
+3. **[HIGH]** Add project-type detection to deploy skill
+
+---
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Apply Patch 1 to solo-dev.sh? Adds state clea[0m
+
+Waiting for your input on the patches.Waiting for your input on the patches.

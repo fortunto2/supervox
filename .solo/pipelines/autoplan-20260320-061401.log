@@ -1,0 +1,100 @@
+  [2msession: 3172ad80  model: claude-opus-4-6[1m][0m
+Let me gather all the context needed to identify the next priority item.
+  [36m**[0m [36mGlob[0m [2m"docs/backlog*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/roadmap*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*.md" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/prd.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+
+No backlog or roadmap files found. Let me check what's been built and what remains unimplemented.
+  [32m$ [0m [33mBash[0m [2mRecent commit history[0m
+  [36m**[0m [36mGlob[0m [2m"crates/**/*.rs" ~/startups/active/supervox[0m
+  [32m$ [0m [33mBash[0m [2mList crates[0m
+
+Let me dig deeper into what's implemented vs what's missing.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Makefile[0m
+
+Let me check what was marked as out-of-scope or future in completed plans, and look for any explicit next-step items.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-management_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/ux-polish_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/analysis-agent-wire_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/realtime-live_20260320/spec.md[0m
+
+Now let me check for any existing CI/CD setup and understand the Cargo workspace.
+  [36m**[0m [36mGlob[0m [2m".github/**/*" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".githooks/*" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/Cargo.toml[0m
+
+CI/CD files already exist. Let me read them.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.github/workflows/ci.yml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.github/workflows/release.yml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.githooks/pre-commit[0m
+
+CI/CD is already done. Let me check the data model to understand gaps for the next feature.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/analyze.rs[0m
+
+Let me check if analysis results are persisted and look at the intelligence module.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/analysis_pipeline.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/intelligence.rs[0m
+
+Let me check the agent loop and the ask tool to understand cross-call query patterns.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/agent_loop.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/ask.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/schemas[0m
+  [36m**[0m [36mGlob[0m [2m"schemas/**/*" ~/startups/active/supervox[0m
+
+Research complete. I've identified the highest-priority unimplemented feature. Let me create the track.
+  [32m$ [0m [33mBash[0m [2mCreate track directory[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/call-insights_20260320/spec.md[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/call-insights_20260320/plan.md[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:TodoWrite[0m
+
+
+
+Now let me create the task list and present the plan for approval.
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phase 1: Persist Analysis + Auto-tag (5 tasks)[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Track: call-insights_20260320 (Feature)\n\nAn[0m
+
+Track created: **call-insights_20260320**
+
+```
+Type:   Feature
+Phases: 3
+Tasks:  13
+Spec:   docs/plan/call-insights_20260320/spec.md
+Plan:   docs/plan/call-insights_20260320/plan.md
+```
+
+**Research findings:**
+- Analysis results are ephemeral — `analyze_transcript()` returns `CallAnalysis` to TUI but never persists to disk. Every call re-open re-runs LLM ($$ + latency)
+- `Call.tags` always `vec![]` — analysis produces `themes` but never backfills to call
+- `build_calls_context()` only sends 200-char transcript preview to agent — persisted analysis summaries/themes would give much higher signal
+- CI/CD already exists (`.github/workflows/ci.yml` + `release.yml`) — not the next priority
+- Explicitly deferred by call-management and ux-polish specs: "Call tagging UI" + "Cross-call pattern analysis"
+
+**Next:** `/build call-insights_20260320`Track created: **call-insights_20260320**
+
+```
+Type:   Feature
+Phases: 3
+Tasks:  13
+Spec:   docs/plan/call-insights_20260320/spec.md
+Plan:   docs/plan/call-insights_20260320/plan.md
+```
+
+**Research findings:**
+- Analysis results are ephemeral — `analyze_transcript()` returns `CallAnalysis` to TUI but never persists to disk. Every call re-open re-runs LLM ($$ + latency)
+- `Call.tags` always `vec![]` — analysis produces `themes` but never backfills to call
+- `build_calls_context()` only sends 200-char transcript preview to agent — persisted analysis summaries/themes would give much higher signal
+- CI/CD already exists (`.github/workflows/ci.yml` + `release.yml`) — not the next priority
+- Explicitly deferred by call-management and ux-polish specs: "Call tagging UI" + "Cross-call pattern analysis"
+
+**Next:** `/build call-insights_20260320`

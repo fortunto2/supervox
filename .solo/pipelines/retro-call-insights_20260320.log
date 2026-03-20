@@ -1,0 +1,131 @@
+  [2msession: 0ce7fe9c  model: claude-opus-4-6[1m][0m
+Starting retro for **supervox**. Let me locate all artifacts first.
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/iter-*.log" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/pipeline*.log" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan/**/*" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/pipeline.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/progress.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/eval-dimensions.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/failure-catalog.md[0m
+
+Found 8 iter logs, 6 pipeline runs across 6 plan tracks. Let me now read key iter logs and plan files in parallel.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-002-deploy.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-004-review.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/iter-007-review.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase1/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase1/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/realtime-live_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/realtime-live_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/analysis-agent-wire_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/analysis-agent-wire_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/ux-polish_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/ux-polish_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-management_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-management_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/call-insights_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/call-insights_20260320/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mRecent commit history[0m
+  [32m$ [0m [33mBash[0m [2mTotal commit count[0m
+  [32m$ [0m [33mBash[0m [2mCommitter breakdown[0m
+
+Now running tests and getting remaining quality metrics.
+  [32m$ [0m [33mBash[0m [2mRun workspace test suite[0m
+  [32m$ [0m [33mBash[0m [2mRun clippy lints[0m
+  [32m$ [0m [33mBash[0m [2mCount conventional commits[0m
+  [32m$ [0m [33mBash[0m [2mCommitter breakdown[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+
+Good — I have all the data. Now let me read the factory skill files for Phase 10 and compose the full retro.
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/build/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/deploy/SKILL.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/review/SKILL.md[0m
+  [32m$ [0m [33mBash[0m [2mCommits from today[0m
+  [32m$ [0m [33mBash[0m [2mCLAUDE.md size[0m
+
+All data collected. Writing the updated retro report (6 runs, including call-insights).
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+
+Now updating the evolution log with the final 6-run data.
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+
+Now Phase 9 — checking CLAUDE.md. It's 8,843 bytes which is well under 40K. Let me verify it's up to date with call-insights features.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/CLAUDE.md[0m
+
+CLAUDE.md is current — already includes call-insights features (`insights` command, `CallInsights` type, analysis persistence, `generate_insights()`). 8.8KB is well under the 40K limit. No revision needed.
+
+Now let me also update the global evolution log if it exists.
+  [32m$ [0m [33mBash[0m [2mCheck global evolution log[0m
+  [36m>>[0m [36mRead[0m [2m~/.solo/evolution.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/.solo/evolution.md[0m
+
+Retro complete. Here's the summary:
+
+## SuperVox Pipeline Retro — 9.2/10
+
+**6 runs, 22 iterations, 90.9% productive, ~4h 24m total**
+
+| Run | Track | Iters | Time | Waste |
+|-----|-------|-------|------|-------|
+| 1 | phase1 | 7 | 124m | 29% |
+| 2 | realtime-live | 3 | 32m | 0% |
+| 3 | analysis-agent-wire | 3 | 28m | 0% |
+| 4 | ux-polish | 3 | 32m | 0% |
+| 5 | call-management | 3 | 23m | 0% |
+| 6 | call-insights | 3 | 25m | 0% |
+
+**Fidelity:** 96/96 tasks done (100%), 64/64 acceptance criteria met (100%), all with SHAs.
+
+**Top 3 failure patterns:**
+1. Deploy scope confusion (1 wasted iter — CLI/TUI project, not web)
+2. Valid redo caught UTF-8 bug (intended behavior)
+3. Pre-start friction (6 aborted starts, 0 iterations burned)
+
+**Recommendations:**
+1. **[HIGH]** Deploy skill: add CLI/TUI project-type detection
+2. **[MEDIUM]** Pre-start validation in solo-dev.sh
+3. **[LOW]** Test coverage tooling (cargo-tarpaulin)
+
+Files updated:
+- `docs/retro/2026-03-20-retro.md` — full report
+- `docs/evolution.md` — project evolution log
+- `~/.solo/evolution.md` — global evolution log
+
+CLAUDE.md is current (8.8KB) — no revision needed.
+
+<solo:done/>Retro complete. Here's the summary:
+
+## SuperVox Pipeline Retro — 9.2/10
+
+**6 runs, 22 iterations, 90.9% productive, ~4h 24m total**
+
+| Run | Track | Iters | Time | Waste |
+|-----|-------|-------|------|-------|
+| 1 | phase1 | 7 | 124m | 29% |
+| 2 | realtime-live | 3 | 32m | 0% |
+| 3 | analysis-agent-wire | 3 | 28m | 0% |
+| 4 | ux-polish | 3 | 32m | 0% |
+| 5 | call-management | 3 | 23m | 0% |
+| 6 | call-insights | 3 | 25m | 0% |
+
+**Fidelity:** 96/96 tasks done (100%), 64/64 acceptance criteria met (100%), all with SHAs.
+
+**Top 3 failure patterns:**
+1. Deploy scope confusion (1 wasted iter — CLI/TUI project, not web)
+2. Valid redo caught UTF-8 bug (intended behavior)
+3. Pre-start friction (6 aborted starts, 0 iterations burned)
+
+**Recommendations:**
+1. **[HIGH]** Deploy skill: add CLI/TUI project-type detection
+2. **[MEDIUM]** Pre-start validation in solo-dev.sh
+3. **[LOW]** Test coverage tooling (cargo-tarpaulin)
+
+Files updated:
+- `docs/retro/2026-03-20-retro.md` — full report
+- `docs/evolution.md` — project evolution log
+- `~/.solo/evolution.md` — global evolution log
+
+CLAUDE.md is current (8.8KB) — no revision needed.
+
+<solo:done/>

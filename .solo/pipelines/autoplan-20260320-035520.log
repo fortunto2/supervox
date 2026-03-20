@@ -1,0 +1,114 @@
+  [2msession: dae2b05b  model: claude-opus-4-6[1m][0m
+Let me gather all the context needed to identify the next priority item.
+  [36m**[0m [36mGlob[0m [2m"docs/backlog*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/prd.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/roadmap*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/retro/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan.md" ~/startups/active/supervox[0m
+  [32m$ [0m [33mBash[0m [2mRecent git history[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/prd.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase1/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase2/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase3/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase4/plan.md[0m
+
+Now let me research the current codebase to build a concrete plan for Phase 2.
+  [2m--[0m [36mAgent[0m [2mResearch supervox codebase for Phase 2 planning[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/lib.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+  [36m**[0m [36mGlob[0m [2m"**/tools/*.rs" ~/startups/active/supervox/crates/supervox-agent[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/mod.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/translate.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/rolling_summary.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/analyze.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/follow_up.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/search.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/ask.rs[0m
+  [36m**[0m [36mGlob[0m [2m"**/*.rs" ~/startups/active/supervox/crates/voxkit/src[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/schemas/config.json[0m
+  [36m// [36mGrep[0m [2m"AI-TODO|AI-NOTE|AI-ASK|AI-PATTERN" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"**/tests/*.rs" ~/startups/active/supervox/crates/supervox-agent[0m
+  [36m**[0m [36mGlob[0m [2m"**/tests/*.rs" ~/startups/active/supervox/crates/supervox-tui[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/realtime_stt.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/mic.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/system_audio.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/lib.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/agent.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/stt.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/mod.rs[0m
+  [32m$ [0m [33mBash[0m [2mFind config files and README[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/README.md[0m
+  [36m// [36mGrep[0m [2m"use sgr_agent" ~/startups/active/supervox/crates/supervox-tui/src[0m
+  [36m// [36mGrep[0m [2m"use voxkit" ~/startups/active/supervox/crates/supervox-tui/src[0m
+
+Now I have a complete picture. Let me create the Phase 2 plan.
+  [32m$ [0m [33mBash[0m [2mCreate Phase 2 plan directory[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/realtime-live_20260320/spec.md[0m
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/plan/realtime-live_20260320/plan.md[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:TodoWrite[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phase 1: Config + Dependencies (Tasks 1.1-1.3)[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Phase 2 plan: Real-time Live Mode — wire stre[0m
+
+Track created: **realtime-live_20260320**
+
+```
+Type:   Feature
+Phases: 4
+Tasks:  13
+Spec:   docs/plan/realtime-live_20260320/spec.md
+Plan:   docs/plan/realtime-live_20260320/plan.md
+```
+
+**Research findings:**
+- Phase 1 complete — workspace, 6 agent tools, TUI with 3 mode skeletons, 84 tests
+- `AudioPipeline` is placeholder: captures mic audio with VAD but **never sends to STT** — transcripts don't appear
+- voxkit `realtime_stt` module ready (OpenAI WebSocket, delta/final events) but `supervox-tui` missing `realtime` feature flag
+- voxkit `system_audio` module ready (macOS ScreenCaptureKit) but not wired
+- Config struct exists in `types.rs` but **no TOML loading** — hardcoded defaults
+- Translation + rolling summary tools implemented and tested, just not called from Live mode
+- Retro recommends: cargo-audit in CI (low), cargo-tarpaulin for coverage (low) — deferred to later
+
+**Key integration points:**
+- `audio.rs` rewrite: raw capture → resample 24kHz → WebSocket STT → transcript events
+- Async translation after each `Final` event, rolling summary on timer
+- Auto-flow: stop → save call → switch to Analysis mode
+
+Next: `/build realtime-live_20260320`Track created: **realtime-live_20260320**
+
+```
+Type:   Feature
+Phases: 4
+Tasks:  13
+Spec:   docs/plan/realtime-live_20260320/spec.md
+Plan:   docs/plan/realtime-live_20260320/plan.md
+```
+
+**Research findings:**
+- Phase 1 complete — workspace, 6 agent tools, TUI with 3 mode skeletons, 84 tests
+- `AudioPipeline` is placeholder: captures mic audio with VAD but **never sends to STT** — transcripts don't appear
+- voxkit `realtime_stt` module ready (OpenAI WebSocket, delta/final events) but `supervox-tui` missing `realtime` feature flag
+- voxkit `system_audio` module ready (macOS ScreenCaptureKit) but not wired
+- Config struct exists in `types.rs` but **no TOML loading** — hardcoded defaults
+- Translation + rolling summary tools implemented and tested, just not called from Live mode
+- Retro recommends: cargo-audit in CI (low), cargo-tarpaulin for coverage (low) — deferred to later
+
+**Key integration points:**
+- `audio.rs` rewrite: raw capture → resample 24kHz → WebSocket STT → transcript events
+- Async translation after each `Final` event, rolling summary on timer
+- Auto-flow: stop → save call → switch to Analysis mode
+
+Next: `/build realtime-live_20260320`

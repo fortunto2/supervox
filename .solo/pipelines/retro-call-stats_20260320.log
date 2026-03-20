@@ -1,0 +1,112 @@
+  [2msession: 33c23b8d  model: claude-opus-4-6[1m][0m
+Starting retro for **supervox**. Let me locate all artifacts first.
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/pipeline.log" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/iter-*.log" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/progress.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan-done/**/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/plan/**/*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m".solo/pipelines/solo-pipeline-supervox.local.md" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/eval-dimensions.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.claude/plugins/cache/solo/solo/1.19.0/skills/retro/references/failure-catalog.md[0m
+
+Found 8 iter logs, pipeline.log, progress.md, 9 completed plan tracks, 1 active plan. Reading artifacts now.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/pipeline.log[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/progress.md[0m
+
+Pipeline log parsed. 7 runs, 25 iterations total. Now reading plan specs and running quality checks in parallel.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase1/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/phase1/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/realtime-live_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/realtime-live_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/analysis-agent-wire_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/analysis-agent-wire_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/ux-polish_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/ux-polish_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-management_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-management_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-insights_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/call-insights_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/call-stats_20260320/spec.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/call-stats_20260320/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mShow recent commit history[0m
+  [32m$ [0m [33mBash[0m [2mCount total commits[0m
+  [32m$ [0m [33mBash[0m [2mCommitter breakdown[0m
+  [32m$ [0m [33mBash[0m [2mRun test suite[0m
+  [32m$ [0m [33mBash[0m [2mRun clippy linting[0m
+
+Let me get a few more data points.
+  [32m$ [0m [33mBash[0m [2mGet test counts per crate[0m
+  [32m$ [0m [33mBash[0m [2mCount conventional commits[0m
+  [32m$ [0m [33mBash[0m [2mTotal commits[0m
+  [32m$ [0m [33mBash[0m [2mCheck CLAUDE.md size[0m
+
+Let me sample the two non-productive iterations for failure analysis.
+  [32m$ [0m [33mBash[0m [2mSample first wasted deploy iteration[0m
+  [32m$ [0m [33mBash[0m [2mEnd of first wasted deploy iteration[0m
+  [32m$ [0m [33mBash[0m [2mEnd of redo review iteration[0m
+
+All data collected. Now writing the retro report.
+  [32m$ [0m [33mBash[0m [2mCheck retro directory[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+
+Updating the retro report to include all 7 runs (existing one covers 6).
+  [33m<<[0m [36mWrite[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+
+Now let me check if evolution.md exists and update it.
+  [32m$ [0m [33mBash[0m [2mCheck evolution.md[0m
+  [32m$ [0m [33mBash[0m [2mCheck global evolution.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/evolution.md[0m
+
+Now let me also append to the global evolution log.
+  [36m>>[0m [36mRead[0m [2m~/.solo/evolution.md[0m
+  [36m// [36mGrep[0m [2m"supervox.*Factory Score.*7 runs" ~/.solo/evolution.md[0m
+  [36m// [36mGrep[0m [2m"supervox.*Factory Score" ~/.solo/evolution.md[0m
+  [36m>>[0m [36mRead[0m [2m~/.solo/evolution.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/.solo/evolution.md[0m
+
+Now CLAUDE.md check — it's 9,283 bytes, well under 40K. No revision needed. Let me verify the current CLAUDE.md is up to date with the call-stats track.
+  [36m// [36mGrep[0m [2m"stats|analyze-all" ~/startups/active/supervox/CLAUDE.md[0m
+
+CLAUDE.md already has call-stats commands documented. No revision needed.
+
+---
+
+**Retro complete for supervox. Summary:**
+
+## Overall Score: 9.1/10
+
+**7 pipeline runs**, 25 iterations, 92% productive (only 2 wasted — both in Run 1). 100 commits (100% conventional), 166 tests passing, 109 tasks completed with SHA annotations across 7 plan tracks.
+
+**Top 3 findings:**
+1. **Deploy scope confusion** (1 wasted iter) — deploy skill used `AskUserQuestion` on a CLI/TUI project instead of auto-detecting. Self-corrected in subsequent runs.
+2. **Valid review redo** (1 redo cycle) — caught real UTF-8 slicing bug on Cyrillic text before shipping. Exactly how redo should work.
+3. **Progressive acceleration** — run times: 124m → 32m → 28m → 32m → 23m → 30m → 16m. Last run was 8x faster than first.
+
+**Recommendation:** Deploy skill needs project-type auto-detection for Rust CLI/TUI projects.
+
+Report written to `docs/retro/2026-03-20-retro.md`. Evolution logs updated.
+
+<solo:done/>CLAUDE.md already has call-stats commands documented. No revision needed.
+
+---
+
+**Retro complete for supervox. Summary:**
+
+## Overall Score: 9.1/10
+
+**7 pipeline runs**, 25 iterations, 92% productive (only 2 wasted — both in Run 1). 100 commits (100% conventional), 166 tests passing, 109 tasks completed with SHA annotations across 7 plan tracks.
+
+**Top 3 findings:**
+1. **Deploy scope confusion** (1 wasted iter) — deploy skill used `AskUserQuestion` on a CLI/TUI project instead of auto-detecting. Self-corrected in subsequent runs.
+2. **Valid review redo** (1 redo cycle) — caught real UTF-8 slicing bug on Cyrillic text before shipping. Exactly how redo should work.
+3. **Progressive acceleration** — run times: 124m → 32m → 28m → 32m → 23m → 30m → 16m. Last run was 8x faster than first.
+
+**Recommendation:** Deploy skill needs project-type auto-detection for Rust CLI/TUI projects.
+
+Report written to `docs/retro/2026-03-20-retro.md`. Evolution logs updated.
+
+<solo:done/>

@@ -1,0 +1,71 @@
+  [2msession: 5670597e  model: claude-opus-4-6[1m][0m
+Let me gather all the necessary context in parallel.
+  [36m**[0m [36mGlob[0m [2m"docs/backlog*.md" ~/startups/active/supervox[0m
+  [36m**[0m [36mGlob[0m [2m"docs/roadmap*.md" ~/startups/active/supervox[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/prd.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/retro/2026-03-20-retro.md[0m
+  [32m$ [0m [33mBash[0m [2mList completed plans[0m
+  [32m$ [0m [33mBash[0m [2mRecent git history[0m
+
+The retro is clear: **action-tracker** is the highest priority — it was correctly planned but falsely archived due to a state leak (0/10 criteria met, 0/14 tasks done). Let me check the existing plan.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/action-tracker_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan-done/action-tracker_20260320/spec.md[0m
+
+The plan is sound and just needs recovery. Let me verify the codebase assumptions are still valid before restoring it.
+  [36m// [36mGrep[0m [2m"ActionItem" ~/startups/active/supervox[0m
+  [36m// [36mGrep[0m [2m"CallFilter" ~/startups/active/supervox[0m
+  [36m// [36mGrep[0m [2m"pub struct CallAnalysis" ~/startups/active/supervox[0m
+  [36m// [36mGrep[0m [2m"fn action|action_item|actions" ~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+  [36m// [36mGrep[0m [2m"enum Command|enum Cli|enum Sub" ~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+
+Let me verify the exact `ActionItem` struct fields to confirm the plan's assumptions.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+  [36m// [36mGrep[0m [2m"analysis.rs|analysis mode" ~/startups/active/supervox/crates/supervox-tui/src/modes[0m
+
+All codebase assumptions validated. The existing plan is accurate and ready to go. Let me restore it from `plan-done/` to `plan/` and present it.
+  [32m$ [0m [33mBash[0m [2mRestore action-tracker plan to active plans[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:TodoWrite[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Restore action-tracker plan from plan-done to [0m
+  [2m--[0m [36mToolSearch[0m [2mselect:AskUserQuestion[0m
+  [2m--[0m [36mAskUserQuestion[0m [2m[{'question': 'Action-tracker was falsely archived (state le[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Restore action-tracker plan from plan-done to [0m
+
+```
+Track restored: action-tracker_20260320
+
+  Type:   Feature
+  Phases: 3
+  Tasks:  14
+  Spec:   docs/plan/action-tracker_20260320/spec.md
+  Plan:   docs/plan/action-tracker_20260320/plan.md
+
+Research findings:
+  - ActionItem struct confirmed (description, assignee, deadline) — no changes needed
+  - CallFilter exists and works — reusable for action list filtering
+  - storage.rs has no action-related functions yet — clean slate
+  - Commands enum in main.rs ready for new subcommands
+  - 196 tests passing, all assumptions valid
+
+Source: retro recommendation #2 (HIGH) — falsely archived due to state leak
+
+Next: /build action-tracker_20260320
+``````
+Track restored: action-tracker_20260320
+
+  Type:   Feature
+  Phases: 3
+  Tasks:  14
+  Spec:   docs/plan/action-tracker_20260320/spec.md
+  Plan:   docs/plan/action-tracker_20260320/plan.md
+
+Research findings:
+  - ActionItem struct confirmed (description, assignee, deadline) — no changes needed
+  - CallFilter exists and works — reusable for action list filtering
+  - storage.rs has no action-related functions yet — clean slate
+  - Commands enum in main.rs ready for new subcommands
+  - 196 tests passing, all assumptions valid
+
+Source: retro recommendation #2 (HIGH) — falsely archived due to state leak
+
+Next: /build action-tracker_20260320
+```
