@@ -51,8 +51,8 @@ Enrich agent context with analysis data and add cross-call insights command.
 ### Tasks
 
 - [x] Task 3.1: Update CLAUDE.md — add `supervox insights` command, document analysis persistence behavior, add `CallInsights` to key types section. <!-- sha:ca92ea8 -->
-- [~] Task 3.2: Add `schemas/call-insights.json` with JSON schema for `CallInsights` type.
-- [ ] Task 3.3: Remove dead code — unused imports, stale `#[allow(dead_code)]` annotations on `AudioEvent::Translation` and `AudioEvent::Summary` if now used, orphaned files.
+- [x] Task 3.2: Add `schemas/call-insights.json` with JSON schema for `CallInsights` type. <!-- sha:14876e3 -->
+- [~] Task 3.3: Remove dead code — unused imports, stale `#[allow(dead_code)]` annotations on `AudioEvent::Translation` and `AudioEvent::Summary` if now used, orphaned files.
 
 ### Verification
 

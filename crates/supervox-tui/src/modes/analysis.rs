@@ -8,7 +8,6 @@ use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
 /// State for analysis mode.
 pub struct AnalysisState {
-    #[allow(dead_code)] // Used for reload
     pub file_path: String,
     pub call_id: Option<String>,
     pub raw_transcript: Option<String>,
