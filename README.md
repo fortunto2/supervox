@@ -4,7 +4,7 @@ Voice-powered productivity TUI. Live call assistant + post-call analysis + agent
 
 ## Modes
 
-- **Live** -- real-time subtitles, translation, and rolling summary during calls
+- **Live** -- real-time subtitles, translation, rolling summary, and audio recording
 - **Analysis** -- post-call summary, action items, follow-up draft
 - **Agent** -- chat with call history, search across past calls
 - **History** -- browse past calls, open any call in Analysis mode
@@ -40,6 +40,7 @@ supervox export <call-id>            # export call as markdown to stdout
 supervox export <call-id> -o file.md # export to file
 supervox search <query>              # search call transcripts
 supervox search <query> --json       # output matches as JSON
+supervox play <call-id>              # play audio recording in system player
 
 # Use local Ollama instead of cloud LLM
 supervox --local live
@@ -63,6 +64,8 @@ supervox --local live
 
 Speaker labels are color-coded: **You** (cyan) and **Them** (yellow).
 
+Audio is automatically saved as WAV (16-bit PCM mono) alongside the call JSON in `~/.supervox/calls/`. Use `supervox play <call-id>` or press `p` in Analysis mode to listen back.
+
 ### Analysis mode
 
 Opens a call JSON file, runs LLM analysis automatically (summary, action items, mood, themes).
@@ -73,6 +76,7 @@ Opens a call JSON file, runs LLM analysis automatically (summary, action items, 
 | `c` | Copy analysis to clipboard |
 | `C` | Copy follow-up to clipboard |
 | `e` | Export call + analysis as markdown to clipboard |
+| `p` | Play audio recording (if available) |
 | `h` | Open call history |
 | Arrow keys | Scroll |
 | `q` | Quit |
