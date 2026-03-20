@@ -58,12 +58,12 @@ Add tag filter UI to History mode.
 - [x] Title updates to show filtered count
 - [x] `cargo test --workspace` passes
 
-## Phase 4: Docs & Cleanup <!-- checkpoint:pending4 -->
+## Phase 4: Docs & Cleanup <!-- checkpoint:96b6d0d -->
 
 ### Tasks
-- [x] Task 4.1: Update CLAUDE.md <!-- sha:pending4 -->
-- [x] Task 4.2: Update help overlay <!-- sha:pending4 -->
-- [x] Task 4.3: Remove dead code — no issues found <!-- sha:pending4 -->
+- [x] Task 4.1: Update CLAUDE.md <!-- sha:96b6d0d -->
+- [x] Task 4.2: Update help overlay <!-- sha:96b6d0d -->
+- [x] Task 4.3: Remove dead code — no issues found <!-- sha:96b6d0d -->
 
 ### Verification
 - [x] CLAUDE.md reflects current project state
