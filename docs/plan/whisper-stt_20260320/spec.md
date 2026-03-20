@@ -13,15 +13,15 @@ The key architectural change is introducing a `StreamingSttBackend` trait that a
 
 ## Acceptance Criteria
 
-- [ ] `stt_backend = "whisper"` in config.toml selects local Whisper STT
-- [ ] `stt_backend = "realtime"` (default) preserves current OpenAI behavior exactly
-- [ ] Live mode works fully offline with Whisper backend (no network calls for STT)
-- [ ] Whisper uses Metal acceleration on Apple Silicon (via whisper.cpp)
-- [ ] Model auto-downloads on first use (`ggml-base.bin` default, configurable)
-- [ ] VAD (Silero) segments speech before sending to Whisper (no continuous decoding)
-- [ ] TranscriptEvent::Final emitted per speech segment (deltas optional/stretch)
-- [ ] `supervox live` status bar shows active STT backend name
-- [ ] Tests cover WhisperStt construction, VAD→Whisper pipeline, config selection
+- [x] `stt_backend = "whisper"` in config.toml selects local Whisper STT
+- [x] `stt_backend = "realtime"` (default) preserves current OpenAI behavior exactly
+- [x] Live mode works fully offline with Whisper backend (no network calls for STT)
+- [x] Whisper uses Metal acceleration on Apple Silicon (via whisper.cpp)
+- [x] Model auto-downloads on first use (`ggml-base.bin` default, configurable)
+- [x] VAD (Silero) segments speech before sending to Whisper (no continuous decoding)
+- [x] TranscriptEvent::Final emitted per speech segment (deltas optional/stretch)
+- [x] `supervox live` status bar shows active STT backend name
+- [x] Tests cover WhisperStt construction, VAD→Whisper pipeline, config selection
 
 ## Dependencies
 
