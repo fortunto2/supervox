@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/voxkit", "crates/supervox-agent", "crates/supervox-tui"]
+members = ["crates/voxkit", "crates/supervox-agent", "crates/supervox-tui", "crates/supervox-desktop"]
 resolver = "2"
 
 [profile.release]

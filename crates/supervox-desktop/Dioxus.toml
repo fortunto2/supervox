@@ -1,0 +1,12 @@
+[application]
+name = "SuperVox"
+asset_dir = "assets"
+
+[bundle]
+identifier = "com.supervox.desktop"
+publisher = "SuperVox"
+icon = ["assets/icon.png"]
+
+[bundle.macos]
+category = "Productivity"
+minimum_system_version = "13.0"

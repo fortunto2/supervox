@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>SuperVox</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.supervox.desktop</string>
+    <key>CFBundleVersion</key>
+    <string>0.7.2</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.7.2</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>SuperVox needs microphone access for live speech transcription.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>SuperVox uses system audio for call transcription.</string>
+</dict>
+</plist>

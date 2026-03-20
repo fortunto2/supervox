@@ -282,6 +282,7 @@ async fn run_pipeline(
                         total_samples += chunk.len() as u64;
 
                         let level = chunk.rms().min(1.0);
+                        tracing::trace!("mic rms={level:.4} samples={}", chunk.len());
                         let _ = event_tx.send(AudioEvent::Level { source: AudioSource::Mic, level });
 
                         // Initialize WAV writer on first chunk

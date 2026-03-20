@@ -1,0 +1,27 @@
+[package]
+name = "supervox-desktop"
+version = "0.7.2"
+edition = "2024"
+description = "SuperVox Desktop — voice-powered productivity app with native audio"
+license = "MIT"
+
+[[bin]]
+name = "supervox-desktop"
+path = "src/main.rs"
+
+[dependencies]
+supervox-agent = { path = "../supervox-agent" }
+voxkit = { path = "../voxkit", features = ["openai", "mic", "wav", "realtime", "macos-system-audio"] }
+dioxus = { version = "0.7", features = ["desktop"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = "0.4"
+uuid = { version = "1", features = ["v7"] }
+hound = "3.5"
+dotenvy = "0.15"
+
+[features]
+default = ["whisper", "parakeet"]
+whisper = ["voxkit/whisper"]
+parakeet = ["voxkit/parakeet"]
