@@ -138,6 +138,11 @@ enum Commands {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Play audio recording for a call
+    Play {
+        /// Call ID (suffix match)
+        call_id: String,
+    },
 }
 
 #[tokio::main]
@@ -180,6 +185,9 @@ async fn main() -> Result<()> {
         Some(Commands::AnalyzeAll { dry_run }) => {
             cmd_analyze_all(dry_run).await?;
         }
+        Some(Commands::Play { call_id }) => {
+            cmd_play(&call_id)?;
+        }
         Some(Commands::Live) | None => {
             app::run(app::Mode::Live).await?;
         }
@@ -209,6 +217,27 @@ fn check_ollama_health() {
             eprintln!("warning: Ollama not reachable at localhost:11434 — LLM calls may fail");
         }
     }
+}
+
+/// Play audio recording for a call via system player.
+fn cmd_play(call_id: &str) -> Result<()> {
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    let call = supervox_agent::storage::load_call(&calls_dir, call_id)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    if !supervox_agent::storage::has_audio(&calls_dir, &call) {
+        anyhow::bail!("No audio recording for call {call_id}");
+    }
+
+    let wav_path = supervox_agent::storage::audio_path_for_call(&calls_dir, &call);
+    eprintln!("Playing: {}", wav_path.display());
+
+    std::process::Command::new("open")
+        .arg(&wav_path)
+        .status()
+        .map_err(|e| anyhow::anyhow!("Failed to open audio player: {e}"))?;
+
+    Ok(())
 }
 
 /// Delete a call by ID with confirmation prompt.
