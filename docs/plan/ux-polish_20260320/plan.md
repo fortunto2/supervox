@@ -32,7 +32,7 @@ Add in-TUI call browsing accessible from Live and Analysis modes.
 
 ### Tasks
 
-- [ ] Task 2.1: Add `CallHistoryState` to `crates/supervox-tui/src/modes/live.rs` (or new file `crates/supervox-tui/src/modes/history.rs`) — fields: `calls: Vec<Call>`, `cursor: usize`, `scroll_offset: usize`. Methods: `move_up()`, `move_down()`, `selected() -> Option<&Call>`.
+- [~] Task 2.1: Add `CallHistoryState` to `crates/supervox-tui/src/modes/live.rs` (or new file `crates/supervox-tui/src/modes/history.rs`) — fields: `calls: Vec<Call>`, `cursor: usize`, `scroll_offset: usize`. Methods: `move_up()`, `move_down()`, `selected() -> Option<&Call>`.
 - [ ] Task 2.2: Render call history list — date, duration (formatted mm:ss), mood emoji (from CallAnalysis if available), first 60 chars of transcript. Highlight selected row. Scrollable with Up/Down/j/k.
 - [ ] Task 2.3: Wire `h` key in Live (idle) and Analysis modes to open history browser. Load calls via `storage::list_calls()`. Enter on selected call switches to Analysis mode for that call. Esc returns to previous mode. Add `Mode::History { return_to: Box<Mode> }` variant.
 - [ ] Task 2.4: Add tests for `CallHistoryState` — cursor bounds, empty list, navigation wrapping.

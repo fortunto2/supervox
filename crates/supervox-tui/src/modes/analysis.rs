@@ -279,6 +279,9 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                 app.status = "No follow-up to copy".into();
             }
         }
+        crossterm::event::KeyCode::Char('h') => {
+            crate::app::open_history(app);
+        }
         _ => {}
     }
 }

@@ -29,6 +29,7 @@ pub enum Mode {
     Live,
     Analysis { file: String },
     Agent,
+    History { return_to: Box<Mode> },
 }
 
 /// Application state.
@@ -40,6 +41,7 @@ pub struct App {
     pub live_state: modes::live::LiveState,
     pub analysis_state: modes::analysis::AnalysisState,
     pub agent_state: modes::agent::AgentState,
+    pub history_state: Option<modes::history::CallHistoryState>,
     pub show_help: bool,
     pub audio: AudioPipeline,
     pub audio_event_rx: mpsc::UnboundedReceiver<AudioEvent>,
@@ -59,6 +61,7 @@ impl App {
             Mode::Live => "Live mode — press 'r' to start recording".into(),
             Mode::Analysis { file } => format!("Analysis mode — {file}"),
             Mode::Agent => "Agent mode — type a question".into(),
+            Mode::History { .. } => "Call history".into(),
         };
 
         let analysis_file = match &mode {
@@ -76,6 +79,7 @@ impl App {
             live_state: modes::live::LiveState::default(),
             analysis_state: modes::analysis::AnalysisState::new(&analysis_file),
             agent_state: modes::agent::AgentState::default(),
+            history_state: None,
             show_help: false,
             audio: AudioPipeline::default(),
             audio_event_rx,
@@ -103,6 +107,7 @@ impl App {
             Mode::Live => "LIVE",
             Mode::Analysis { .. } => "ANALYSIS",
             Mode::Agent => "AGENT",
+            Mode::History { .. } => "HISTORY",
         }
     }
 
@@ -310,6 +315,11 @@ pub async fn run(mode: Mode) -> Result<()> {
                     match &app.mode {
                         Mode::Analysis { .. } => modes::analysis::render(f, main_area, &app),
                         Mode::Agent => modes::agent::render(f, main_area, &app),
+                        Mode::History { .. } => {
+                            if let Some(hs) = &app.history_state {
+                                modes::history::render(f, main_area, hs);
+                            }
+                        }
                         Mode::Live => unreachable!(),
                     }
 
@@ -362,9 +372,14 @@ pub async fn run(mode: Mode) -> Result<()> {
                 continue;
             }
 
-            // Esc quits in all modes
+            // Esc in History returns to previous mode; elsewhere quits
             if key.code == KeyCode::Esc {
-                if !app.live_state.is_recording {
+                if let Mode::History { return_to } = &app.mode {
+                    let return_mode = return_to.clone();
+                    app.mode = *return_mode;
+                    app.history_state = None;
+                    app.status = "Back".into();
+                } else if !app.live_state.is_recording {
                     app.running = false;
                 }
                 continue;
@@ -391,6 +406,9 @@ pub async fn run(mode: Mode) -> Result<()> {
                     // In agent mode, all keys go to input handler (no 'q' quit)
                     modes::agent::handle_key(&mut app, key);
                 }
+                Mode::History { .. } => {
+                    handle_history_key(&mut app, key);
+                }
             }
         }
     }
@@ -399,8 +417,64 @@ pub async fn run(mode: Mode) -> Result<()> {
     Ok(())
 }
 
+pub fn open_history(app: &mut App) {
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    let calls = supervox_agent::storage::list_calls(&calls_dir).unwrap_or_default();
+    app.history_state = Some(modes::history::CallHistoryState::new(calls));
+    let return_mode = app.mode.clone();
+    app.mode = Mode::History {
+        return_to: Box::new(return_mode),
+    };
+    app.status = "Call history".into();
+}
+
+fn handle_history_key(app: &mut App, key: crossterm::event::KeyEvent) {
+    match key.code {
+        KeyCode::Up | KeyCode::Char('k') => {
+            if let Some(hs) = &mut app.history_state {
+                hs.move_up();
+            }
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            if let Some(hs) = &mut app.history_state {
+                hs.move_down();
+            }
+        }
+        KeyCode::Enter => {
+            // Open selected call in analysis mode
+            if let Some(hs) = &app.history_state
+                && let Some(call) = hs.selected()
+            {
+                let calls_dir = supervox_agent::storage::default_calls_dir();
+                let file = calls_dir
+                    .join(format!("{}.json", call.id))
+                    .to_string_lossy()
+                    .to_string();
+                app.analysis_state = modes::analysis::AnalysisState::new(&file);
+                app.analysis_state.load_from_call(&file);
+                app.analysis_state.loading = true;
+                app.mode = Mode::Analysis { file: file.clone() };
+                app.history_state = None;
+                // Spawn LLM analysis
+                if let Some(transcript) = app.analysis_state.get_transcript() {
+                    app.spawn_analysis(transcript);
+                }
+            }
+        }
+        KeyCode::Char('q') => {
+            // q in history returns to previous mode (same as Esc)
+            // Esc is handled above, so we just quit here
+            app.running = false;
+        }
+        _ => {}
+    }
+}
+
 fn handle_live_key(app: &mut App, key: crossterm::event::KeyEvent) {
     match key.code {
+        KeyCode::Char('h') if !app.live_state.is_recording => {
+            open_history(app);
+        }
         KeyCode::Char('r') if !app.live_state.is_recording => {
             let tx = app.audio_event_tx.clone();
             match app.audio.start(tx, &app.config) {
