@@ -263,8 +263,19 @@ pub fn delete_call(calls_dir: &Path, call_id: &str) -> Result<(), Box<dyn std::e
         let path = entry.path();
         if path.extension().is_some_and(|e| e == "json") {
             let name = path.file_stem().unwrap_or_default().to_string_lossy();
-            if name.ends_with(call_id) {
+            if name.ends_with(call_id) && !name.contains(".analysis") {
+                // Remove the call JSON
                 std::fs::remove_file(&path)?;
+                // Remove associated WAV if it exists
+                let wav_path = path.with_extension("wav");
+                if wav_path.exists() {
+                    std::fs::remove_file(&wav_path)?;
+                }
+                // Remove associated analysis JSON if it exists
+                let analysis_path = calls_dir.join(format!("{name}.analysis.json"));
+                if analysis_path.exists() {
+                    std::fs::remove_file(&analysis_path)?;
+                }
                 return Ok(());
             }
         }
@@ -497,6 +508,31 @@ mod tests {
 
         delete_call(&dir, "del123").unwrap();
         assert!(load_call(&dir, "del123").is_err());
+    }
+
+    #[test]
+    fn delete_call_removes_wav_and_analysis() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().to_path_buf();
+        let call = make_call("delaudio", "To be deleted with audio");
+        save_call(&dir, &call).unwrap();
+
+        // Create associated WAV file
+        let wav_path = audio_path_for_call(&dir, &call);
+        std::fs::write(&wav_path, b"RIFF fake wav").unwrap();
+        assert!(wav_path.exists());
+
+        // Create associated analysis file
+        let analysis = make_analysis();
+        save_analysis(&dir, "delaudio", &analysis).unwrap();
+
+        delete_call(&dir, "delaudio").unwrap();
+        assert!(load_call(&dir, "delaudio").is_err());
+        assert!(!wav_path.exists(), "WAV file should be deleted");
+        assert!(
+            load_analysis(&dir, "delaudio").unwrap().is_none(),
+            "Analysis should be deleted"
+        );
     }
 
     #[test]
