@@ -33,7 +33,7 @@ Enrich agent context with analysis data and add cross-call insights command.
 
 ### Tasks
 
-- [ ] Task 2.1: Add `CallInsights` type to `crates/supervox-agent/src/types.rs` with fields: `recurring_themes: Vec<ThemeCount>`, `mood_summary: MoodSummary`, `open_action_items: Vec<ActionItem>`, `key_patterns: Vec<String>`, `total_calls: usize`, `period: String`. Add `ThemeCount { theme: String, count: usize }` and `MoodSummary { positive: usize, neutral: usize, negative: usize, mixed: usize }`. All derive `Serialize, Deserialize, JsonSchema`.
+- [~] Task 2.1: Add `CallInsights` type to `crates/supervox-agent/src/types.rs` with fields: `recurring_themes: Vec<ThemeCount>`, `mood_summary: MoodSummary`, `open_action_items: Vec<ActionItem>`, `key_patterns: Vec<String>`, `total_calls: usize`, `period: String`. Add `ThemeCount { theme: String, count: usize }` and `MoodSummary { positive: usize, neutral: usize, negative: usize, mixed: usize }`. All derive `Serialize, Deserialize, JsonSchema`.
 - [ ] Task 2.2: Update `build_calls_context()` in `crates/supervox-tui/src/agent_loop.rs` — for each call, try `load_analysis()` and include summary + themes in context instead of 200-char transcript preview. Fall back to transcript preview if no analysis.
 - [ ] Task 2.3: Add `generate_insights()` function to `crates/supervox-tui/src/analysis_pipeline.rs` — loads all calls + analyses from storage, builds a context string of summaries/themes/action_items, calls `Llm::structured::<CallInsights>()` to produce cross-call analysis.
 - [ ] Task 2.4: Add `Insights` subcommand to CLI in `crates/supervox-tui/src/main.rs` with `--json` flag. Calls `generate_insights()` and displays formatted output (or JSON).

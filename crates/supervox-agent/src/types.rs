@@ -50,6 +50,33 @@ pub enum Mood {
     Mixed,
 }
 
+/// Frequency count for a recurring theme across calls.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ThemeCount {
+    pub theme: String,
+    pub count: usize,
+}
+
+/// Mood distribution across analyzed calls.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct MoodSummary {
+    pub positive: usize,
+    pub neutral: usize,
+    pub negative: usize,
+    pub mixed: usize,
+}
+
+/// Cross-call insights aggregated from multiple call analyses.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CallInsights {
+    pub recurring_themes: Vec<ThemeCount>,
+    pub mood_summary: MoodSummary,
+    pub open_action_items: Vec<ActionItem>,
+    pub key_patterns: Vec<String>,
+    pub total_calls: usize,
+    pub period: String,
+}
+
 /// A search match result when searching across past calls.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CallMatch {
