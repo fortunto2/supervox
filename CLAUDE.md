@@ -14,11 +14,11 @@ Voice-powered productivity TUI. Live call assistant + post-call analysis + agent
 supervox/
   crates/
     voxkit/              — Voice pipeline: STT, VAD, TTS (Rust, 148 tests) ✓ DONE
-    supervox-agent/      — 3-mode agent: live translate, analysis, chat (TODO)
-    supervox-tui/        — ratatui TUI with mode switching (TODO)
-  schemas/               — JSON schemas: call, analysis, config (TODO)
+    supervox-agent/      — 3-mode agent: tools + storage + config ✓ DONE
+    supervox-tui/        — ratatui TUI with mode switching ✓ Live mode DONE
+  schemas/               — JSON schemas: call, analysis, config
   docs/
-    plan.md              — Development plan (3 modes, 4 phases)
+    plan/                — Track-based implementation plans
     prd.md               — Product requirements
   Makefile
 ```
@@ -78,28 +78,42 @@ supervox calls                   # list past calls
 ## Live Mode Pipeline
 
 ```
-mic + system audio → VAD → STT (realtime WS) → transcript
-                                               → translate (parallel) → left panel
-                                               → rolling_summary (~5s) → right panel
-on stop → auto-trigger analysis mode
+mic → MicCapture::start_raw() → resample_to_24k() → OpenAiStreamingStt (WS)
+system audio → SystemAudioCapture::start_raw() → resample_to_24k() → separate STT (WS)
+                                                                     ↓
+                                                     TranscriptEvent (Delta/Final)
+                                                                     ↓
+                                                     AudioEvent::Transcript{source, is_final}
+                                                                     ↓
+                                               ┌─ translate (async per final) → left panel
+                                               └─ rolling_summary (timer) → right panel
+on stop → save call → auto-switch to Analysis mode
 ```
+
+### Key types
+- `AudioSource::Mic | System` — "You:" vs "Them:" labels
+- `AudioEvent::Transcript{source, text, is_final}` — delta (dimmed) + final (normal)
+- `AudioEvent::Translation{source_id, text}` — shown italic below original
+- `AudioEvent::Summary(String)` — replaces right panel content
+
+### Intelligence module (`crates/supervox-tui/src/intelligence.rs`)
+- `start_translation_pipeline()` — spawns async task per final transcript
+- `start_summary_pipeline()` — timer-based (config `summary_lag_secs`), keeps prior context
 
 ## Config
 
 ```toml
 # ~/.supervox/config.toml
-[general]
 my_language = "ru"            # Target language for summaries/translation
-[live]
 stt_backend = "realtime"      # "realtime" | "openai"
-summary_lag_secs = 5
-capture = "mic+system"
-[analysis]
 llm_model = "gemini-2.5-flash"
-follow_up_language = "auto"   # "auto" = same as call language
+summary_lag_secs = 5
+capture = "mic+system"        # "mic" | "mic+system"
 ```
 
-Language is configurable, not hardcoded. Default: summaries in Russian, follow-ups in call language.
+Config loaded at startup via `storage::load_config()`. Default created if missing.
+Requires `OPENAI_API_KEY` env var for realtime STT.
+System audio requires `system-audio-tap` binary (macOS ScreenCaptureKit).
 
 ## Key Principles
 
