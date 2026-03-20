@@ -59,6 +59,23 @@ pub fn list_calls(calls_dir: &Path) -> Result<Vec<Call>, Box<dyn std::error::Err
     Ok(calls)
 }
 
+/// Delete a call by ID from the calls directory.
+/// Finds the file by ID suffix match (same pattern as `load_call`).
+pub fn delete_call(calls_dir: &Path, call_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    for entry in std::fs::read_dir(calls_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().is_some_and(|e| e == "json") {
+            let name = path.file_stem().unwrap_or_default().to_string_lossy();
+            if name.ends_with(call_id) {
+                std::fs::remove_file(&path)?;
+                return Ok(());
+            }
+        }
+    }
+    Err(format!("Call not found: {call_id}").into())
+}
+
 /// Default config path: ~/.supervox/config.toml
 pub fn default_config_path() -> PathBuf {
     directories::BaseDirs::new()
