@@ -75,8 +75,16 @@ supervox insights                    # cross-call patterns + themes + action ite
 supervox insights --json             # output CallInsights as JSON
 supervox stats                       # aggregate call statistics
 supervox stats --json                # output CallStats as JSON
+supervox tags                        # list all unique tags with counts
+supervox tags --json                 # output tag list as JSON
 supervox analyze-all                 # batch-analyze all unanalyzed calls
 supervox analyze-all --dry-run       # list unanalyzed calls without processing
+
+# Filtering (calls, search, stats, insights)
+supervox calls --tag meeting         # filter by tag (repeatable, OR logic)
+supervox calls --since 2026-03-01    # from date onward (YYYY-MM-DD)
+supervox calls --until 2026-03-15    # up to date
+supervox stats --tag budget --since 2026-01-01  # combined filters
 
 # Ollama (local LLM)
 supervox --local live                # use Ollama instead of cloud LLM
@@ -132,6 +140,7 @@ on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 - Shows call list: date, duration, first 60 chars of transcript
 - ↑/↓/j/k to navigate, Enter to open in Analysis, Esc to go back
 - 'd' key: delete selected call (inline y/n confirmation)
+- 't' key: open tag filter popup — select/deselect tags to filter call list
 
 ### Key types
 - `AudioSource::Mic | System` — "You:" (cyan) vs "Them:" (yellow) labels

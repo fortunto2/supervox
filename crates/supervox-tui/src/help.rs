@@ -35,6 +35,7 @@ const HISTORY_KEYS: &[(&str, &str)] = &[
     ("↑/↓/j/k", "Navigate"),
     ("Enter", "Open in Analysis"),
     ("d", "Delete call"),
+    ("t", "Filter by tag"),
     ("Esc", "Back"),
     ("q", "Quit"),
     ("?", "Toggle help"),
