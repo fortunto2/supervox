@@ -14,6 +14,7 @@ fn make_call(id: &str, transcript: &str) -> Call {
         transcript: transcript.into(),
         translation: None,
         tags: vec![],
+        audio_path: None,
     }
 }
 

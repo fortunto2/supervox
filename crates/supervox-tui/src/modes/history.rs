@@ -275,6 +275,7 @@ mod tests {
             transcript: transcript.to_string(),
             translation: None,
             tags: vec![],
+            audio_path: None,
         }
     }
 

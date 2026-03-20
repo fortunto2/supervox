@@ -348,6 +348,7 @@ mod tests {
             transcript: transcript.into(),
             translation: None,
             tags: vec![],
+            audio_path: None,
         }
     }
 
@@ -780,6 +781,7 @@ mod tests {
             transcript: "transcript".into(),
             translation: None,
             tags: tags.iter().map(|s| s.to_string()).collect(),
+            audio_path: None,
         }
     }
 

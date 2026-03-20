@@ -289,6 +289,7 @@ pub fn save_recorded_call(
         transcript: transcript.to_string(),
         translation: None,
         tags: vec![],
+        audio_path: None,
     };
 
     supervox_agent::storage::save_call(calls_dir, &call).map_err(|e| format!("Save error: {e}"))

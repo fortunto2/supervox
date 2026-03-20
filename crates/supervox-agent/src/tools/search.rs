@@ -142,6 +142,7 @@ mod tests {
                 .into(),
             translation: None,
             tags: vec![],
+            audio_path: None,
         };
         storage::save_call(&calls_dir, &call).unwrap();
 
@@ -166,6 +167,7 @@ mod tests {
             transcript: "Hello world".into(),
             translation: None,
             tags: vec![],
+            audio_path: None,
         };
         storage::save_call(&calls_dir, &call).unwrap();
 
@@ -195,6 +197,7 @@ mod tests {
             transcript: "Budget BUDGET budget".into(),
             translation: None,
             tags: vec![],
+            audio_path: None,
         };
         storage::save_call(&calls_dir, &call).unwrap();
 
@@ -217,6 +220,7 @@ mod tests {
             transcript: "Обсудили бюджет на второй квартал и план проекта".into(),
             translation: None,
             tags: vec![],
+            audio_path: None,
         };
         storage::save_call(&calls_dir, &call).unwrap();
 

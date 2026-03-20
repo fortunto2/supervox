@@ -15,6 +15,8 @@ pub struct Call {
     pub translation: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_path: Option<String>,
 }
 
 /// Post-call analysis output.
@@ -190,6 +192,7 @@ mod tests {
             transcript: "Hello, how are you?".into(),
             translation: Some("Привет, как дела?".into()),
             tags: vec!["meeting".into()],
+            audio_path: None,
         };
         let json = serde_json::to_string(&call).unwrap();
         let back: Call = serde_json::from_str(&json).unwrap();
@@ -287,5 +290,60 @@ mod tests {
         assert!(call.language.is_none());
         assert!(call.translation.is_none());
         assert!(call.tags.is_empty());
+        assert!(call.audio_path.is_none());
+    }
+
+    #[test]
+    fn call_without_audio_path_deserializes() {
+        // Backward compat: existing JSON without audio_path must deserialize
+        let json = r#"{
+            "id": "old-call",
+            "created_at": "2025-12-01T10:00:00Z",
+            "duration_secs": 300,
+            "participants": ["Alice"],
+            "language": "en",
+            "transcript": "Old call transcript",
+            "translation": null,
+            "tags": ["meeting"]
+        }"#;
+        let call: Call = serde_json::from_str(json).unwrap();
+        assert_eq!(call.id, "old-call");
+        assert!(call.audio_path.is_none());
+    }
+
+    #[test]
+    fn call_with_audio_path_roundtrip() {
+        let call = Call {
+            id: "audio-test".into(),
+            created_at: Utc::now(),
+            duration_secs: 60.0,
+            participants: vec![],
+            language: None,
+            transcript: "test".into(),
+            translation: None,
+            tags: vec![],
+            audio_path: Some("/path/to/call.wav".into()),
+        };
+        let json = serde_json::to_string(&call).unwrap();
+        assert!(json.contains("audio_path"));
+        let back: Call = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.audio_path.as_deref(), Some("/path/to/call.wav"));
+    }
+
+    #[test]
+    fn call_without_audio_path_omits_field() {
+        let call = Call {
+            id: "no-audio".into(),
+            created_at: Utc::now(),
+            duration_secs: 60.0,
+            participants: vec![],
+            language: None,
+            transcript: "test".into(),
+            translation: None,
+            tags: vec![],
+            audio_path: None,
+        };
+        let json = serde_json::to_string(&call).unwrap();
+        assert!(!json.contains("audio_path"));
     }
 }
