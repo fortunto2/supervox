@@ -30,24 +30,18 @@ Add file-level transcription methods to both STT backends.
 Wire the `supervox import` command that orchestrates file → transcribe → save → analyze.
 
 ### Tasks
-- [ ] Task 2.1: Add `Import` variant to `Commands` enum in `crates/supervox-tui/src/main.rs` with args: `file: String`, `--no-analyze` flag, `--json` flag, `--language` optional override.
-- [ ] Task 2.2: Implement `cmd_import()` async function in `crates/supervox-tui/src/main.rs`:
-  - Validate file exists and extension is supported
-  - Read file bytes + determine MIME type from extension
-  - Create STT backend based on config (OpenAI batch or Whisper)
-  - Transcribe: OpenAI uses `transcribe_file_bytes()`, Whisper uses `read_wav_file()` + `transcribe_chunk()`
-  - Copy audio file to calls dir with canonical name (`{date}-{id}.{ext}`)
-  - Create and save Call (reuse `save_call()`)
-  - If `--no-analyze` not set: run `analyze_transcript()` + `save_analysis()` + `update_call_tags()`
-  - Print result summary or JSON
-- [ ] Task 2.3: Add `mime_for_extension(ext: &str) -> Option<&str>` helper function for mapping file extensions to MIME types (wav, mp3, m4a, flac, ogg, webm).
-- [ ] Task 2.4: Add CLI integration tests in `crates/supervox-tui/tests/cli_commands.rs` — test that `supervox import --help` works, test argument parsing for the Import command.
+- [x] Task 2.1: Add `Import` variant to `Commands` enum in `crates/supervox-tui/src/main.rs` with args: `file: String`, `--no-analyze` flag, `--json` flag, `--language` optional override. <!-- sha:bf9e352 -->
+- [x] Task 2.2: Implement `cmd_import()` async function in `crates/supervox-tui/src/main.rs` <!-- sha:bf9e352 -->
+- [x] Task 2.3: Add `mime_for_extension(ext: &str) -> Option<&str>` helper function for mapping file extensions to MIME types (wav, mp3, m4a, flac, ogg, webm). <!-- sha:bf9e352 -->
+- [x] Task 2.4: Add CLI integration tests in `crates/supervox-tui/tests/cli_commands.rs` — test that `supervox import --help` works, test argument parsing for the Import command. <!-- sha:bf9e352 -->
 
 ### Verification
-- [ ] `cargo build -p supervox-tui` succeeds
-- [ ] `supervox import --help` shows correct usage
-- [ ] `cargo test -p supervox-tui` passes
-- [ ] `cargo clippy --workspace -- -D warnings` clean
+- [x] `cargo build -p supervox-tui` succeeds
+- [x] `supervox import --help` shows correct usage
+- [x] `cargo test -p supervox-tui` passes
+- [x] `cargo clippy --workspace -- -D warnings` clean
+
+## Phase 2: CLI Import Command <!-- checkpoint:bf9e352 -->
 
 ## Phase 3: Docs & Cleanup
 
