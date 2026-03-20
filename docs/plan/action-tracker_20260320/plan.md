@@ -9,16 +9,16 @@
 
 Add persistent action item tracking: deterministic IDs, completion state in `~/.supervox/actions.json`, CLI commands, and TUI integration. Three phases: types+storage, CLI, TUI+docs.
 
-## Phase 1: Types + Storage
+## Phase 1: Types + Storage <!-- checkpoint:73cb76f -->
 
 Add action item ID generation and completion state persistence.
 
 ### Tasks
 
-- [x] Task 1.1: Add `action_id()` function to `crates/supervox-agent/src/types.rs` — takes `call_id` + `description`, returns first 8 chars of SHA-256 hex. Add `ActionState { completed: bool, completed_at: Option<DateTime<Utc>> }` struct with Serialize/Deserialize.
-- [x] Task 1.2: Add `TrackedAction` struct to `crates/supervox-agent/src/types.rs` — combines `ActionItem`, `action_id: String`, `call_id: String`, `call_date: DateTime<Utc>`, and `state: ActionState`. Derives Serialize for JSON output.
-- [x] Task 1.3: Add action store functions to `crates/supervox-agent/src/storage.rs` — `default_actions_path()` → `~/.supervox/actions.json`, `load_action_store()` → `HashMap<String, ActionState>`, `save_action_store()`, `set_action_completed()`, `set_action_incomplete()`. All with unit tests.
-- [x] Task 1.4: Add `list_tracked_actions()` to `crates/supervox-agent/src/storage.rs` — scans all calls + analyses, generates TrackedAction list enriched with completion state from action store. Takes optional `CallFilter` + `include_completed: bool`. Unit tests with fixture calls.
+- [x] Task 1.1: Add `action_id()` function to `crates/supervox-agent/src/types.rs` — takes `call_id` + `description`, returns first 8 chars of SHA-256 hex. Add `ActionState { completed: bool, completed_at: Option<DateTime<Utc>> }` struct with Serialize/Deserialize. <!-- sha:73cb76f -->
+- [x] Task 1.2: Add `TrackedAction` struct to `crates/supervox-agent/src/types.rs` — combines `ActionItem`, `action_id: String`, `call_id: String`, `call_date: DateTime<Utc>`, and `state: ActionState`. Derives Serialize for JSON output. <!-- sha:73cb76f -->
+- [x] Task 1.3: Add action store functions to `crates/supervox-agent/src/storage.rs` — `default_actions_path()` → `~/.supervox/actions.json`, `load_action_store()` → `HashMap<String, ActionState>`, `save_action_store()`, `set_action_completed()`, `set_action_incomplete()`. All with unit tests. <!-- sha:73cb76f -->
+- [x] Task 1.4: Add `list_tracked_actions()` to `crates/supervox-agent/src/storage.rs` — scans all calls + analyses, generates TrackedAction list enriched with completion state from action store. Takes optional `CallFilter` + `include_completed: bool`. Unit tests with fixture calls. <!-- sha:73cb76f -->
 
 ### Verification
 
