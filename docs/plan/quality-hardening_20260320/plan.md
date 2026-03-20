@@ -24,20 +24,20 @@ Add enums for config fields that are currently bare `String`, maintaining serde 
 - [x] `cargo clippy --workspace -- -D warnings` clean
 - [x] Existing config.toml files parse without changes
 
-## Phase 2: Config Validation + Schema Sync
+## Phase 2: Config Validation + Schema Sync <!-- checkpoint:35a7c4b -->
 
 Add a validation step after config load. Sync JSON schema with current code.
 
 ### Tasks
-- [ ] Task 2.1: Add `Config::validate(&self) -> Vec<String>` method in `types.rs` — returns list of warnings. Check: `ducking_threshold` in 0.0..=1.0, `summary_lag_secs` >= 1, `whisper_model` is one of known values (tiny/base/small/medium).
-- [ ] Task 2.2: Call `validate()` in `storage::load_config()` — log warnings via `tracing::warn!`, but do NOT reject config (lenient).
-- [ ] Task 2.3: Update `schemas/config.json` — add `whisper_model` field (string, enum: tiny/base/small/medium, default "base"), add `ducking_threshold` (number, min 0.0, max 1.0, default 0.05), fix `stt_backend` enum to `["realtime", "whisper"]`.
-- [ ] Task 2.4: Write tests — validation warns on out-of-range ducking_threshold, validation warns on zero summary_lag_secs, validation returns empty on valid config.
+- [x] Task 2.1: Add `Config::validate(&self) -> Vec<String>` method in `types.rs` <!-- sha:35a7c4b -->
+- [x] Task 2.2: Call `validate()` in `storage::load_config()` <!-- sha:35a7c4b -->
+- [x] Task 2.3: Update `schemas/config.json` <!-- sha:35a7c4b -->
+- [x] Task 2.4: Write tests — validation warns on out-of-range ducking_threshold, zero summary_lag_secs, valid config <!-- sha:35a7c4b -->
 
 ### Verification
-- [ ] `cargo test --workspace` passes
-- [ ] Schema validates default config without errors
-- [ ] Invalid config prints warnings but still loads
+- [x] `cargo test --workspace` passes
+- [x] Schema validates default config without errors
+- [x] Invalid config prints warnings but still loads
 
 ## Phase 3: Unwrap Cleanup + Docs
 
