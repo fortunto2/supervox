@@ -10,8 +10,10 @@ use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph, Wrap};
 pub struct AgentState {
     pub messages: Vec<ChatMessage>,
     pub input: String,
-    #[allow(dead_code)] // Used when ChatState is wired
+    #[allow(dead_code)] // Will be used for chat scrolling
     pub scroll_offset: usize,
+    pub calls_context: String,
+    pub thinking: bool,
 }
 
 pub struct ChatMessage {
@@ -27,6 +29,7 @@ pub enum MessageRole {
 
 impl Default for AgentState {
     fn default() -> Self {
+        let calls_context = crate::agent_loop::build_calls_context();
         Self {
             messages: vec![ChatMessage {
                 role: MessageRole::System,
@@ -34,6 +37,8 @@ impl Default for AgentState {
             }],
             input: String::new(),
             scroll_offset: 0,
+            calls_context,
+            thinking: false,
         }
     }
 }
@@ -55,7 +60,7 @@ impl AgentState {
 
     /// Mark the current response as complete.
     pub fn finish_response(&mut self) {
-        // No-op for now — future: could toggle a "thinking" indicator
+        self.thinking = false;
     }
 
     /// Push an error message.
@@ -118,16 +123,23 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         crossterm::event::KeyCode::Backspace => {
             app.agent_state.input.pop();
         }
-        crossterm::event::KeyCode::Enter if !app.agent_state.input.is_empty() => {
+        crossterm::event::KeyCode::Enter
+            if !app.agent_state.input.is_empty() && !app.agent_state.thinking =>
+        {
             let question = std::mem::take(&mut app.agent_state.input);
             app.agent_state.messages.push(ChatMessage {
                 role: MessageRole::User,
-                content: question,
+                content: question.clone(),
             });
-            // AI-NOTE: LLM call integration will replace this placeholder
-            app.agent_state.messages.push(ChatMessage {
-                role: MessageRole::Assistant,
-                content: "Agent processing is not yet connected to LLM.".into(),
+            app.agent_state.thinking = true;
+            app.status = "Thinking...".into();
+
+            // Spawn async LLM query
+            let calls_context = app.agent_state.calls_context.clone();
+            let config = app.config.clone();
+            let tx = app.app_event_tx.clone();
+            tokio::spawn(async move {
+                crate::agent_loop::run_agent_query(&question, &calls_context, &config, tx).await;
             });
         }
         _ => {}

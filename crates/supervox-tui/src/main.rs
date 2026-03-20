@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
+mod agent_loop;
 mod analysis_pipeline;
 mod app;
 mod audio;

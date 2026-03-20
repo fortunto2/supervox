@@ -13,7 +13,6 @@ use crate::modes;
 use supervox_agent::types::{CallAnalysis, Config};
 
 /// Async events from background tasks (analysis, follow-up, agent).
-#[allow(dead_code)] // Agent variants used in Phase 3
 pub enum AppEvent {
     AnalysisReady(CallAnalysis),
     AnalysisError(String),

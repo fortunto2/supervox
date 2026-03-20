@@ -1,3 +1,4 @@
+pub mod agent_loop;
 pub mod analysis_pipeline;
 pub mod app;
 pub mod audio;
