@@ -44,5 +44,5 @@ pub mod mic_mode;
 // Re-exports
 pub use types::{AudioChunk, Segment, Speaker, Transcript};
 
-pub use stt::{SttBackend, SttError};
+pub use stt::{StreamingSttBackend, SttBackend, SttError, SttInput, SttStreamError};
 pub use vad::{VadBackend, VadConfig, VadEvent};

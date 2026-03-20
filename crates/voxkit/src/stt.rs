@@ -1,6 +1,7 @@
 //! Speech-to-text trait — provider-agnostic interface.
 
 use crate::types::{AudioChunk, Transcript};
+use tokio::sync::mpsc;
 
 /// Errors from STT operations.
 #[derive(Debug, thiserror::Error)]
@@ -56,6 +57,54 @@ pub enum TranscriptEvent {
     Error(String),
 }
 
+/// Audio input commands for streaming STT sessions.
+#[derive(Debug)]
+pub enum SttInput {
+    /// Raw PCM audio samples (24kHz mono i16).
+    Audio(Vec<i16>),
+    /// Update the context prompt mid-session.
+    UpdatePrompt(String),
+    /// Gracefully close the connection.
+    Close,
+}
+
+/// Errors from streaming STT operations.
+#[derive(Debug, thiserror::Error)]
+pub enum SttStreamError {
+    /// Connection failed.
+    #[error("Connection: {0}")]
+    Connection(String),
+    /// Protocol/transport error.
+    #[error("Transport: {0}")]
+    Transport(String),
+    /// Channel closed unexpectedly.
+    #[error("Channel closed")]
+    ChannelClosed,
+    /// Backend-specific error.
+    #[error("{0}")]
+    Other(String),
+}
+
+/// Streaming speech-to-text backend.
+///
+/// Implementations connect to an STT service and return a channel pair:
+/// send `SttInput` commands, receive `TranscriptEvent` results.
+#[async_trait::async_trait]
+pub trait StreamingSttBackend: Send + Sync {
+    /// Connect to the streaming STT service.
+    ///
+    /// Returns `(audio_sender, transcript_receiver)`:
+    /// - Send `SttInput::Audio(samples)` to stream audio
+    /// - Send `SttInput::Close` to shut down
+    /// - Receive `TranscriptEvent` for partial/final transcripts
+    async fn connect(
+        &self,
+    ) -> Result<(mpsc::Sender<SttInput>, mpsc::Receiver<TranscriptEvent>), SttStreamError>;
+
+    /// Backend name for display in status bar.
+    fn display_name(&self) -> &str;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -73,6 +122,25 @@ mod tests {
     fn stt_error_empty() {
         let e = SttError::Empty;
         assert_eq!(format!("{e}"), "Empty transcription");
+    }
+
+    #[test]
+    fn stt_stream_error_display() {
+        let e = SttStreamError::Connection("timeout".into());
+        assert_eq!(format!("{e}"), "Connection: timeout");
+
+        let e = SttStreamError::ChannelClosed;
+        assert_eq!(format!("{e}"), "Channel closed");
+    }
+
+    #[test]
+    fn stt_input_variants() {
+        let audio = SttInput::Audio(vec![100, -200]);
+        let prompt = SttInput::UpdatePrompt("test".into());
+        let close = SttInput::Close;
+        assert!(matches!(audio, SttInput::Audio(_)));
+        assert!(matches!(prompt, SttInput::UpdatePrompt(_)));
+        assert!(matches!(close, SttInput::Close));
     }
 
     #[test]
