@@ -18,8 +18,8 @@ Storage layer for saving/loading analysis results, and TUI integration to use ca
 - [x] Task 1.1: Add `save_analysis()` and `load_analysis()` to `crates/supervox-agent/src/storage.rs`. File pattern: `{date}-{id}.analysis.json` (sibling to call JSON). `load_analysis()` returns `Option<CallAnalysis>` — None if not found. <!-- sha:e5aa198 -->
 - [x] Task 1.2: Add `update_call_tags()` to `crates/supervox-agent/src/storage.rs` — loads call, sets `tags` from provided themes list, re-saves. Idempotent (same themes = no-op write). <!-- sha:19052f1 -->
 - [x] Task 1.3: Unit tests for `save_analysis()`, `load_analysis()`, `update_call_tags()` in `crates/supervox-agent/src/storage.rs` — roundtrip, not-found returns None, tag update overwrites. <!-- sha:880c666 -->
-- [~] Task 1.4: In `crates/supervox-tui/src/modes/analysis.rs` — when entering Analysis mode for a saved call, call `load_analysis()` first. If found, populate `AnalysisState` directly without LLM. If not found, run `analyze_transcript()` as before.
-- [ ] Task 1.5: In `crates/supervox-tui/src/app.rs` — after `AppEvent::AnalysisReady(analysis)` is received, call `save_analysis()` and `update_call_tags()` to persist results. Add call_id tracking to `AnalysisState` for save target.
+- [x] Task 1.4: In `crates/supervox-tui/src/modes/analysis.rs` — when entering Analysis mode for a saved call, call `load_analysis()` first. If found, populate `AnalysisState` directly without LLM. If not found, run `analyze_transcript()` as before. <!-- sha:e1f1257 -->
+- [~] Task 1.5: In `crates/supervox-tui/src/app.rs` — after `AppEvent::AnalysisReady(analysis)` is received, call `save_analysis()` and `update_call_tags()` to persist results. Add call_id tracking to `AnalysisState` for save target.
 
 ### Verification
 

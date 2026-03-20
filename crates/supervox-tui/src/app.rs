@@ -173,17 +173,23 @@ impl App {
     fn process_app_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::AnalysisReady(analysis) => {
-                self.analysis_state.summary = Some(analysis.summary);
-                self.analysis_state.action_items = analysis
-                    .action_items
-                    .iter()
-                    .map(|a| a.description.clone())
-                    .collect();
-                self.analysis_state.decisions = analysis.decisions;
-                self.analysis_state.open_questions = analysis.open_questions;
-                self.analysis_state.mood = Some(format!("{:?}", analysis.mood));
-                self.analysis_state.themes = analysis.themes;
-                self.analysis_state.loading = false;
+                // Persist analysis and update call tags
+                if let Some(call_id) = &self.analysis_state.call_id {
+                    let calls_dir = supervox_agent::storage::default_calls_dir();
+                    if let Err(e) =
+                        supervox_agent::storage::save_analysis(&calls_dir, call_id, &analysis)
+                    {
+                        tracing::warn!("Failed to save analysis: {e}");
+                    }
+                    if let Err(e) = supervox_agent::storage::update_call_tags(
+                        &calls_dir,
+                        call_id,
+                        &analysis.themes,
+                    ) {
+                        tracing::warn!("Failed to update call tags: {e}");
+                    }
+                }
+                self.analysis_state.populate_from_analysis(&analysis);
                 self.status = "Analysis complete".into();
             }
             AppEvent::AnalysisError(e) => {
