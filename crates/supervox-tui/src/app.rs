@@ -21,7 +21,6 @@ pub enum Mode {
 }
 
 /// Application state.
-#[allow(dead_code)] // config used in Phase 2 (realtime pipeline)
 pub struct App {
     pub mode: Mode,
     pub running: bool,
@@ -33,6 +32,10 @@ pub struct App {
     pub audio: AudioPipeline,
     pub audio_event_rx: mpsc::UnboundedReceiver<AudioEvent>,
     pub audio_event_tx: mpsc::UnboundedSender<AudioEvent>,
+    /// Sender for translation pipeline (source_id, text).
+    pub translate_tx: Option<mpsc::UnboundedSender<(String, String)>>,
+    /// Sender for summary pipeline (final transcript text).
+    pub summary_tx: Option<mpsc::UnboundedSender<String>>,
 }
 
 impl App {
@@ -60,6 +63,8 @@ impl App {
             audio: AudioPipeline::default(),
             audio_event_rx,
             audio_event_tx,
+            translate_tx: None,
+            summary_tx: None,
         };
 
         // Load call file for analysis mode
@@ -90,6 +95,22 @@ impl App {
             } => {
                 if is_final {
                     self.live_state.push_final_transcript(source.label(), &text);
+                    // Feed into translation + summary pipelines
+                    if !text.is_empty() {
+                        if let Some(tx) = &self.translate_tx {
+                            let _ = tx.send((
+                                format!(
+                                    "{}-{}",
+                                    source.label(),
+                                    self.live_state.transcript_lines.len()
+                                ),
+                                text.clone(),
+                            ));
+                        }
+                        if let Some(tx) = &self.summary_tx {
+                            let _ = tx.send(format!("{}: {}", source.label(), text));
+                        }
+                    }
                 } else {
                     self.live_state.update_delta(source.label(), &text);
                 }
@@ -114,7 +135,18 @@ impl App {
                         if transcript.is_empty() {
                             self.status = "Recording stopped (no speech detected)".into();
                         } else {
-                            self.status = format!("Call saved ({:.0}s)", duration_secs);
+                            self.status = format!(
+                                "Call saved ({:.0}s) — switching to Analysis",
+                                duration_secs
+                            );
+                            // Auto-flow: switch to Analysis mode
+                            let call_file = crate::audio::last_saved_call_path(&calls_dir);
+                            if let Some(path) = call_file {
+                                let file = path.to_string_lossy().to_string();
+                                self.analysis_state = modes::analysis::AnalysisState::new(&file);
+                                self.analysis_state.load_from_call(&file);
+                                self.mode = Mode::Analysis { file };
+                            }
                         }
                     }
                     Err(e) => {
@@ -227,6 +259,24 @@ fn handle_live_key(app: &mut App, key: crossterm::event::KeyEvent) {
                 Ok(()) => {
                     app.live_state.start_recording();
                     app.status = "Recording...".into();
+
+                    // Start translation pipeline
+                    let (tr_tx, tr_rx) = mpsc::unbounded_channel();
+                    crate::intelligence::start_translation_pipeline(
+                        &app.config,
+                        tr_rx,
+                        app.audio_event_tx.clone(),
+                    );
+                    app.translate_tx = Some(tr_tx);
+
+                    // Start summary pipeline
+                    let (sum_tx, sum_rx) = mpsc::unbounded_channel();
+                    crate::intelligence::start_summary_pipeline(
+                        &app.config,
+                        sum_rx,
+                        app.audio_event_tx.clone(),
+                    );
+                    app.summary_tx = Some(sum_tx);
                 }
                 Err(e) => {
                     app.status = format!("Mic error: {e}");
@@ -235,6 +285,9 @@ fn handle_live_key(app: &mut App, key: crossterm::event::KeyEvent) {
         }
         KeyCode::Char('s') if app.live_state.is_recording => {
             app.audio.stop();
+            // Drop intelligence pipeline senders to stop background tasks
+            app.translate_tx = None;
+            app.summary_tx = None;
             app.status = "Stopping...".into();
         }
         _ => {}

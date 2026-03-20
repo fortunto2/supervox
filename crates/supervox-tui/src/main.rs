@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 
 mod app;
 mod audio;
+mod intelligence;
 mod modes;
 
 #[derive(Parser)]

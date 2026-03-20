@@ -293,3 +293,14 @@ pub fn save_recorded_call(
 
     supervox_agent::storage::save_call(calls_dir, &call).map_err(|e| format!("Save error: {e}"))
 }
+
+/// Get the path to the most recently saved call file.
+pub fn last_saved_call_path(calls_dir: &Path) -> Option<std::path::PathBuf> {
+    let mut entries: Vec<_> = std::fs::read_dir(calls_dir)
+        .ok()?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "json"))
+        .collect();
+    entries.sort_by_key(|e| std::cmp::Reverse(e.file_name()));
+    entries.first().map(|e| e.path())
+}
