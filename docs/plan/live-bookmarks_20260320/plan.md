@@ -30,19 +30,19 @@ Add `Bookmark` type and update `Call` to include bookmarks field.
 Wire bookmark creation in live mode and show in status + transcript.
 
 ### Tasks
-- [ ] Task 2.1: Add `bookmarks: Vec<Bookmark>` to `LiveState` in `crates/supervox-tui/src/modes/live.rs`, add `add_bookmark()` method that captures current `elapsed_secs()`
-- [ ] Task 2.2: Handle 'b' key in `handle_live_key()` in `crates/supervox-tui/src/app.rs` — call `add_bookmark()` when recording, show status "Bookmark added (MM:SS)"
-- [ ] Task 2.3: Add bookmark count to live status bar in `render()` in `crates/supervox-tui/src/modes/live.rs` — show "N bookmarks" next to timer when count > 0
-- [ ] Task 2.4: Insert visual bookmark marker in transcript panel — `▶ Bookmark at MM:SS` line when bookmark is added
-- [ ] Task 2.5: Pass bookmarks from `LiveState` into saved Call — update `AudioEvent::Stopped` to include `bookmarks: Vec<Bookmark>`, thread from `app.rs` through `save_recorded_call()`
-- [ ] Task 2.6: Update `save_recorded_call()` in `crates/supervox-tui/src/audio.rs` to accept and set bookmarks on `Call`
-- [ ] Task 2.7: Show bookmarks in Analysis mode — add bookmarks section in `render()` in `crates/supervox-tui/src/modes/analysis.rs` when bookmarks present
-- [ ] Task 2.8: Update help overlay — add `("b", "Add bookmark")` to `LIVE_KEYS` in `crates/supervox-tui/src/help.rs`
-- [ ] Task 2.9: Add tests for `LiveState::add_bookmark()` and bookmark count
+- [x] Task 2.1: Add `bookmarks: Vec<Bookmark>` to `LiveState` in `crates/supervox-tui/src/modes/live.rs`, add `add_bookmark()` method that captures current `elapsed_secs()` <!-- sha:36b8754 -->
+- [x] Task 2.2: Handle 'b' key in `handle_live_key()` in `crates/supervox-tui/src/app.rs` — call `add_bookmark()` when recording, show status "Bookmark added (MM:SS)" <!-- sha:36b8754 -->
+- [x] Task 2.3: Add bookmark count to live status bar in `render()` in `crates/supervox-tui/src/modes/live.rs` — show "N bookmarks" next to timer when count > 0 <!-- sha:36b8754 -->
+- [x] Task 2.4: Insert visual bookmark marker in transcript panel — `▶ Bookmark at MM:SS` line when bookmark is added <!-- sha:36b8754 -->
+- [x] Task 2.5: Pass bookmarks from `LiveState` into saved Call — bookmarks taken from LiveState in process_audio_event, passed to save_recorded_call() <!-- sha:36b8754 -->
+- [x] Task 2.6: Update `save_recorded_call()` in `crates/supervox-tui/src/audio.rs` to accept and set bookmarks on `Call` <!-- sha:36b8754 -->
+- [x] Task 2.7: Show bookmarks in Analysis mode — add bookmarks section in `render()` in `crates/supervox-tui/src/modes/analysis.rs` when bookmarks present <!-- sha:36b8754 -->
+- [x] Task 2.8: Update help overlay — add `("b", "Add bookmark")` to `LIVE_KEYS` in `crates/supervox-tui/src/help.rs` <!-- sha:36b8754 -->
+- [x] Task 2.9: Add tests for `LiveState::add_bookmark()` and bookmark count <!-- sha:36b8754 -->
 
 ### Verification
-- [ ] `cargo test --workspace` passes
-- [ ] `cargo clippy --workspace -- -D warnings` clean
+- [x] `cargo test --workspace` passes
+- [x] `cargo clippy --workspace -- -D warnings` clean
 
 ## Phase 3: Docs & Cleanup
 
