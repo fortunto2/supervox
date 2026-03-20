@@ -23,15 +23,15 @@ Add the filtering infrastructure with full test coverage.
 - [x] `cargo test -p supervox-agent` passes with new filter tests
 - [x] `cargo clippy --workspace` clean
 
-## Phase 2: CLI Integration
+## Phase 2: CLI Integration <!-- checkpoint:6cc463c -->
 
 Wire filter flags into existing CLI commands + add `tags` command.
 
 ### Tasks
-- [x] Task 2.1: Add `FilterArgs` struct in `crates/supervox-tui/src/main.rs` <!-- sha:pending -->
-- [x] Task 2.2: Add `FilterArgs` to `Calls`, `Search`, `Stats`, `Insights` command variants <!-- sha:pending -->
-- [x] Task 2.3: Add `Tags` command variant to CLI <!-- sha:pending -->
-- [x] Task 2.4: Update `cmd_stats()` to accept filtered calls <!-- sha:pending -->
+- [x] Task 2.1: Add `FilterArgs` struct in `crates/supervox-tui/src/main.rs` <!-- sha:6cc463c -->
+- [x] Task 2.2: Add `FilterArgs` to `Calls`, `Search`, `Stats`, `Insights` command variants <!-- sha:6cc463c -->
+- [x] Task 2.3: Add `Tags` command variant to CLI <!-- sha:6cc463c -->
+- [x] Task 2.4: Update `cmd_stats()` to accept filtered calls <!-- sha:6cc463c -->
 
 ### Verification
 - [x] `supervox calls --tag test` works
@@ -45,18 +45,18 @@ Wire filter flags into existing CLI commands + add `tags` command.
 Add tag filter UI to History mode.
 
 ### Tasks
-- [ ] Task 3.1: Add filter state to `CallHistoryState` in `crates/supervox-tui/src/modes/history.rs` — `all_calls: Vec<Call>`, `active_tags: HashSet<String>`, `available_tags: Vec<ThemeCount>`, `show_tag_filter: bool`, `tag_cursor: usize`. Rename existing `calls` to be the filtered view.
-- [ ] Task 3.2: Add `apply_filter()` method to `CallHistoryState` — rebuilds `calls` from `all_calls` based on `active_tags`. Called on tag toggle.
-- [ ] Task 3.3: Add tag filter popup render in `history.rs` — when `show_tag_filter` is true, overlay a selectable tag list. Show checkmarks for active tags.
-- [ ] Task 3.4: Wire `t` key in `handle_history_key()` in `app.rs` — toggle `show_tag_filter`. Inside filter popup: `j/k` navigate, `space/enter` toggle tag, `t/Esc` close popup.
-- [ ] Task 3.5: Update History title to show filter info — e.g., "Call History (5/12 calls, 2 filters)" when filters active.
-- [ ] Task 3.6: Tests for `CallHistoryState` filter methods — apply_filter with no tags (passthrough), with tags (filtered), toggle tag on/off.
+- [x] Task 3.1: Add filter state to `CallHistoryState` <!-- sha:pending3 -->
+- [x] Task 3.2: Add `apply_filter()` method to `CallHistoryState` <!-- sha:pending3 -->
+- [x] Task 3.3: Add tag filter popup render in `history.rs` <!-- sha:pending3 -->
+- [x] Task 3.4: Wire `t` key in `handle_history_key()` in `app.rs` <!-- sha:pending3 -->
+- [x] Task 3.5: Update History title to show filter info <!-- sha:pending3 -->
+- [x] Task 3.6: Tests for `CallHistoryState` filter methods <!-- sha:pending3 -->
 
 ### Verification
-- [ ] TUI History `t` opens tag filter popup
-- [ ] Selecting tags filters the call list
-- [ ] Title updates to show filtered count
-- [ ] `cargo test --workspace` passes
+- [x] TUI History `t` opens tag filter popup
+- [x] Selecting tags filters the call list
+- [x] Title updates to show filtered count
+- [x] `cargo test --workspace` passes
 
 ## Phase 4: Docs & Cleanup
 

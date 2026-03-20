@@ -332,6 +332,7 @@ pub async fn run(mode: Mode) -> Result<()> {
                         Mode::History { .. } => {
                             if let Some(hs) = &app.history_state {
                                 modes::history::render(f, main_area, hs);
+                                modes::history::render_tag_filter(f, main_area, hs);
                             }
                         }
                         Mode::Live => unreachable!(),
@@ -475,6 +476,40 @@ pub fn open_history(app: &mut App) {
 }
 
 fn handle_history_key(app: &mut App, key: crossterm::event::KeyEvent) {
+    // Handle tag filter popup keys
+    if let Some(hs) = &mut app.history_state
+        && hs.show_tag_filter
+    {
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                if hs.tag_cursor > 0 {
+                    hs.tag_cursor -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if hs.tag_cursor + 1 < hs.available_tags.len() {
+                    hs.tag_cursor += 1;
+                }
+            }
+            KeyCode::Char(' ') | KeyCode::Enter => {
+                if let Some(tc) = hs.available_tags.get(hs.tag_cursor).cloned() {
+                    hs.toggle_tag(&tc.theme);
+                    let count = hs.active_tags.len();
+                    app.status = if count > 0 {
+                        format!("{count} tag filter(s) active")
+                    } else {
+                        "Filters cleared".into()
+                    };
+                }
+            }
+            KeyCode::Char('t') | KeyCode::Esc => {
+                hs.show_tag_filter = false;
+            }
+            _ => {}
+        }
+        return;
+    }
+
     // Handle delete confirmation state first
     if let Some(hs) = &mut app.history_state
         && hs.confirm_delete
@@ -517,6 +552,14 @@ fn handle_history_key(app: &mut App, key: crossterm::event::KeyEvent) {
         KeyCode::Down | KeyCode::Char('j') => {
             if let Some(hs) = &mut app.history_state {
                 hs.move_down();
+            }
+        }
+        KeyCode::Char('t') => {
+            if let Some(hs) = &mut app.history_state
+                && !hs.available_tags.is_empty()
+            {
+                hs.show_tag_filter = true;
+                hs.tag_cursor = 0;
             }
         }
         KeyCode::Char('d') => {

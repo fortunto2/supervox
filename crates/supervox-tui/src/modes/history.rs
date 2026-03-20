@@ -2,29 +2,46 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph};
 use std::collections::HashSet;
-use supervox_agent::types::Call;
+use supervox_agent::types::{Call, ThemeCount};
 
 /// State for call history browser.
 pub struct CallHistoryState {
+    /// Filtered view of calls (displayed in the list).
     pub calls: Vec<Call>,
+    /// All loaded calls (unfiltered).
+    pub all_calls: Vec<Call>,
     pub cursor: usize,
     pub scroll_offset: usize,
     /// When true, waiting for y/n confirmation to delete selected call.
     pub confirm_delete: bool,
     /// IDs of calls that have cached analysis.
     pub analyzed_ids: HashSet<String>,
+    /// Currently active tag filters.
+    pub active_tags: HashSet<String>,
+    /// All available tags with counts.
+    pub available_tags: Vec<ThemeCount>,
+    /// Whether the tag filter popup is visible.
+    pub show_tag_filter: bool,
+    /// Cursor position in the tag filter popup.
+    pub tag_cursor: usize,
 }
 
 impl CallHistoryState {
     pub fn new(calls: Vec<Call>) -> Self {
+        let available_tags = supervox_agent::storage::collect_tags(&calls);
         Self {
+            all_calls: calls.clone(),
             calls,
             cursor: 0,
             scroll_offset: 0,
             confirm_delete: false,
             analyzed_ids: HashSet::new(),
+            active_tags: HashSet::new(),
+            available_tags,
+            show_tag_filter: false,
+            tag_cursor: 0,
         }
     }
 
@@ -50,6 +67,40 @@ impl CallHistoryState {
 
     pub fn selected(&self) -> Option<&Call> {
         self.calls.get(self.cursor)
+    }
+
+    /// Rebuild `calls` from `all_calls` based on `active_tags`.
+    pub fn apply_filter(&mut self) {
+        if self.active_tags.is_empty() {
+            self.calls = self.all_calls.clone();
+        } else {
+            self.calls = self
+                .all_calls
+                .iter()
+                .filter(|call| {
+                    call.tags
+                        .iter()
+                        .any(|t| self.active_tags.contains(&t.to_lowercase()))
+                })
+                .cloned()
+                .collect();
+        }
+        // Reset cursor if it's out of bounds
+        if self.cursor >= self.calls.len() {
+            self.cursor = self.calls.len().saturating_sub(1);
+        }
+        self.scroll_offset = 0;
+    }
+
+    /// Toggle a tag in the active filter set and re-apply.
+    pub fn toggle_tag(&mut self, tag: &str) {
+        let key = tag.to_lowercase();
+        if self.active_tags.contains(&key) {
+            self.active_tags.remove(&key);
+        } else {
+            self.active_tags.insert(key);
+        }
+        self.apply_filter();
     }
 }
 
@@ -110,7 +161,14 @@ pub fn render(f: &mut Frame, area: Rect, state: &CallHistoryState) {
     let total_secs: u64 = state.calls.iter().map(|c| c.duration_secs as u64).sum();
     let hours = total_secs / 3600;
     let mins = (total_secs % 3600) / 60;
-    let title = if total_secs > 0 {
+    let filtered = !state.active_tags.is_empty();
+    let title = if filtered {
+        format!(
+            " Call History ({}/{} calls, filtered) ",
+            state.calls.len(),
+            state.all_calls.len()
+        )
+    } else if total_secs > 0 {
         format!(
             " Call History ({} calls, {hours}h {mins}m total) ",
             state.calls.len()
@@ -133,7 +191,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &CallHistoryState) {
     } else if state.calls.is_empty() {
         "No calls recorded yet".to_string()
     } else {
-        "↑/↓/j/k = navigate  Enter = open  d = delete  Esc = back".to_string()
+        "↑/↓/j/k = navigate  Enter = open  d = delete  t = filter tags  Esc = back".to_string()
     };
     let detail = Paragraph::new(Line::from(detail_text))
         .style(Style::default().fg(Color::DarkGray))
@@ -143,6 +201,56 @@ pub fn render(f: &mut Frame, area: Rect, state: &CallHistoryState) {
                 .border_style(Style::default().fg(Color::DarkGray)),
         );
     f.render_widget(detail, detail_area);
+}
+
+/// Render tag filter popup overlay.
+pub fn render_tag_filter(f: &mut Frame, area: Rect, state: &CallHistoryState) {
+    if !state.show_tag_filter || state.available_tags.is_empty() {
+        return;
+    }
+
+    let popup_height = (state.available_tags.len() as u16 + 4).min(area.height.saturating_sub(4));
+    let popup_width = 40u16.min(area.width.saturating_sub(4));
+    let popup_area = Rect {
+        x: area.x + (area.width.saturating_sub(popup_width)) / 2,
+        y: area.y + (area.height.saturating_sub(popup_height)) / 2,
+        width: popup_width,
+        height: popup_height,
+    };
+
+    f.render_widget(Clear, popup_area);
+
+    let items: Vec<ListItem> = state
+        .available_tags
+        .iter()
+        .enumerate()
+        .map(|(i, tc)| {
+            let is_active = state.active_tags.contains(&tc.theme);
+            let check = if is_active { "[x]" } else { "[ ]" };
+            let style = if i == state.tag_cursor {
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
+            } else if is_active {
+                Style::default().fg(Color::Green)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            ListItem::new(Line::from(Span::styled(
+                format!(" {check} {} ({})", tc.theme, tc.count),
+                style,
+            )))
+        })
+        .collect();
+
+    let list = List::new(items).block(
+        Block::default()
+            .title(" Filter by Tag (space=toggle, t/Esc=close) ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow)),
+    );
+    f.render_widget(list, popup_area);
 }
 
 fn format_duration(secs: f64) -> String {
@@ -236,6 +344,74 @@ mod tests {
         assert!(state.confirm_delete);
         state.confirm_delete = false;
         assert!(!state.confirm_delete);
+    }
+
+    #[test]
+    fn apply_filter_no_tags_passthrough() {
+        let mut c1 = make_call("1", "A");
+        c1.tags = vec!["meeting".into()];
+        let c2 = make_call("2", "B");
+        let mut state = CallHistoryState::new(vec![c1, c2]);
+        state.apply_filter();
+        assert_eq!(state.calls.len(), 2);
+    }
+
+    #[test]
+    fn apply_filter_with_tags() {
+        let mut c1 = make_call("1", "A");
+        c1.tags = vec!["meeting".into()];
+        let mut c2 = make_call("2", "B");
+        c2.tags = vec!["budget".into()];
+        let c3 = make_call("3", "C");
+        let mut state = CallHistoryState::new(vec![c1, c2, c3]);
+        state.active_tags.insert("meeting".into());
+        state.apply_filter();
+        assert_eq!(state.calls.len(), 1);
+        assert_eq!(state.calls[0].id, "1");
+    }
+
+    #[test]
+    fn toggle_tag_on_off() {
+        let mut c1 = make_call("1", "A");
+        c1.tags = vec!["meeting".into()];
+        let c2 = make_call("2", "B");
+        let mut state = CallHistoryState::new(vec![c1, c2]);
+
+        // Toggle on
+        state.toggle_tag("meeting");
+        assert!(state.active_tags.contains("meeting"));
+        assert_eq!(state.calls.len(), 1);
+
+        // Toggle off
+        state.toggle_tag("meeting");
+        assert!(!state.active_tags.contains("meeting"));
+        assert_eq!(state.calls.len(), 2);
+    }
+
+    #[test]
+    fn apply_filter_resets_cursor() {
+        let mut c1 = make_call("1", "A");
+        c1.tags = vec!["a".into()];
+        let mut c2 = make_call("2", "B");
+        c2.tags = vec!["b".into()];
+        let mut state = CallHistoryState::new(vec![c1, c2]);
+        state.cursor = 1; // at second call
+        state.active_tags.insert("a".into());
+        state.apply_filter();
+        // Only 1 result, cursor should be 0
+        assert_eq!(state.cursor, 0);
+    }
+
+    #[test]
+    fn available_tags_populated() {
+        let mut c1 = make_call("1", "A");
+        c1.tags = vec!["meeting".into(), "budget".into()];
+        let mut c2 = make_call("2", "B");
+        c2.tags = vec!["meeting".into()];
+        let state = CallHistoryState::new(vec![c1, c2]);
+        assert!(!state.available_tags.is_empty());
+        assert_eq!(state.available_tags[0].theme, "meeting");
+        assert_eq!(state.available_tags[0].count, 2);
     }
 
     #[test]
