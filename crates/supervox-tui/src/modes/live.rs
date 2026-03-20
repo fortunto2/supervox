@@ -23,7 +23,8 @@ pub struct LiveState {
     pub current_delta: Option<(AudioSource, String)>,
     pub is_recording: bool,
     pub recording_start: Option<Instant>,
-    pub audio_level: f32,
+    pub mic_level: f32,
+    pub system_level: f32,
     pub stt_backend: String,
     pub bookmarks: Vec<Bookmark>,
 }
@@ -36,7 +37,8 @@ impl Default for LiveState {
             current_delta: None,
             is_recording: false,
             recording_start: None,
-            audio_level: 0.0,
+            mic_level: 0.0,
+            system_level: 0.0,
             stt_backend: "realtime".into(),
             bookmarks: Vec::new(),
         }
@@ -225,7 +227,8 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
         Span::styled(" ○ IDLE ", Style::default().fg(Color::DarkGray))
     };
 
-    let level_bar = audio_level_bar(state.audio_level);
+    let mic_bar = audio_level_bar(state.mic_level, 6);
+    let sys_bar = audio_level_bar(state.system_level, 6);
 
     let timer = if state.is_recording {
         let secs = state.elapsed_secs();
@@ -236,7 +239,9 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
 
     let mut status_spans = vec![
         mic_indicator,
-        Span::styled(level_bar, Style::default().fg(Color::Green)),
+        Span::styled(format!("mic {mic_bar}"), Style::default().fg(Color::Cyan)),
+        Span::raw(" "),
+        Span::styled(format!("sys {sys_bar}"), Style::default().fg(Color::Yellow)),
         Span::raw(" │ "),
         Span::styled(
             format!("STT: {}", state.stt_backend),
@@ -277,9 +282,9 @@ fn source_color(source: &AudioSource) -> Color {
     }
 }
 
-fn audio_level_bar(level: f32) -> String {
-    let bars = (level * 10.0).min(10.0) as usize;
-    format!("[{}{}]", "█".repeat(bars), "░".repeat(10 - bars))
+fn audio_level_bar(level: f32, width: usize) -> String {
+    let bars = (level * width as f32).min(width as f32) as usize;
+    format!("[{}{}]", "█".repeat(bars), "░".repeat(width - bars))
 }
 
 #[cfg(test)]
@@ -390,16 +395,23 @@ mod tests {
 
     #[test]
     fn audio_level_bar_empty() {
-        assert_eq!(audio_level_bar(0.0), "[░░░░░░░░░░]");
+        assert_eq!(audio_level_bar(0.0, 6), "[░░░░░░]");
     }
 
     #[test]
     fn audio_level_bar_full() {
-        assert_eq!(audio_level_bar(1.0), "[██████████]");
+        assert_eq!(audio_level_bar(1.0, 6), "[██████]");
     }
 
     #[test]
     fn audio_level_bar_half() {
-        assert_eq!(audio_level_bar(0.5), "[█████░░░░░]");
+        assert_eq!(audio_level_bar(0.5, 6), "[███░░░]");
+    }
+
+    #[test]
+    fn dual_level_fields() {
+        let state = LiveState::default();
+        assert_eq!(state.mic_level, 0.0);
+        assert_eq!(state.system_level, 0.0);
     }
 }

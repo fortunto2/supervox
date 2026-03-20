@@ -229,9 +229,10 @@ impl App {
 
     fn process_audio_event(&mut self, event: AudioEvent) {
         match event {
-            AudioEvent::Level(level) => {
-                self.live_state.audio_level = level;
-            }
+            AudioEvent::Level { source, level } => match source {
+                AudioSource::Mic => self.live_state.mic_level = level,
+                AudioSource::System => self.live_state.system_level = level,
+            },
             AudioEvent::Transcript {
                 source,
                 text,
@@ -338,6 +339,17 @@ pub async fn run(mode: Mode) -> Result<()> {
             match &app.mode {
                 Mode::Live => {
                     modes::live::render(f, area, &app.live_state);
+                    // Show error overlay on status bar area if present
+                    if let Some((err, when)) = &app.status_error
+                        && when.elapsed().as_secs() < 5
+                    {
+                        let status_area =
+                            Layout::vertical([Constraint::Min(3), Constraint::Length(1)])
+                                .areas::<2>(area)[1];
+                        let err_bar = Paragraph::new(Line::from(format!(" {err} ")))
+                            .style(Style::default().fg(Color::White).bg(Color::Red));
+                        f.render_widget(err_bar, status_area);
+                    }
                 }
                 _ => {
                     let [main_area, status_area] =
@@ -649,7 +661,7 @@ fn handle_live_key(app: &mut App, key: crossterm::event::KeyEvent) {
                     app.summary_tx = Some(sum_tx);
                 }
                 Err(e) => {
-                    app.status = format!("Mic error: {e}");
+                    app.status_error = Some((format!("Error: {e}"), std::time::Instant::now()));
                 }
             }
         }

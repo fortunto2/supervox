@@ -26,8 +26,8 @@ impl AudioSource {
 /// Events from audio capture + STT pipeline.
 #[derive(Debug)]
 pub enum AudioEvent {
-    /// Audio level update (0.0..1.0) for VU meter.
-    Level(f32),
+    /// Audio level update (0.0..1.0) for VU meter, per source.
+    Level { source: AudioSource, level: f32 },
     /// Transcript segment from STT (delta or final).
     Transcript {
         source: AudioSource,
@@ -238,7 +238,7 @@ async fn run_pipeline(
                         total_samples += chunk.len() as u64;
 
                         let level = chunk.rms().min(1.0);
-                        let _ = event_tx.send(AudioEvent::Level(level));
+                        let _ = event_tx.send(AudioEvent::Level { source: AudioSource::Mic, level });
 
                         // Initialize WAV writer on first chunk
                         if wav_writer.is_none() {
@@ -279,6 +279,9 @@ async fn run_pipeline(
             // System audio chunks (pends forever if not enabled)
             chunk = recv_opt(&mut system_rx) => {
                 if let Some(chunk) = chunk {
+                    let level = chunk.rms().min(1.0);
+                    let _ = event_tx.send(AudioEvent::Level { source: AudioSource::System, level });
+
                     let resampled = resample_to_24k(&chunk.samples, chunk.sample_rate);
                     if let Some(ref tx) = system_stt_tx {
                         let _ = tx.send(SttInput::Audio(resampled)).await;
