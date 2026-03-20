@@ -1,13 +1,18 @@
 [package]
 name = "supervox-agent"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 description = "SuperVox 3-mode agent: live translate, post-call analysis, agent chat"
 license = "MIT"
+repository = "https://github.com/fortunto2/supervox"
+keywords = ["voice", "agent", "llm", "analysis", "call"]
+categories = ["development-tools"]
+readme = "../../README.md"
+exclude = [".solo/", ".githooks/", "docs/", "CLAUDE.md"]
 
 [dependencies]
-sgr-agent = { path = "../../../../shared/rust-code/crates/sgr-agent", features = ["agent", "session", "genai"] }
-voxkit = { path = "../voxkit", features = ["openai", "realtime", "mic", "wav"] }
+sgr-agent = { version = "0.3.0", path = "../../../../shared/rust-code/crates/sgr-agent", features = ["agent", "session", "genai"] }
+voxkit = { version = "0.7.1", path = "../voxkit", features = ["openai", "realtime", "mic", "wav"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }

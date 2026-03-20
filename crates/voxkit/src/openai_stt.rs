@@ -67,7 +67,7 @@ impl OpenAiStt {
         let mut form = reqwest::multipart::Form::new()
             .text("model", self.model.clone())
             .text("language", self.language.clone())
-            .text("response_format", "verbose_json")
+            .text("response_format", response_format_for_model(&self.model))
             .part(
                 "file",
                 reqwest::multipart::Part::bytes(bytes.to_vec())
@@ -150,7 +150,7 @@ impl SttBackend for OpenAiStt {
         let mut form = reqwest::multipart::Form::new()
             .text("model", self.model.clone())
             .text("language", self.language.clone())
-            .text("response_format", "verbose_json")
+            .text("response_format", response_format_for_model(&self.model))
             .part(
                 "file",
                 reqwest::multipart::Part::bytes(wav_bytes)
@@ -244,6 +244,15 @@ mod tests {
         assert_eq!(stt.model, "whisper-1");
         assert_eq!(stt.base_url, "http://localhost:8080/v1");
         assert_eq!(stt.prompt, Some("SuperVox meeting".to_string()));
+    }
+}
+
+/// gpt-4o-transcribe only supports "json"/"text"; whisper-1 supports "verbose_json".
+fn response_format_for_model(model: &str) -> &'static str {
+    if model.starts_with("gpt-") {
+        "json"
+    } else {
+        "verbose_json"
     }
 }
 

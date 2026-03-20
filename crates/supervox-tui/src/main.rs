@@ -11,7 +11,7 @@ mod intelligence;
 mod modes;
 
 #[derive(Parser)]
-#[command(name = "supervox", about = "Voice-powered productivity TUI")]
+#[command(name = "supervox", about = "Voice-powered productivity TUI", version)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -254,20 +254,52 @@ async fn main() -> Result<()> {
             None => cmd_actions(all, json, &filter)?,
         },
         Some(Commands::Live) | None => {
+            let config = supervox_agent::storage::load_config(
+                &supervox_agent::storage::default_config_path(),
+            )
+            .unwrap_or_default();
+            let stt = crate::audio::effective_stt_backend(&config);
+
+            // Pre-flight: check API key for realtime STT
+            if stt == supervox_agent::types::SttBackend::Realtime
+                && std::env::var("OPENAI_API_KEY").is_err()
+            {
+                anyhow::bail!(
+                    "OPENAI_API_KEY not set — required for realtime STT.\n\
+                     Set it in .env or shell, or use --local for offline mode."
+                );
+            }
+
             // Auto-download Whisper model if whisper backend is selected
             #[cfg(feature = "whisper")]
             {
-                let config = supervox_agent::storage::load_config(
-                    &supervox_agent::storage::default_config_path(),
-                )
-                .unwrap_or_default();
-                if crate::audio::effective_stt_backend(&config)
-                    == supervox_agent::types::SttBackend::Whisper
-                {
+                if stt == supervox_agent::types::SttBackend::Whisper {
                     eprintln!("Checking Whisper model...");
                     crate::audio::ensure_whisper_model(&config)
                         .await
                         .map_err(|e| anyhow::anyhow!(e))?;
+                }
+            }
+
+            // Pre-flight: check Parakeet model exists
+            #[cfg(feature = "parakeet")]
+            {
+                if stt == supervox_agent::types::SttBackend::Parakeet {
+                    // Check both default dir and life2film fallback
+                    let default_dir = voxkit::parakeet_stt::default_model_dir();
+                    let alt_dir =
+                        std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default())
+                            .join("startups/active/life2film/video-analyzer/models/parakeet-tdt");
+                    if !voxkit::parakeet_stt::model_exists(&default_dir)
+                        && !voxkit::parakeet_stt::model_exists(&alt_dir)
+                    {
+                        anyhow::bail!(
+                            "Parakeet model not found. Download:\n\
+                             huggingface-cli download istupakov/parakeet-tdt-0.6b-v2-onnx \\\n  \
+                             encoder-model.int8.onnx decoder_joint-model.int8.onnx nemo128.onnx vocab.txt config.json \\\n  \
+                             --local-dir ~/.supervox/models/parakeet-tdt"
+                        );
+                    }
                 }
             }
             app::run(app::Mode::Live).await?;
@@ -289,10 +321,8 @@ async fn main() -> Result<()> {
 /// Check if Ollama is reachable; warn if not.
 fn check_ollama_health() {
     use std::net::TcpStream;
-    match TcpStream::connect_timeout(
-        &"127.0.0.1:11434".parse().unwrap(),
-        std::time::Duration::from_secs(2),
-    ) {
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 11434));
+    match TcpStream::connect_timeout(&addr, std::time::Duration::from_secs(2)) {
         Ok(_) => {}
         Err(_) => {
             eprintln!("warning: Ollama not reachable at localhost:11434 — LLM calls may fail");
@@ -406,6 +436,33 @@ async fn cmd_import(
             stt.transcribe_file_bytes(&bytes, filename, mime)
                 .await
                 .map_err(|e| anyhow::anyhow!("OpenAI transcribe: {e}"))?
+        }
+        supervox_agent::types::SttBackend::Parakeet => {
+            eprintln!("Using Parakeet (local) backend...");
+
+            #[cfg(feature = "parakeet")]
+            {
+                let chunk =
+                    voxkit::read_wav_file(path).map_err(|e| anyhow::anyhow!("Read WAV: {e}"))?;
+                let model_dir = voxkit::parakeet_stt::default_model_dir();
+                let dir = if voxkit::parakeet_stt::model_exists(&model_dir) {
+                    model_dir
+                } else {
+                    let alt = std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default())
+                        .join("startups/active/life2film/video-analyzer/models/parakeet-tdt");
+                    if voxkit::parakeet_stt::model_exists(&alt) {
+                        alt
+                    } else {
+                        anyhow::bail!("Parakeet model not found");
+                    }
+                };
+                voxkit::parakeet_stt::ParakeetStt::transcribe_file(&dir, &chunk, language)
+                    .map_err(|e| anyhow::anyhow!("Parakeet transcribe: {e}"))?
+            }
+            #[cfg(not(feature = "parakeet"))]
+            {
+                anyhow::bail!("Parakeet feature not enabled. Rebuild with --features parakeet");
+            }
         }
     };
 

@@ -612,6 +612,7 @@ mod tests {
             ollama_model: "llama3.2:3b".into(),
             whisper_model: "base".into(),
             ducking_threshold: 0.05,
+            translate: true,
         };
         save_default_config(&path, &cfg).unwrap();
 

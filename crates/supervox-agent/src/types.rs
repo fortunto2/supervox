@@ -151,6 +151,7 @@ pub enum SttBackend {
     #[default]
     Realtime,
     Whisper,
+    Parakeet,
 }
 
 impl std::fmt::Display for SttBackend {
@@ -158,6 +159,7 @@ impl std::fmt::Display for SttBackend {
         match self {
             SttBackend::Realtime => write!(f, "realtime"),
             SttBackend::Whisper => write!(f, "whisper"),
+            SttBackend::Parakeet => write!(f, "parakeet"),
         }
     }
 }
@@ -209,6 +211,12 @@ pub struct Config {
     pub whisper_model: String,
     #[serde(default = "default_ducking_threshold")]
     pub ducking_threshold: f32,
+    #[serde(default = "default_true")]
+    pub translate: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_language() -> String {
@@ -282,6 +290,7 @@ impl Default for Config {
             ollama_model: default_ollama_model(),
             whisper_model: default_whisper_model(),
             ducking_threshold: default_ducking_threshold(),
+            translate: default_true(),
         }
     }
 }
@@ -525,6 +534,13 @@ mod tests {
         assert_eq!(cfg.ollama_model, "llama3.2:3b");
         assert_eq!(cfg.whisper_model, "base");
         assert_eq!(cfg.ducking_threshold, 0.05);
+        assert!(cfg.translate);
+    }
+
+    #[test]
+    fn config_translate_false() {
+        let cfg: Config = toml::from_str("translate = false").unwrap();
+        assert!(!cfg.translate);
     }
 
     #[test]
@@ -630,6 +646,8 @@ mod tests {
         assert_eq!(rt, SttBackend::Realtime);
         let wh: SttBackend = serde_json::from_str("\"whisper\"").unwrap();
         assert_eq!(wh, SttBackend::Whisper);
+        let pk: SttBackend = serde_json::from_str("\"parakeet\"").unwrap();
+        assert_eq!(pk, SttBackend::Parakeet);
     }
 
     #[test]
@@ -698,6 +716,7 @@ llm_backend = "ollama"
     fn stt_backend_display() {
         assert_eq!(SttBackend::Realtime.to_string(), "realtime");
         assert_eq!(SttBackend::Whisper.to_string(), "whisper");
+        assert_eq!(SttBackend::Parakeet.to_string(), "parakeet");
     }
 
     #[test]

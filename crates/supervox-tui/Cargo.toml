@@ -1,23 +1,29 @@
 [package]
 name = "supervox-tui"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 description = "SuperVox TUI — live call assistant, post-call analysis, agent chat"
 license = "MIT"
+repository = "https://github.com/fortunto2/supervox"
+keywords = ["voice", "tui", "transcription", "call", "assistant"]
+categories = ["command-line-utilities"]
+readme = "../../README.md"
+exclude = [".solo/", ".githooks/", "docs/", "CLAUDE.md"]
 
 [features]
-default = ["whisper"]
+default = ["whisper", "parakeet"]
 whisper = ["voxkit/whisper"]
+parakeet = ["voxkit/parakeet"]
 
 [[bin]]
 name = "supervox"
 path = "src/main.rs"
 
 [dependencies]
-supervox-agent = { path = "../supervox-agent" }
-sgr-agent = { path = "../../../../shared/rust-code/crates/sgr-agent", features = ["agent", "session", "genai"] }
-sgr-agent-tui = { path = "../../../../shared/rust-code/crates/sgr-agent-tui" }
-voxkit = { path = "../voxkit", features = ["openai", "mic", "wav", "realtime", "macos-system-audio"] }
+supervox-agent = { version = "0.7.1", path = "../supervox-agent" }
+sgr-agent = { version = "0.3.0", path = "../../../../shared/rust-code/crates/sgr-agent", features = ["agent", "session", "genai"] }
+sgr-agent-tui = { version = "0.4.1", path = "../../../../shared/rust-code/crates/sgr-agent-tui" }
+voxkit = { version = "0.7.1", path = "../voxkit", features = ["openai", "mic", "wav", "realtime", "macos-system-audio"] }
 toml = "0.8"
 ratatui = "0.29.0"
 crossterm = "0.27"

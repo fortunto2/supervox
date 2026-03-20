@@ -152,6 +152,7 @@ pub fn effective_stt_backend(config: &Config) -> SttBackend {
     match std::env::var("SUPERVOX_STT_BACKEND").ok().as_deref() {
         Some("whisper") => SttBackend::Whisper,
         Some("realtime") => SttBackend::Realtime,
+        Some("parakeet") => SttBackend::Parakeet,
         _ => config.stt_backend.clone(),
     }
 }
@@ -183,6 +184,33 @@ pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend
         #[cfg(not(feature = "whisper"))]
         SttBackend::Whisper => {
             Err("Whisper support not compiled in. Build with --features whisper".into())
+        }
+        #[cfg(feature = "parakeet")]
+        SttBackend::Parakeet => {
+            let model_dir = voxkit::parakeet_stt::default_model_dir();
+            if !voxkit::parakeet_stt::model_exists(&model_dir) {
+                // Fallback: check life2film models dir
+                let alt_dir = std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default())
+                    .join("startups/active/life2film/video-analyzer/models/parakeet-tdt");
+                if voxkit::parakeet_stt::model_exists(&alt_dir) {
+                    return Ok(Box::new(voxkit::parakeet_stt::ParakeetStt::new(
+                        alt_dir,
+                        &config.my_language,
+                    )));
+                }
+                return Err(format!(
+                    "Parakeet model not found: {}. Download from HuggingFace: istupakov/parakeet-tdt-0.6b-v2-onnx",
+                    model_dir.display()
+                ));
+            }
+            Ok(Box::new(voxkit::parakeet_stt::ParakeetStt::new(
+                model_dir,
+                &config.my_language,
+            )))
+        }
+        #[cfg(not(feature = "parakeet"))]
+        SttBackend::Parakeet => {
+            Err("Parakeet support not compiled in. Build with --features parakeet".into())
         }
     }
 }

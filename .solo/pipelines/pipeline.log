@@ -354,3 +354,151 @@
 [12:59:00] STAGE | iter 2/10 | stage 2/3: deploy
 [12:59:00] CWD | /Users/rustam/startups/active/supervox
 [12:59:00] INVOKE | /solo:deploy 
+[13:08:19] ITER | saved iter-002-deploy.log | commit: 8cd96c4 | result: stage complete
+[13:08:19] CHECK | deploy | /Users/rustam/startups/active/supervox/.solo/states/deploy -> FOUND
+[13:08:21] STAGE | iter 3/10 | stage 3/3: review
+[13:08:22] PLAN | Active plan track: live-bookmarks_20260320
+[13:08:22] CWD | /Users/rustam/startups/active/supervox
+[13:08:22] INVOKE | /solo:review 
+[13:12:42] SIGNAL | <solo:done/> → creating review
+[13:12:42] ITER | saved iter-003-review.log | commit: 35c3509 | result: stage complete
+[13:12:42] CHECK | review | /Users/rustam/startups/active/supervox/.solo/states/review -> FOUND
+[13:12:42] RETRO | Running retro for plan: live-bookmarks_20260320...
+[13:18:11] RETRO | Retro complete — see /Users/rustam/startups/active/supervox/.solo/pipelines/retro-live-bookmarks_20260320.log
+[13:18:11] DONE | All stages complete (no more plans in queue)
+[13:18:11] FINISH | Duration: 29m
+[13:18:11] DONE | Pipeline complete! 14 plans cycled.
+[13:18:11] ARCHIVE | Archiving: live-bookmarks_20260320 → docs/plan-done/
+[13:18:11] POST | Running auto-plan from backlog...
+[13:23:34] POST | Auto-plan complete — see /Users/rustam/startups/active/supervox/.solo/pipelines/autoplan-20260320-131811.log
+[13:23:34] POST | New plan created: whisper-stt_20260320 — restarting build→deploy→review
+[13:23:34] START | supervox | stages: /build -> /deploy -> /review | max: 10
+[13:23:34] STAGE | iter 1/10 | stage 1/3: build
+[13:23:34] PLAN | Active plan track: whisper-stt_20260320
+[13:23:34] CWD | /Users/rustam/startups/active/supervox
+[13:23:34] GRAPH | Updating code graph for RepoMap...
+[13:23:35] INVOKE | /solo:build 
+[14:02:37] SIGNAL | <solo:done/> → creating build
+[14:02:37] ITER | saved iter-001-build.log | commit: 7e37a39 | result: stage complete
+[14:02:37] CHECK | build | /Users/rustam/startups/active/supervox/.solo/states/build -> FOUND
+[14:02:39] STAGE | iter 2/10 | stage 2/3: deploy
+[14:02:39] CWD | /Users/rustam/startups/active/supervox
+[14:02:39] INVOKE | /solo:deploy 
+[14:28:22] ITER | saved iter-002-deploy.log | commit: 7735679 | result: stage complete
+[14:28:22] CHECK | deploy | /Users/rustam/startups/active/supervox/.solo/states/deploy -> FOUND
+[14:28:24] STAGE | iter 3/10 | stage 3/3: review
+[14:28:24] PLAN | Active plan track: whisper-stt_20260320
+[14:28:24] CWD | /Users/rustam/startups/active/supervox
+[14:28:24] INVOKE | /solo:review 
+[14:37:46] SIGNAL | <solo:done/> → creating review
+[14:37:46] ITER | saved iter-003-review.log | commit: 6e2322d | result: stage complete
+[14:37:46] CHECK | review | /Users/rustam/startups/active/supervox/.solo/states/review -> FOUND
+[14:37:46] RETRO | Running retro for plan: whisper-stt_20260320...
+[15:41:22] START | supervox | stages: /build -> /deploy -> /review | max: 10
+[15:41:22] RETRO | Running retro for plan: live-ux_20260320...
+[15:51:38] RETRO | Retro complete — see /Users/rustam/startups/active/supervox/.solo/pipelines/retro-live-ux_20260320.log
+[15:51:38] DONE | All stages complete (no more plans in queue)
+[15:51:38] FINISH | Duration: 10m
+[15:51:38] DONE | Pipeline complete! 16 plans cycled.
+[15:51:38] ARCHIVE | Archiving: live-ux_20260320 → docs/plan-done/
+[15:51:38] ARCHIVE | Archiving: whisper-stt_20260320 → docs/plan-done/
+[15:51:38] POST | Running auto-plan from backlog...
+[15:52:58] POST | Auto-plan complete — see /Users/rustam/startups/active/supervox/.solo/pipelines/autoplan-20260320-155138.log
+[15:52:58] POST | New plan created: live-ux_20260320 — restarting build→deploy→review
+[15:52:58] START | supervox | stages: /build -> /deploy -> /review | max: 10
+[15:52:58] STAGE | iter 1/10 | stage 1/3: build
+[15:52:58] PLAN | Active plan track: live-ux_20260320
+[15:52:58] CWD | /Users/rustam/startups/active/supervox
+[15:52:58] GRAPH | Updating code graph for RepoMap...
+[15:52:59] INVOKE | /solo:build 
+[16:03:33] ITER | saved iter-001-build.log | commit: c99d5de | result: continuing
+[16:03:33] CHECK | build | /Users/rustam/startups/active/supervox/.solo/states/build -> NOT FOUND
+[16:03:35] START | supervox | stages: /build -> /deploy -> /review | max: 10
+[16:03:35] STAGE | iter 1/10 | stage 1/3: build
+[16:03:35] PLAN | Active plan track: live-ux_20260320
+[16:03:35] CWD | /Users/rustam/startups/active/supervox
+[16:03:35] GRAPH | Updating code graph for RepoMap...
+[16:03:35] INVOKE | /solo:build 
+[16:14:07] SIGNAL | <solo:done/> → creating build
+[16:14:07] ITER | saved iter-001-build.log | commit: c796256 | result: stage complete
+[16:14:07] CHECK | build | /Users/rustam/startups/active/supervox/.solo/states/build -> FOUND
+[16:14:09] STAGE | iter 2/10 | stage 2/3: deploy
+[16:14:09] CWD | /Users/rustam/startups/active/supervox
+[16:14:09] INVOKE | /solo:deploy 
+[16:54:59] SIGNAL | <solo:done/> → creating deploy
+[16:54:59] ITER | saved iter-002-deploy.log | commit: 0f1d427 | result: stage complete
+[16:54:59] CHECK | deploy | /Users/rustam/startups/active/supervox/.solo/states/deploy -> FOUND
+[16:55:01] STAGE | iter 3/10 | stage 3/3: review
+[16:55:01] CWD | /Users/rustam/startups/active/supervox
+[16:55:01] INVOKE | /solo:review 
+[17:01:37] SIGNAL | <solo:done/> → creating review
+[17:01:37] ITER | saved iter-003-review.log | commit: c584b3c | result: stage complete
+[17:01:37] CHECK | review | /Users/rustam/startups/active/supervox/.solo/states/review -> FOUND
+[17:01:37] RETRO | Running retro for plan: current...
+[17:10:17] RETRO | Retro complete — see /Users/rustam/startups/active/supervox/.solo/pipelines/retro-post.log
+[17:10:17] DONE | All stages complete (no more plans in queue)
+[17:10:17] FINISH | Duration: 66m
+[17:10:17] DONE | Pipeline complete! 16 plans cycled.
+[17:10:17] POST | Running auto-plan from backlog...
+[17:17:14] POST | Auto-plan complete — see /Users/rustam/startups/active/supervox/.solo/pipelines/autoplan-20260320-171017.log
+[17:17:14] POST | New plan created: quality-hardening_20260320 — restarting build→deploy→review
+[17:17:14] START | supervox | stages: /build -> /deploy -> /review | max: 10
+[17:17:15] STAGE | iter 1/10 | stage 1/3: build
+[17:17:15] PLAN | Active plan track: quality-hardening_20260320
+[17:17:15] CWD | /Users/rustam/startups/active/supervox
+[17:17:15] GRAPH | Updating code graph for RepoMap...
+[17:17:15] INVOKE | /solo:build 
+[17:36:32] SIGNAL | <solo:done/> → creating build
+[17:36:32] ITER | saved iter-001-build.log | commit: 93e0e2d | result: stage complete
+[17:36:32] CHECK | build | /Users/rustam/startups/active/supervox/.solo/states/build -> FOUND
+[17:36:34] STAGE | iter 2/10 | stage 2/3: deploy
+[17:36:34] CWD | /Users/rustam/startups/active/supervox
+[17:36:34] INVOKE | /solo:deploy 
+[17:40:39] ITER | saved iter-002-deploy.log | commit: 9992914 | result: stage complete
+[17:40:39] CHECK | deploy | /Users/rustam/startups/active/supervox/.solo/states/deploy -> FOUND
+[17:40:41] STAGE | iter 3/10 | stage 3/3: review
+[17:40:41] PLAN | Active plan track: quality-hardening_20260320
+[17:40:41] CWD | /Users/rustam/startups/active/supervox
+[17:40:41] INVOKE | /solo:review 
+[17:45:23] SIGNAL | <solo:done/> → creating review
+[17:45:24] ITER | saved iter-003-review.log | commit: 9b163f0 | result: stage complete
+[17:45:24] CHECK | review | /Users/rustam/startups/active/supervox/.solo/states/review -> FOUND
+[17:45:24] RETRO | Running retro for plan: quality-hardening_20260320...
+[17:54:20] RETRO | Retro complete — see /Users/rustam/startups/active/supervox/.solo/pipelines/retro-quality-hardening_20260320.log
+[17:54:20] DONE | All stages complete (no more plans in queue)
+[17:54:20] FINISH | Duration: 37m
+[17:54:20] DONE | Pipeline complete! 17 plans cycled.
+[17:54:20] ARCHIVE | Archiving: quality-hardening_20260320 → docs/plan-done/
+[17:54:20] POST | Running auto-plan from backlog...
+[17:59:34] POST | Auto-plan complete — see /Users/rustam/startups/active/supervox/.solo/pipelines/autoplan-20260320-175420.log
+[17:59:34] POST | New plan created: audio-import_20260320 — restarting build→deploy→review
+[17:59:35] START | supervox | stages: /build -> /deploy -> /review | max: 10
+[17:59:35] STAGE | iter 1/10 | stage 1/3: build
+[17:59:35] PLAN | Active plan track: audio-import_20260320
+[17:59:35] CWD | /Users/rustam/startups/active/supervox
+[17:59:35] GRAPH | Updating code graph for RepoMap...
+[17:59:35] INVOKE | /solo:build 
+[18:31:44] SIGNAL | <solo:done/> → creating build
+[18:31:44] ITER | saved iter-001-build.log | commit: f7d80d3 | result: stage complete
+[18:31:44] CHECK | build | /Users/rustam/startups/active/supervox/.solo/states/build -> FOUND
+[18:31:46] STAGE | iter 2/10 | stage 2/3: deploy
+[18:31:46] CWD | /Users/rustam/startups/active/supervox
+[18:31:46] INVOKE | /solo:deploy 
+[18:35:55] ITER | saved iter-002-deploy.log | commit: 89fe5d5 | result: stage complete
+[18:35:55] CHECK | deploy | /Users/rustam/startups/active/supervox/.solo/states/deploy -> FOUND
+[18:35:57] STAGE | iter 3/10 | stage 3/3: review
+[18:35:57] PLAN | Active plan track: audio-import_20260320
+[18:35:57] CWD | /Users/rustam/startups/active/supervox
+[18:35:57] INVOKE | /solo:review 
+[18:40:08] SIGNAL | <solo:done/> → creating review
+[18:40:08] ITER | saved iter-003-review.log | commit: 89fe5d5 | result: stage complete
+[18:40:08] CHECK | review | /Users/rustam/startups/active/supervox/.solo/states/review -> FOUND
+[18:40:08] RETRO | Running retro for plan: audio-import_20260320...
+[18:46:11] RETRO | Retro complete — see /Users/rustam/startups/active/supervox/.solo/pipelines/retro-audio-import_20260320.log
+[18:46:11] DONE | All stages complete (no more plans in queue)
+[18:46:11] FINISH | Duration: 46m
+[18:46:11] DONE | Pipeline complete! 18 plans cycled.
+[18:46:11] ARCHIVE | Archiving: audio-import_20260320 → docs/plan-done/
+[18:46:11] POST | Running auto-plan from backlog...
+[18:49:02] POST | Auto-plan complete — see /Users/rustam/startups/active/supervox/.solo/pipelines/autoplan-20260320-184611.log
+[18:49:02] POST | No new plan created — pipeline fully done

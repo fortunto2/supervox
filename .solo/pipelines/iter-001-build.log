@@ -1,229 +1,228 @@
-  [2msession: cefee765  model: claude-opus-4-6[1m][0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/live-bookmarks_20260320/plan.md[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/live-bookmarks_20260320/spec.md[0m
+  [2msession: e258efea  model: claude-opus-4-6[1m][0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/spec.md[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/progress.md[0m
-  [32m$ [0m [33mBash[0m [2mShow recent git commits[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/workflow.md[0m
 
-All tasks are unchecked — fresh build. Let me load the key source files I'll need.
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/schemas/call.json[0m
+All tasks are `[ ]` — fresh start. Let me load the key source files I'll be modifying.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/openai_stt.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/whisper_stt.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/types.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Makefile[0m
 
-Let me also read the audio module and help module for tasks 2.5-2.8.
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/help.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
+Let me check the STT trait and storage module for context.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/stt.rs[0m
+  [36m// [36mGrep[0m [2m"pub fn save_call|pub fn load_call|pub fn default_calls_dir|audio_path_for_call|pub fn save_analysis|pub fn update_call_tags" ~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/Cargo.toml[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/Cargo.toml[0m
+
+Let me check the Call type and storage functions I'll need.
+  [36m// [36mGrep[0m [2m"pub struct Call" ~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/lib.rs[0m
+
+Let me check the analysis pipeline and audio module for reusable functions.
+  [36m// [36mGrep[0m [2m"pub async fn analyze_transcript|pub fn effective_stt_backend|pub async fn ensure_whisper_model" ~/startups/active/supervox/crates/supervox-tui/src[0m
   [2m--[0m [36mToolSearch[0m [2mselect:TodoWrite[0m
 
 
 
-Good, I have full context. Let me set up task tracking and start building.
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phase 1: Types + Storage (Tasks 1.1-1.6)', 'st[0m
+Good, I have all the context. Let me set up task tracking and start building.
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1: Add transcribe_file_bytes() to OpenA[0m
 
-**Starting Phase 1: Types + Storage**
+**Starting Task 1.1: Add `transcribe_file_bytes()` to `OpenAiStt`**
 
-**Task 1.1: Add `Bookmark` struct to types.rs**
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+Mark plan.md task as in-progress:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
 
-**Task 1.2: Add `bookmarks` field to `Call`**
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+Now implement `transcribe_file_bytes` on `OpenAiStt`:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/voxkit/src/openai_stt.rs[0m
 
-**Task 1.3: Add tests** — Bookmark roundtrip, Call with bookmarks, backward compat.
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+Task 1.1 done. Now **Task 1.2: Add `transcribe_chunk()` to `WhisperStt`**.
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1: Add transcribe_file_bytes() to OpenA[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
 
-Now I need to fix all existing `Call` constructors in tests to include `bookmarks: vec![]`. Let me update the existing test fixtures.
-  [36m// [36mGrep[0m [2m"audio_path: (None|Some)" ~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+Add `transcribe_chunk` to `WhisperStt` — batch-mode transcription of a full `AudioChunk`:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/voxkit/src/whisper_stt.rs[0m
 
-I need to add `bookmarks: vec![]` after each `audio_path` line in the test Call constructors (lines that don't already have it). Let me check lines 232, 387, 435, 507, 526 — these are in the existing tests that construct `Call` but don't include `bookmarks`.
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+Now add the method after `transcribe_segment`:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/voxkit/src/whisper_stt.rs[0m
 
-Now fix the remaining Call constructors at lines ~387, ~435, ~507, ~526. Let me read and fix them.
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+Task 1.2 done. Now **Task 1.3: Add `read_wav_file()` helper**.
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1: Add transcribe_file_bytes() to OpenA[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
 
-Now fix the `call_optional_fields_default` test to also check bookmarks, and the storage module's `make_call` helper and `save_recorded_call`. Let me also fix the storage tests' `make_call` and `make_tagged_call` helpers.
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
+The `read_wav_file` uses `hound` which is behind the `wav` feature. Let me add it to `types.rs`:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/voxkit/src/types.rs[0m
 
-Now fix the storage module's `make_call` and `make_tagged_call` helpers, and `save_recorded_call` in audio.rs.
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+Also re-export it from lib.rs:
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/lib.rs[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/voxkit/src/lib.rs[0m
 
-Now fix `save_recorded_call` in audio.rs to include `bookmarks`:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
+Now **Task 1.4: Tests**. Let me write tests and compile everything together.
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1: Add transcribe_file_bytes() to OpenA[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
 
-Now let me check if there are any other `Call {` constructors in the TUI crate that need updating.
-  [36m// [36mGrep[0m [2m"Call \{" ~/startups/active/supervox/crates/supervox-tui/src[0m
+Add tests for `read_wav_file` in types.rs:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/voxkit/src/types.rs[0m
 
-Need to fix history.rs's `make_call` too.
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/history.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/history.rs[0m
+Now add test for `transcribe_file_bytes` form building in openai_stt.rs:Now add test for `transcribe_file_bytes` form building in openai_stt.rs:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/voxkit/src/openai_stt.rs[0m
 
-Now let me check if there are any other crates that might reference `Call {`:
-  [36m// [36mGrep[0m [2m"Call \{$" ~/startups/active/supervox/crates[0m
+Now let me check if `hound` is available as dev-dependency for tests (it's behind `wav` feature). The supervox-tui already depends on voxkit with `wav` feature. Let me compile and test:
+  [32m$ [0m [33mBash[0m [2mRun voxkit tests with openai and wav features[0m
 
-Need to fix `cli_commands.rs` and `search.rs` too. Let me read and fix them.
+All 31 tests pass. Let me commit tasks 1.1-1.4 together and run clippy:
+  [32m$ [0m [33mBash[0m [2mClippy check on voxkit[0m
+
+Need to check `WhisperSegment` API for getting timestamps. Let me check:
+  [32m$ [0m [33mBash[0m [2mFind WhisperSegment timestamp API[0m
+
+Use `start_timestamp()` and `end_timestamp()` methods instead. Timestamps are in centiseconds (100ths of a second):
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/voxkit/src/whisper_stt.rs[0m
+  [32m$ [0m [33mBash[0m [2mClippy check on voxkit after fix[0m
+
+Clean. Now commit all Phase 1 work:
+  [32m$ [0m [33mBash[0m [2mCommit Phase 1 voxkit changes[0m
+
+Fix formatting:
+  [32m$ [0m [33mBash[0m [2mFormat all code[0m
+  [32m$ [0m [33mBash[0m [2mCommit Phase 1 changes after formatting[0m
+
+Phase 1 committed. Let me update plan.md and run phase verification:
+  [32m$ [0m [33mBash[0m [2mGet commit SHA[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
+
+Now Phase 1 verification:
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1: Add transcribe_file_bytes() to OpenA[0m
+
+Tests already passed above (31 passed), clippy clean. Mark verification checkboxes:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mCommit phase 1 completion[0m
+
+Phase 1 complete! Now **Phase 2: CLI Import Command**.
+
+**Starting Task 2.1: Add Import variant to Commands enum**
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1-1.4 + Phase 1 verification', 'status'[0m
+
+I'll implement Tasks 2.1, 2.2, and 2.3 together since they're tightly coupled — the Import command, handler, and MIME helper.
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+
+Now add the match arm in the main function:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+
+Now add the `mime_for_extension` helper and `cmd_import` function. Let me add them after `cmd_play`:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+
+Now let me build to check for compile errors:
+  [32m$ [0m [33mBash[0m [2mBuild supervox-tui to check compile[0m
+
+`whisper_rs` isn't directly available in supervox-tui. I need to access it through voxkit. Let me restructure — create the WhisperContext in voxkit's whisper_stt module instead:
+  [36m// [36mGrep[0m [2m"pub fn new\(model_path|WhisperContext::new_with_params" ~/startups/active/supervox/crates/voxkit/src/whisper_stt.rs[0m
+
+I'll add a convenience function to `WhisperStt` that creates the context and transcribes in one call:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/voxkit/src/whisper_stt.rs[0m
+
+Now update `cmd_import` to use this convenience function:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+  [32m$ [0m [33mBash[0m [2mBuild supervox-tui after fix[0m
+
+Build succeeds. Let me verify `--help` works:
+  [32m$ [0m [33mBash[0m [2mTest import --help[0m
+
+Now let me run clippy:
+  [32m$ [0m [33mBash[0m [2mClippy check on supervox-tui[0m
+  [32m$ [0m [33mBash[0m [2mFind clippy error details[0m
+  [32m$ [0m [33mBash[0m [2mFull clippy error context[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+
+Also the `mime_for_extension` uses `to_ascii_lowercase()` — let me check if clippy flags that too. Actually it's inside a match which is fine since it's creating a temporary. Let me run clippy again:
+  [32m$ [0m [33mBash[0m [2mClippy recheck[0m
+
+Clean. Now **Task 2.4: CLI integration tests**. Let me check if the test file exists:
+  [36m**[0m [36mGlob[0m [2m"crates/supervox-tui/tests/**/*.rs"[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/tests/cli_commands.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/search.rs[0m
+
+Add tests for the import command:
   [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/tests/cli_commands.rs[0m
 
-Now fix all 4 `Call {` in search.rs — they all end with `audio_path: None,`:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/search.rs[0m
+Now run the tests:
+  [32m$ [0m [33mBash[0m [2mRun supervox-tui tests[0m
 
-Now let me also fix the `export_call_markdown` test in storage.rs that constructs Call directly:
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+All 12 tests pass. Let me commit Phase 2:
+  [32m$ [0m [33mBash[0m [2mFormat and clippy workspace[0m
 
-Good — `make_call` helper already updated, so these test uses are fine. Now **Task 1.4: Update `schemas/call.json`** to include `bookmarks` and `audio_path`:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/schemas/call.json[0m
+Clean. Commit Phase 2:
+  [32m$ [0m [33mBash[0m [2mCommit Phase 2 import command[0m
+  [32m$ [0m [33mBash[0m [2mGet commit SHA[0m
 
-**Task 1.5: Update `export_call_markdown()` to include bookmarks section**
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+Update plan.md for Phase 2 completion:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mCommit phase 2 completion[0m
 
-**Task 1.6: Add test for `export_call_markdown` with bookmarks**
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+Now **Phase 3: Docs & Cleanup**.
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1-1.4 + Phase 1 verification', 'status'[0m
 
-Now let me run the tests for Phase 1 verification.
-  [32m$ [0m [33mBash[0m [2mRun supervox-agent tests[0m
-
-All 94 tests pass. Now let me commit Phase 1 and run workspace-wide tests.
-  [32m$ [0m [33mBash[0m [2mRun workspace tests[0m
-
-All workspace tests pass. Let me commit Phase 1.
-  [32m$ [0m [33mBash[0m [2mCommit Phase 1 changes[0m
-
-Phase 1 committed: `51c41c6`. Now update plan.md and start Phase 2.
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/live-bookmarks_20260320/plan.md[0m
-  [32m$ [0m [33mBash[0m [2mCommit plan progress[0m
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phase 1: Types + Storage (Tasks 1.1-1.6)', 'st[0m
-
-**Starting Phase 2: Live Mode + TUI**
-
-**Task 2.1: Add bookmarks to LiveState + add_bookmark() method**
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
-
-Now add `add_bookmark()` method and clear bookmarks on start_recording:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
-
-**Task 2.2: Handle 'b' key in live mode**
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
-
-**Task 2.3: Add bookmark count to live status bar**
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
-
-Task 2.4 (visual bookmark marker) is already handled inline in 2.2 (the 'b' key handler pushes a TranscriptLine).
-
-**Task 2.5: Pass bookmarks from LiveState into saved Call** — update `AudioEvent::Stopped` to include bookmarks:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-
-Now update where `AudioEvent::Stopped` is emitted in `run_pipeline`:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-
-Now update `process_audio_event` in app.rs to inject bookmarks from LiveState and pass them to `save_recorded_call`:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
-
-**Task 2.6: Update `save_recorded_call()` to accept and set bookmarks**
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-
-**Task 2.7: Show bookmarks in Analysis mode**
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
-
-**Task 2.8: Update help overlay**
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/help.rs[0m
-
-**Task 2.9: Add tests for `LiveState::add_bookmark()` and bookmark count**
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/live.rs[0m
-
-Now let me run the workspace tests to verify everything compiles and passes.
-  [32m$ [0m [33mBash[0m [2mRun workspace tests[0m
-
-Let me also run clippy:
-  [32m$ [0m [33mBash[0m [2mRun clippy[0m
-
-The `bookmarks` field in `AudioEvent::Stopped` is considered dead code since it's always `vec![]` from the pipeline and destructured with `_`. Let me adjust — since the bookmarks come from LiveState, I should just not include the field in AudioEvent (keep the pipeline clean).
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-
-Also fix the destructuring in app.rs:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
-  [32m$ [0m [33mBash[0m [2mRun clippy[0m
-
-Clippy clean (warning is in external sgr-agent, not our code). Let me run tests again and commit.
-  [32m$ [0m [33mBash[0m [2mRun workspace tests summary[0m
-
-All tests pass. Commit Phase 2.
-  [32m$ [0m [33mBash[0m [2mCommit Phase 2 changes[0m
-
-Now update plan.md for Phase 2 and commit.
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/live-bookmarks_20260320/plan.md[0m
-  [32m$ [0m [33mBash[0m [2mCommit Phase 2 plan progress[0m
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phase 1: Types + Storage (Tasks 1.1-1.6)', 'st[0m
-
-**Starting Phase 3: Docs & Cleanup**
-
-**Task 3.1: Update CLAUDE.md** with bookmark key, Bookmark type, and bookmark info.
+**Task 3.1: Update CLAUDE.md**
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/CLAUDE.md[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/CLAUDE.md[0m
 
-I need to add bookmark-related info to several places in CLAUDE.md. Let me add Bookmark to the key types section and 'b' key to live mode docs.
+Add the import command after the `play` line:
   [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/CLAUDE.md[0m
 
-Add 'b' key to the Live Mode Pipeline section and bookmark info:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/CLAUDE.md[0m
-
-Add Bookmark to key types section:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/CLAUDE.md[0m
-
-Add 'b' to the help overlay section:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/CLAUDE.md[0m
-
-**Task 3.2: Remove dead code** — let me check for unused imports or orphaned files.
+Now **Task 3.2: Check for dead code**.
   [32m$ [0m [33mBash[0m [2mCheck for dead code warnings[0m
 
-Clean — the only warning is in external `sgr-agent`. No dead code to remove. Let me commit Phase 3.
-  [32m$ [0m [33mBash[0m [2mCommit Phase 3 docs update[0m
+No dead code warnings in the workspace. Commit Phase 3:
+  [32m$ [0m [33mBash[0m [2mCommit docs update[0m
+  [32m$ [0m [33mBash[0m [2mGet commit SHA[0m
 
-Now update plan.md to mark Phase 3 and final verification complete.
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/live-bookmarks_20260320/plan.md[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/live-bookmarks_20260320/plan.md[0m
-  [32m$ [0m [33mBash[0m [2mCommit final plan completion[0m
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phase 1: Types + Storage (Tasks 1.1-1.6)', 'st[0m
+Now **Final Verification**:
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1-1.4 + Phase 1 verification', 'status'[0m
+  [32m$ [0m [33mBash[0m [2mRun full check: test + clippy + fmt[0m
 
-Track complete: **Live Call Bookmarks** (live-bookmarks_20260320)
+All pass. Finalize plan.md:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/plan.md[0m
 
-```
-Phases: 3/3
-Tasks:  17/17
-Tests:  All passing
+Also update the spec checkboxes for acceptance criteria:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-import_20260320/spec.md[0m
+  [32m$ [0m [33mBash[0m [2mCommit track completion[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1-1.4 + Phase 1 verification', 'status'[0m
 
-Phase checkpoints:
-  Phase 1: 51c41c6 (types + storage)
-  Phase 2: 36b8754 (live mode + TUI)
-  Phase 3: b1decaf (docs)
-
-Revert entire track: git revert 51c41c6..HEAD
-```
-
-<solo:done/>Track complete: **Live Call Bookmarks** (live-bookmarks_20260320)
+Track complete: **audio-import** (audio-import_20260320)
 
 ```
 Phases: 3/3
-Tasks:  17/17
-Tests:  All passing
+Tasks:  9/9
+Tests:  All passing (31 voxkit + 12 integration)
 
 Phase checkpoints:
-  Phase 1: 51c41c6 (types + storage)
-  Phase 2: 36b8754 (live mode + TUI)
-  Phase 3: b1decaf (docs)
+  Phase 1: cff72da — batch file transcription in voxkit
+  Phase 2: bf9e352 — CLI import command
+  Phase 3: 6757e42 — docs & cleanup
 
-Revert entire track: git revert 51c41c6..HEAD
+Revert entire track: git revert cff72da..HEAD
+```
+
+<solo:done/>Track complete: **audio-import** (audio-import_20260320)
+
+```
+Phases: 3/3
+Tasks:  9/9
+Tests:  All passing (31 voxkit + 12 integration)
+
+Phase checkpoints:
+  Phase 1: cff72da — batch file transcription in voxkit
+  Phase 2: bf9e352 — CLI import command
+  Phase 3: 6757e42 — docs & cleanup
+
+Revert entire track: git revert cff72da..HEAD
 ```
 
 <solo:done/>

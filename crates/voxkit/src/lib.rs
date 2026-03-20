@@ -29,6 +29,9 @@ pub mod realtime_stt;
 #[cfg(feature = "whisper")]
 pub mod whisper_stt;
 
+#[cfg(feature = "parakeet")]
+pub mod parakeet_stt;
+
 #[cfg(feature = "openai-tts")]
 pub mod tts;
 

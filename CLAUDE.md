@@ -212,7 +212,7 @@ Space/Enter/b keys during recording → add Bookmark (Enter/b) or stop (Space)
 ```toml
 # ~/.supervox/config.toml
 my_language = "ru"            # Target language for summaries/translation
-stt_backend = "realtime"      # "realtime" | "whisper"
+stt_backend = "realtime"      # "realtime" | "whisper" | "parakeet"
 whisper_model = "base"        # "tiny" | "base" | "small" | "medium" (when stt_backend = "whisper")
 llm_model = "gemini-2.5-flash"
 summary_lag_secs = 5
@@ -220,6 +220,7 @@ capture = "mic+system"        # "mic" | "mic+system"
 llm_backend = "auto"          # "auto" | "ollama"
 ollama_model = "llama3.2:3b"  # Model when llm_backend = "ollama"
 ducking_threshold = 0.05     # System audio level above which mic STT is suppressed (0.0–1.0)
+translate = true             # false to disable translation (when call is in target language)
 ```
 
 Config loaded at startup via `storage::load_config()`. Default created if missing.

@@ -1,12 +1,14 @@
 [package]
 name = "voxkit"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 description = "Voice pipeline toolkit — STT, VAD, TTS abstractions for Rust voice apps"
 license = "MIT"
 repository = "https://github.com/fortunto2/supervox"
 keywords = ["voice", "stt", "vad", "tts", "audio"]
 categories = ["multimedia::audio"]
+readme = "../../README.md"
+exclude = [".solo/", ".githooks/", "docs/", "CLAUDE.md"]
 
 [features]
 default = []
@@ -20,6 +22,7 @@ macos-system-audio = []
 macos-mic-mode = []
 wav = ["dep:hound"]
 whisper = ["silero", "dep:whisper-rs", "dep:reqwest"]
+parakeet = ["dep:parakeet-rs", "dep:directories"]
 
 [dependencies]
 tokio = { version = "1", features = ["sync", "macros"] }
@@ -40,6 +43,8 @@ rodio = { version = "0.20", optional = true, default-features = false, features 
 cpal = { version = "0.15", optional = true }
 hound = { version = "3.5", optional = true }
 whisper-rs = { version = "0.16", optional = true }
+parakeet-rs = { version = "0.3", optional = true }
+directories = { version = "6", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

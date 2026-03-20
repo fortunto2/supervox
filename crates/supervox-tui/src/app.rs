@@ -641,14 +641,16 @@ fn start_recording(app: &mut App) {
             app.live_state.start_recording();
             app.status = "Recording...".into();
 
-            // Start translation pipeline
-            let (tr_tx, tr_rx) = mpsc::unbounded_channel();
-            crate::intelligence::start_translation_pipeline(
-                &app.config,
-                tr_rx,
-                app.audio_event_tx.clone(),
-            );
-            app.translate_tx = Some(tr_tx);
+            // Start translation pipeline (skip if translate = false)
+            if app.config.translate {
+                let (tr_tx, tr_rx) = mpsc::unbounded_channel();
+                crate::intelligence::start_translation_pipeline(
+                    &app.config,
+                    tr_rx,
+                    app.audio_event_tx.clone(),
+                );
+                app.translate_tx = Some(tr_tx);
+            }
 
             // Start summary pipeline
             let (sum_tx, sum_rx) = mpsc::unbounded_channel();
