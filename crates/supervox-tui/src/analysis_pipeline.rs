@@ -7,6 +7,8 @@ use sgr_agent::Llm;
 use sgr_agent::types::{LlmConfig, Message};
 use supervox_agent::types::CallAnalysis;
 
+const LLM_TIMEOUT_SECS: u64 = 30;
+
 /// Run analysis on a call transcript. Returns structured `CallAnalysis`.
 pub async fn analyze_transcript(transcript: &str, model: &str) -> Result<CallAnalysis, String> {
     let llm = Llm::new(&LlmConfig::auto(model));
@@ -21,9 +23,17 @@ pub async fn analyze_transcript(transcript: &str, model: &str) -> Result<CallAna
         Message::user(format!("Transcript:\n{transcript}")),
     ];
 
-    llm.structured(&messages)
-        .await
-        .map_err(|e| format!("Analysis LLM error: {e}"))
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(LLM_TIMEOUT_SECS),
+        llm.structured(&messages),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(analysis)) => Ok(analysis),
+        Ok(Err(e)) => Err(format!("Analysis LLM error: {e}")),
+        Err(_) => Err(format!("Analysis timed out after {LLM_TIMEOUT_SECS}s")),
+    }
 }
 
 /// Draft a follow-up email based on analysis JSON.
@@ -42,9 +52,17 @@ pub async fn draft_follow_up(
         Message::user(format!("Call analysis:\n{analysis_json}")),
     ];
 
-    llm.generate(&messages)
-        .await
-        .map_err(|e| format!("Follow-up LLM error: {e}"))
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(LLM_TIMEOUT_SECS),
+        llm.generate(&messages),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(text)) => Ok(text),
+        Ok(Err(e)) => Err(format!("Follow-up LLM error: {e}")),
+        Err(_) => Err(format!("Follow-up timed out after {LLM_TIMEOUT_SECS}s")),
+    }
 }
 
 #[cfg(test)]

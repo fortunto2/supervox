@@ -43,6 +43,8 @@ pub struct App {
     pub agent_state: modes::agent::AgentState,
     pub history_state: Option<modes::history::CallHistoryState>,
     pub show_help: bool,
+    /// Timed status message (text, when set). Clears after 5 seconds.
+    pub status_error: Option<(String, std::time::Instant)>,
     pub audio: AudioPipeline,
     pub audio_event_rx: mpsc::UnboundedReceiver<AudioEvent>,
     pub audio_event_tx: mpsc::UnboundedSender<AudioEvent>,
@@ -81,6 +83,7 @@ impl App {
             agent_state: modes::agent::AgentState::default(),
             history_state: None,
             show_help: false,
+            status_error: None,
             audio: AudioPipeline::default(),
             audio_event_rx,
             audio_event_tx,
@@ -183,14 +186,16 @@ impl App {
             AppEvent::AnalysisError(e) => {
                 self.analysis_state.error = Some(e.clone());
                 self.analysis_state.loading = false;
-                self.status = format!("Analysis error: {e}");
+                self.status_error =
+                    Some((format!("Analysis error: {e}"), std::time::Instant::now()));
             }
             AppEvent::FollowUpReady(text) => {
                 self.analysis_state.follow_up = Some(text);
                 self.status = "Follow-up draft ready".into();
             }
             AppEvent::FollowUpError(e) => {
-                self.status = format!("Follow-up error: {e}");
+                self.status_error =
+                    Some((format!("Follow-up error: {e}"), std::time::Instant::now()));
             }
             AppEvent::AgentChunk(text) => {
                 self.agent_state.push_assistant_chunk(&text);
@@ -200,7 +205,7 @@ impl App {
             }
             AppEvent::AgentError(e) => {
                 self.agent_state.push_error(&e);
-                self.status = format!("Agent error: {e}");
+                self.status_error = Some((format!("Agent error: {e}"), std::time::Instant::now()));
             }
         }
     }
@@ -323,12 +328,26 @@ pub async fn run(mode: Mode) -> Result<()> {
                         Mode::Live => unreachable!(),
                     }
 
-                    let status = Paragraph::new(Line::from(format!(
-                        " [{}] {} | ?=help q=quit",
-                        app.mode_label(),
-                        app.status
-                    )))
-                    .style(Style::default().fg(Color::White).bg(Color::DarkGray));
+                    // Show error in red if active, otherwise normal status
+                    let (status_text, status_style) = if let Some((err, when)) = &app.status_error {
+                        if when.elapsed().as_secs() < 5 {
+                            (
+                                format!(" [{}] {} ", app.mode_label(), err),
+                                Style::default().fg(Color::White).bg(Color::Red),
+                            )
+                        } else {
+                            (
+                                format!(" [{}] {} | ?=help q=quit", app.mode_label(), app.status),
+                                Style::default().fg(Color::White).bg(Color::DarkGray),
+                            )
+                        }
+                    } else {
+                        (
+                            format!(" [{}] {} | ?=help q=quit", app.mode_label(), app.status),
+                            Style::default().fg(Color::White).bg(Color::DarkGray),
+                        )
+                    };
+                    let status = Paragraph::new(Line::from(status_text)).style(status_style);
                     f.render_widget(status, status_area);
                 }
             }
@@ -338,6 +357,13 @@ pub async fn run(mode: Mode) -> Result<()> {
                 crate::help::render_help(f, area, app.mode_label());
             }
         })?;
+
+        // Auto-clear expired status errors
+        if let Some((_, when)) = &app.status_error
+            && when.elapsed().as_secs() >= 5
+        {
+            app.status_error = None;
+        }
 
         // Process audio events (non-blocking)
         while let Ok(event) = app.audio_event_rx.try_recv() {
