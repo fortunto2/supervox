@@ -351,8 +351,11 @@ fn cmd_calls(json: bool, filter_args: &FilterArgs) -> Result<()> {
         return Ok(());
     }
 
-    println!("{:<20} {:>8} {:<3} FIRST LINE", "DATE", "DURATION", "AN");
-    println!("{}", "-".repeat(65));
+    println!(
+        "{:<20} {:>8} {:<3} {:<3} FIRST LINE",
+        "DATE", "DURATION", "AN", "\u{266b}"
+    );
+    println!("{}", "-".repeat(70));
 
     for call in &calls {
         let date = call.created_at.format("%Y-%m-%d %H:%M");
@@ -361,7 +364,12 @@ fn cmd_calls(json: bool, filter_args: &FilterArgs) -> Result<()> {
             .ok()
             .flatten()
             .is_some();
-        let indicator = if has_analysis { "\u{2713}" } else { "\u{2717}" };
+        let analysis_indicator = if has_analysis { "\u{2713}" } else { "\u{2717}" };
+        let audio_indicator = if supervox_agent::storage::has_audio(&calls_dir, call) {
+            "\u{266b}"
+        } else {
+            " "
+        };
         let first_line = call
             .transcript
             .lines()
@@ -371,8 +379,8 @@ fn cmd_calls(json: bool, filter_args: &FilterArgs) -> Result<()> {
             .take(40)
             .collect::<String>();
         println!(
-            "{:<20} {:>8}  {}  {}",
-            date, duration, indicator, first_line
+            "{:<20} {:>8}  {}   {}  {}",
+            date, duration, analysis_indicator, audio_indicator, first_line
         );
     }
 
