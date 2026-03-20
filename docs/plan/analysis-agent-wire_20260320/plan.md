@@ -9,7 +9,7 @@
 
 Wire existing agent tools to existing TUI panels. Analysis mode gets async LLM calls (analyze + follow-up). Agent mode gets a real sgr-agent loop with streaming. Add clipboard support. No new tools, no new panels.
 
-## Phase 1: Analysis Mode LLM Integration
+## Phase 1: Analysis Mode LLM Integration <!-- checkpoint:2975ad2 -->
 
 Wire analyze_call tool to AnalysisState so entering analysis mode triggers LLM analysis and populates all structured fields.
 
@@ -29,20 +29,20 @@ Wire analyze_call tool to AnalysisState so entering analysis mode triggers LLM a
 - [x] Loading state shown during analysis
 - [x] Tests pass, clippy clean
 
-## Phase 2: Clipboard Support
+## Phase 2: Clipboard Support <!-- checkpoint:01fcb4f -->
 
 Add copy-to-clipboard for analysis and follow-up text.
 
 ### Tasks
 
-- [ ] Task 2.1: Add clipboard helper in `crates/supervox-tui/src/clipboard.rs` — `copy_to_clipboard(text: &str) -> Result<()>` using arboard. Include test (can be `#[ignore]` if no display server in CI).
-- [ ] Task 2.2: Wire 'c' key in analysis mode — copies formatted analysis text (summary + action items + themes) to clipboard. Show status "Copied to clipboard".
-- [ ] Task 2.3: Wire 'C' key in analysis mode — copies follow-up text to clipboard. Show status "Follow-up copied".
+- [x] Task 2.1: Add clipboard helper in `crates/supervox-tui/src/clipboard.rs` <!-- sha:01fcb4f -->
+- [x] Task 2.2: Wire 'c' key in analysis mode — copies formatted analysis to clipboard <!-- sha:01fcb4f -->
+- [x] Task 2.3: Wire 'C' key in analysis mode — copies follow-up to clipboard <!-- sha:01fcb4f -->
 
 ### Verification
 
-- [ ] 'c' copies analysis, 'C' copies follow-up, status bar confirms
-- [ ] Works on macOS (arboard uses NSPasteboard)
+- [x] 'c' copies analysis, 'C' copies follow-up, status bar confirms
+- [x] Works on macOS (arboard uses NSPasteboard)
 
 ## Phase 3: Agent Mode LLM Integration
 
