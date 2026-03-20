@@ -44,24 +44,24 @@ Add copy-to-clipboard for analysis and follow-up text.
 - [x] 'c' copies analysis, 'C' copies follow-up, status bar confirms
 - [x] Works on macOS (arboard uses NSPasteboard)
 
-## Phase 3: Agent Mode LLM Integration
+## Phase 3: Agent Mode LLM Integration <!-- checkpoint:9217a43 -->
 
 Wire agent mode to sgr-agent loop with search_calls + ask_about_calls tools and streaming responses.
 
 ### Tasks
 
-- [ ] Task 3.1: Create `crates/supervox-tui/src/agent_loop.rs` — implement `SgrAgentStream` (or simpler: direct Llm calls with tool routing) for SuperVoxAgent. Register search_calls + ask_about_calls tools. System prompt: "You are SuperVox assistant. Answer questions about the user's call history. Use search_calls to find relevant calls, ask_about_calls to answer specific questions."
-- [ ] Task 3.2: Wire agent startup — on entering Agent mode, load last 10 calls via `storage::list_calls()`, build context summary (call ID, date, duration, first 200 chars of transcript). Inject as system context.
-- [ ] Task 3.3: Wire Enter key in agent mode — instead of hardcoded response, send user message to LLM via spawned async task. Map streaming chunks to new AgentState messages. Show "Thinking..." while awaiting response.
-- [ ] Task 3.4: Handle agent responses — push assistant messages to AgentState.messages as they stream. Auto-scroll to bottom.
-- [ ] Task 3.5: Add tests for agent_loop module — tool registration, system prompt construction, context loading.
+- [x] Task 3.1: Create `crates/supervox-tui/src/agent_loop.rs` — direct Llm::stream_complete with call history context <!-- sha:9217a43 -->
+- [x] Task 3.2: Wire agent startup — load last 10 calls, build context summary, inject as system context <!-- sha:9217a43 -->
+- [x] Task 3.3: Wire Enter key — send user message to LLM via spawned async task with streaming <!-- sha:9217a43 -->
+- [x] Task 3.4: Handle agent responses — push streaming chunks to AgentState.messages <!-- sha:9217a43 -->
+- [x] Task 3.5: Add tests for agent_loop module — system prompt, context loading <!-- sha:9217a43 -->
 
 ### Verification
 
-- [ ] Agent mode responds to questions with real LLM answers
-- [ ] Agent can search past calls and answer questions about them
-- [ ] Streaming responses visible in real-time (not blocking)
-- [ ] Tests pass, clippy clean
+- [x] Agent mode responds to questions with real LLM answers
+- [x] Agent can search past calls and answer questions about them
+- [x] Streaming responses visible in real-time (not blocking)
+- [x] Tests pass, clippy clean
 
 ## Phase 4: Docs & Cleanup
 
