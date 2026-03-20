@@ -163,6 +163,8 @@ pub struct Config {
     pub ollama_model: String,
     #[serde(default = "default_whisper_model")]
     pub whisper_model: String,
+    #[serde(default = "default_ducking_threshold")]
+    pub ducking_threshold: f32,
 }
 
 fn default_language() -> String {
@@ -188,6 +190,9 @@ fn default_ollama_model() -> String {
 }
 fn default_whisper_model() -> String {
     "base".into()
+}
+fn default_ducking_threshold() -> f32 {
+    0.05
 }
 
 impl Config {
@@ -215,6 +220,7 @@ impl Default for Config {
             llm_backend: default_llm_backend(),
             ollama_model: default_ollama_model(),
             whisper_model: default_whisper_model(),
+            ducking_threshold: default_ducking_threshold(),
         }
     }
 }
@@ -457,6 +463,7 @@ mod tests {
         assert_eq!(cfg.llm_backend, "auto");
         assert_eq!(cfg.ollama_model, "llama3.2:3b");
         assert_eq!(cfg.whisper_model, "base");
+        assert_eq!(cfg.ducking_threshold, 0.05);
     }
 
     #[test]
@@ -465,6 +472,14 @@ mod tests {
         let cfg: Config = serde_json::from_str(json).unwrap();
         assert_eq!(cfg.my_language, "en");
         assert_eq!(cfg.llm_model, "gemini-2.5-flash"); // default
+        assert_eq!(cfg.ducking_threshold, 0.05); // default
+    }
+
+    #[test]
+    fn config_custom_ducking_threshold() {
+        let json = r#"{"ducking_threshold": 0.1}"#;
+        let cfg: Config = serde_json::from_str(json).unwrap();
+        assert_eq!(cfg.ducking_threshold, 0.1);
     }
 
     #[test]

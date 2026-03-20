@@ -25,6 +25,7 @@ pub struct LiveState {
     pub recording_start: Option<Instant>,
     pub mic_level: f32,
     pub system_level: f32,
+    pub is_ducked: bool,
     pub stt_backend: String,
     pub bookmarks: Vec<Bookmark>,
 }
@@ -39,6 +40,7 @@ impl Default for LiveState {
             recording_start: None,
             mic_level: 0.0,
             system_level: 0.0,
+            is_ducked: false,
             stt_backend: "realtime".into(),
             bookmarks: Vec::new(),
         }
@@ -237,9 +239,20 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
         " 0:00 ".into()
     };
 
+    let mic_label = if state.is_ducked {
+        Span::styled(
+            format!("mic {mic_bar} \u{1F507}"),
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::DIM),
+        )
+    } else {
+        Span::styled(format!("mic {mic_bar}"), Style::default().fg(Color::Cyan))
+    };
+
     let mut status_spans = vec![
         mic_indicator,
-        Span::styled(format!("mic {mic_bar}"), Style::default().fg(Color::Cyan)),
+        mic_label,
         Span::raw(" "),
         Span::styled(format!("sys {sys_bar}"), Style::default().fg(Color::Yellow)),
         Span::raw(" │ "),
@@ -413,5 +426,23 @@ mod tests {
         let state = LiveState::default();
         assert_eq!(state.mic_level, 0.0);
         assert_eq!(state.system_level, 0.0);
+    }
+
+    #[test]
+    fn ducking_default_false() {
+        let state = LiveState::default();
+        assert!(!state.is_ducked);
+    }
+
+    #[test]
+    fn ducking_state_independent_of_recording() {
+        let mut state = LiveState::default();
+        state.start_recording();
+        assert!(!state.is_ducked);
+        state.is_ducked = true;
+        assert!(state.is_ducked);
+        // Stop recording doesn't reset ducking (pipeline handles that)
+        state.stop_recording();
+        assert!(state.is_ducked);
     }
 }

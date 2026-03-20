@@ -233,6 +233,9 @@ impl App {
                 AudioSource::Mic => self.live_state.mic_level = level,
                 AudioSource::System => self.live_state.system_level = level,
             },
+            AudioEvent::Ducking(ducked) => {
+                self.live_state.is_ducked = ducked;
+            }
             AudioEvent::Transcript {
                 source,
                 text,

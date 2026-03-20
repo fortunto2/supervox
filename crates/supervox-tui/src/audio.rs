@@ -40,6 +40,8 @@ pub enum AudioEvent {
     /// Rolling summary update.
     #[allow(dead_code)]
     Summary(String),
+    /// Ducking state changed (true = mic suppressed due to system audio).
+    Ducking(bool),
     /// Error from audio pipeline.
     Error(String),
     /// Recording stopped — full transcript + duration + optional audio path.
@@ -105,6 +107,7 @@ impl AudioPipeline {
             None
         };
 
+        let ducking_threshold = config.ducking_threshold;
         tokio::spawn(async move {
             if let Err(e) = run_pipeline(
                 stt_backend,
@@ -114,6 +117,7 @@ impl AudioPipeline {
                 stop_rx,
                 event_tx,
                 calls_dir,
+                ducking_threshold,
             )
             .await
             {
@@ -194,6 +198,7 @@ async fn recv_opt<T>(rx: &mut Option<mpsc::Receiver<T>>) -> Option<T> {
 }
 
 /// Run the audio pipeline: capture → resample → STT → events, with WAV recording.
+#[allow(clippy::too_many_arguments)]
 async fn run_pipeline(
     stt_backend: Box<dyn StreamingSttBackend>,
     system_stt_backend: Option<Box<dyn StreamingSttBackend>>,
@@ -202,6 +207,7 @@ async fn run_pipeline(
     mut stop_rx: mpsc::Receiver<()>,
     event_tx: mpsc::UnboundedSender<AudioEvent>,
     calls_dir: PathBuf,
+    ducking_threshold: f32,
 ) -> Result<(), String> {
     // Connect mic STT
     let (stt_tx, mut stt_rx) = stt_backend
@@ -227,6 +233,9 @@ async fn run_pipeline(
     // WAV writer — initialized lazily on first mic chunk (to get actual sample rate)
     let mut wav_writer: Option<hound::WavWriter<BufWriter<std::fs::File>>> = None;
     let mut wav_path: Option<PathBuf> = None;
+
+    // Ducking state — suppress mic STT when system audio is loud
+    let mut is_ducked = false;
 
     loop {
         tokio::select! {
@@ -268,9 +277,11 @@ async fn run_pipeline(
                             }
                         }
 
-                        // Resample to 24kHz i16 and send to STT
-                        let resampled = resample_to_24k(&chunk.samples, chunk.sample_rate);
-                        let _ = stt_tx.send(SttInput::Audio(resampled)).await;
+                        // Resample to 24kHz i16 and send to STT (skip when ducked)
+                        if !is_ducked {
+                            let resampled = resample_to_24k(&chunk.samples, chunk.sample_rate);
+                            let _ = stt_tx.send(SttInput::Audio(resampled)).await;
+                        }
                     }
                     None => break,
                 }
@@ -281,6 +292,13 @@ async fn run_pipeline(
                 if let Some(chunk) = chunk {
                     let level = chunk.rms().min(1.0);
                     let _ = event_tx.send(AudioEvent::Level { source: AudioSource::System, level });
+
+                    // Update ducking state
+                    let should_duck = level > ducking_threshold;
+                    if should_duck != is_ducked {
+                        is_ducked = should_duck;
+                        let _ = event_tx.send(AudioEvent::Ducking(is_ducked));
+                    }
 
                     let resampled = resample_to_24k(&chunk.samples, chunk.sample_rate);
                     if let Some(ref tx) = system_stt_tx {
