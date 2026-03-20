@@ -123,11 +123,15 @@ system audio → SystemAudioCapture::start_raw() → resample_to_24k() → separ
                                                └─ rolling_summary (timer) → right panel
 mic chunks → hound::WavWriter (incremental, 16-bit PCM mono) → {date}-{id}.wav
 on stop → finalize WAV → save call (with audio_path + bookmarks) → auto-switch to Analysis mode → trigger LLM analysis
-'b' key during recording → add Bookmark{timestamp_secs, note: None} to LiveState → visual marker in transcript → saved with Call
+Space/Enter/b keys during recording → add Bookmark (Enter/b) or stop (Space)
 ```
 
-- 'b' key: add bookmark at current timestamp (shown in status bar + transcript)
+- Space key: toggle recording (start if idle, stop if recording)
+- Enter or 'b' key: add bookmark at current timestamp (shown in status bar + transcript)
+- 'r'/'s' keys: start/stop recording (legacy, still work)
 - Bookmarks saved with Call, shown in Analysis mode and markdown export
+- Mic ducking: when system audio level > `ducking_threshold`, mic STT is suppressed (WAV still records)
+- Ducking indicator: mic VU bar dimmed + mute icon when ducked
 
 ### Analysis Mode
 - Auto-triggers `analyze_call` (structured LLM output → CallAnalysis)
@@ -165,6 +169,7 @@ on stop → finalize WAV → save call (with audio_path + bookmarks) → auto-sw
 - `Bookmark { timestamp_secs: f64, note: Option<String> }` — timestamped marker placed during live recording
 - `AudioEvent::Stopped{transcript, duration_secs, audio_path}` — recording ended with optional WAV path
 - `AudioEvent::Summary(String)` — replaces right panel content
+- `AudioEvent::Ducking(bool)` — mic STT suppressed due to system audio level
 - `Call.audio_path: Option<String>` — path to WAV recording (None for calls without audio)
 - `CallInsights { recurring_themes, mood_summary, open_action_items, key_patterns, total_calls, period }` — cross-call analysis
 - `CallStats { total_calls, total_duration_secs, analyzed_count, unanalyzed_count, top_themes, calls_this_week, calls_this_month }` — aggregate statistics
@@ -207,6 +212,7 @@ summary_lag_secs = 5
 capture = "mic+system"        # "mic" | "mic+system"
 llm_backend = "auto"          # "auto" | "ollama"
 ollama_model = "llama3.2:3b"  # Model when llm_backend = "ollama"
+ducking_threshold = 0.05     # System audio level above which mic STT is suppressed (0.0–1.0)
 ```
 
 Config loaded at startup via `storage::load_config()`. Default created if missing.
