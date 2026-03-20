@@ -221,7 +221,7 @@ pub fn compute_stats(calls_dir: &Path) -> Result<CallStats, Box<dyn std::error::
     let month_ago = now - chrono::Duration::days(30);
 
     let total_calls = calls.len();
-    let total_duration_secs: f64 = calls.iter().map(|c| c.duration_secs).sum();
+    let total_duration_secs: f64 = calls.iter().map(|c| c.duration_secs).sum::<f64>().max(0.0);
     let calls_this_week = calls.iter().filter(|c| c.created_at >= week_ago).count();
     let calls_this_month = calls.iter().filter(|c| c.created_at >= month_ago).count();
 

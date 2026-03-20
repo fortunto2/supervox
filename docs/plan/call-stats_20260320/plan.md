@@ -9,36 +9,36 @@
 
 Add aggregate call statistics and batch re-analysis to fill the gap where calls without cached analysis can't contribute to insights. Three new CLI commands + TUI enhancement.
 
-## Phase 1: Types & Stats Computation
+## Phase 1: Types & Stats Computation <!-- checkpoint:d2c11d0 -->
 
 Add CallStats type and pure computation function in supervox-agent.
 
 ### Tasks
-- [x] Task 1.1: Add `CallStats` type to `crates/supervox-agent/src/types.rs` — total_calls, total_duration_secs, analyzed_count, unanalyzed_count, top_themes (Vec<ThemeCount>), calls_this_week, calls_this_month
-- [x] Task 1.2: Add `compute_stats()` to `crates/supervox-agent/src/storage.rs` — iterate calls + check analysis existence, aggregate stats
-- [x] Task 1.3: Add JSON schema `schemas/call-stats.json` via schemars
-- [x] Task 1.4: Add tests for `compute_stats()` — empty dir, mixed analyzed/unanalyzed, theme aggregation
+- [x] Task 1.1: Add `CallStats` type to `crates/supervox-agent/src/types.rs` — total_calls, total_duration_secs, analyzed_count, unanalyzed_count, top_themes (Vec<ThemeCount>), calls_this_week, calls_this_month <!-- sha:d2c11d0 -->
+- [x] Task 1.2: Add `compute_stats()` to `crates/supervox-agent/src/storage.rs` — iterate calls + check analysis existence, aggregate stats <!-- sha:d2c11d0 -->
+- [x] Task 1.3: Add JSON schema `schemas/call-stats.json` via schemars <!-- sha:d2c11d0 -->
+- [x] Task 1.4: Add tests for `compute_stats()` — empty dir, mixed analyzed/unanalyzed, theme aggregation <!-- sha:d2c11d0 -->
 
 ### Verification
-- [ ] `cargo test -p supervox-agent` passes with new tests
-- [ ] CallStats serializes/deserializes correctly
+- [x] `cargo test -p supervox-agent` passes with new tests
+- [x] CallStats serializes/deserializes correctly
 
 ## Phase 2: CLI Commands
 
 Wire stats + batch analysis + enhanced calls output.
 
 ### Tasks
-- [ ] Task 2.1: Add `Stats` subcommand to `crates/supervox-tui/src/main.rs` — calls `compute_stats()`, formats output table
-- [ ] Task 2.2: Add `AnalyzeAll` subcommand to `crates/supervox-tui/src/main.rs` — iterate unanalyzed calls, run `analyze_transcript()` sequentially, show progress (N/M), call `update_call_tags()` after each
-- [ ] Task 2.3: Add `--dry-run` flag to `AnalyzeAll` — list unanalyzed calls without processing
-- [ ] Task 2.4: Add analysis status indicator to `cmd_calls()` — show ✓/✗ column based on `.analysis.json` existence
-- [ ] Task 2.5: Add tests for stats CLI output formatting and analyze-all dry-run logic
+- [x] Task 2.1: Add `Stats` subcommand to `crates/supervox-tui/src/main.rs` — calls `compute_stats()`, formats output table
+- [x] Task 2.2: Add `AnalyzeAll` subcommand to `crates/supervox-tui/src/main.rs` — iterate unanalyzed calls, run `analyze_transcript()` sequentially, show progress (N/M), call `update_call_tags()` after each
+- [x] Task 2.3: Add `--dry-run` flag to `AnalyzeAll` — list unanalyzed calls without processing
+- [x] Task 2.4: Add analysis status indicator to `cmd_calls()` — show ✓/✗ column based on `.analysis.json` existence
+- [x] Task 2.5: Add tests for stats CLI output formatting and analyze-all dry-run logic
 
 ### Verification
-- [ ] `supervox stats` displays formatted stats table
-- [ ] `supervox stats --json` outputs valid JSON
-- [ ] `supervox analyze-all --dry-run` lists unanalyzed calls
-- [ ] `supervox calls` shows analysis indicator column
+- [x] `supervox stats` displays formatted stats table
+- [x] `supervox stats --json` outputs valid JSON
+- [x] `supervox analyze-all --dry-run` lists unanalyzed calls
+- [x] `supervox calls` shows analysis indicator column
 
 ## Phase 3: TUI Enhancement & Docs
 

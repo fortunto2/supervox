@@ -71,6 +71,19 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Aggregate call statistics — total calls, duration, analysis coverage
+    Stats {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Batch-analyze all calls missing analysis
+    #[command(name = "analyze-all")]
+    AnalyzeAll {
+        /// List unanalyzed calls without processing
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[tokio::main]
@@ -99,6 +112,12 @@ async fn main() -> Result<()> {
         }
         Some(Commands::Insights { json }) => {
             cmd_insights(json).await?;
+        }
+        Some(Commands::Stats { json }) => {
+            cmd_stats(json)?;
+        }
+        Some(Commands::AnalyzeAll { dry_run }) => {
+            cmd_analyze_all(dry_run).await?;
         }
         Some(Commands::Live) | None => {
             app::run(app::Mode::Live).await?;
@@ -226,12 +245,17 @@ fn cmd_calls(json: bool) -> Result<()> {
         return Ok(());
     }
 
-    println!("{:<20} {:>8} FIRST LINE", "DATE", "DURATION");
-    println!("{}", "-".repeat(60));
+    println!("{:<20} {:>8} {:<3} FIRST LINE", "DATE", "DURATION", "AN");
+    println!("{}", "-".repeat(65));
 
     for call in &calls {
         let date = call.created_at.format("%Y-%m-%d %H:%M");
         let duration = format!("{}s", call.duration_secs as u64);
+        let has_analysis = supervox_agent::storage::load_analysis(&calls_dir, &call.id)
+            .ok()
+            .flatten()
+            .is_some();
+        let indicator = if has_analysis { "\u{2713}" } else { "\u{2717}" };
         let first_line = call
             .transcript
             .lines()
@@ -240,7 +264,10 @@ fn cmd_calls(json: bool) -> Result<()> {
             .chars()
             .take(40)
             .collect::<String>();
-        println!("{:<20} {:>8} {}", date, duration, first_line);
+        println!(
+            "{:<20} {:>8}  {}  {}",
+            date, duration, indicator, first_line
+        );
     }
 
     println!("\n{} call(s) total", calls.len());
@@ -265,6 +292,118 @@ async fn cmd_analyze_json(file: &str) -> Result<()> {
             .await
             .map_err(|e| anyhow::anyhow!("Analysis failed: {e}"))?;
     println!("{}", serde_json::to_string_pretty(&analysis)?);
+    Ok(())
+}
+
+/// Display aggregate call statistics.
+fn cmd_stats(json: bool) -> Result<()> {
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    let stats =
+        supervox_agent::storage::compute_stats(&calls_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&stats)?);
+        return Ok(());
+    }
+
+    let total_secs = stats.total_duration_secs as u64;
+    let hours = total_secs / 3600;
+    let mins = (total_secs % 3600) / 60;
+
+    println!("Call Statistics");
+    println!("{}", "=".repeat(40));
+    println!("Total calls:      {}", stats.total_calls);
+    println!("Total duration:   {hours}h {mins}m");
+    println!(
+        "Analysis coverage: {}/{} ({:.0}%)",
+        stats.analyzed_count,
+        stats.total_calls,
+        if stats.total_calls > 0 {
+            stats.analyzed_count as f64 / stats.total_calls as f64 * 100.0
+        } else {
+            0.0
+        }
+    );
+    println!("This week:        {}", stats.calls_this_week);
+    println!("This month:       {}", stats.calls_this_month);
+
+    if !stats.top_themes.is_empty() {
+        println!("\nTop Themes:");
+        for t in &stats.top_themes {
+            println!("  {} ({}x)", t.theme, t.count);
+        }
+    }
+
+    Ok(())
+}
+
+/// Batch-analyze all calls missing analysis files.
+async fn cmd_analyze_all(dry_run: bool) -> Result<()> {
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    let calls =
+        supervox_agent::storage::list_calls(&calls_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    let unanalyzed: Vec<_> = calls
+        .into_iter()
+        .filter(|c| {
+            supervox_agent::storage::load_analysis(&calls_dir, &c.id)
+                .ok()
+                .flatten()
+                .is_none()
+        })
+        .collect();
+
+    if unanalyzed.is_empty() {
+        println!("All calls have analysis cached.");
+        return Ok(());
+    }
+
+    if dry_run {
+        println!("{} call(s) without analysis:", unanalyzed.len());
+        for call in &unanalyzed {
+            let date = call.created_at.format("%Y-%m-%d %H:%M");
+            let preview: String = call.transcript.chars().take(60).collect();
+            println!("  {} {} — {}", call.id, date, preview);
+        }
+        return Ok(());
+    }
+
+    let config_path = supervox_agent::storage::default_config_path();
+    let config = supervox_agent::storage::load_config(&config_path)
+        .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;
+    let model = config.effective_model().to_string();
+    let total = unanalyzed.len();
+
+    for (i, call) in unanalyzed.iter().enumerate() {
+        eprintln!("[{}/{}] Analyzing {}...", i + 1, total, call.id);
+
+        if call.transcript.is_empty() {
+            eprintln!("  Skipped (empty transcript)");
+            continue;
+        }
+
+        match analysis_pipeline::analyze_transcript(&call.transcript, &model).await {
+            Ok(analysis) => {
+                if let Err(e) =
+                    supervox_agent::storage::save_analysis(&calls_dir, &call.id, &analysis)
+                {
+                    eprintln!("  Failed to save analysis: {e}");
+                    continue;
+                }
+                supervox_agent::storage::update_call_tags(&calls_dir, &call.id, &analysis.themes)
+                    .ok();
+                eprintln!(
+                    "  Done: {}",
+                    analysis.summary.chars().take(80).collect::<String>()
+                );
+            }
+            Err(e) => {
+                eprintln!("  Analysis failed: {e}");
+            }
+        }
+    }
+
+    eprintln!("Batch analysis complete.");
     Ok(())
 }
 
