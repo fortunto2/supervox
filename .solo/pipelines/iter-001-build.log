@@ -1,332 +1,168 @@
-  [2msession: 711b0812  model: claude-opus-4-6[1m][0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/spec.md[0m
+  [2msession: ee63a2e7  model: claude-opus-4-6[1m][0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/spec.md[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/.solo/pipelines/progress.md[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/docs/workflow.md[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Makefile[0m
+  [32m$ [0m [33mBash[0m [2mRecent commit history[0m
+  [2m--[0m [36mToolSearch[0m [2mselect:TodoWrite[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phase 1: Types + Storage (Tasks 1.1–1.4)', 'st[0m
+
+Let me read the current source files I'll be modifying.
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [32m$ [0m [33mBash[0m [2mShow recent commits[0m
-
-Now let me load the key files I'll need to modify.
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Cargo.toml[0m
-  [2m--[0m [36mToolSearch[0m [2mselect:TodoWrite[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/Cargo.toml[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/Cargo.toml[0m
-  [36m// [36mGrep[0m [2m"hound" ~/startups/active/supervox[0m
 
+Now let me check the lib.rs and workspace Cargo.toml.
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/lib.rs[0m
+  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/Cargo.toml[0m
 
+**Starting Task 1.1: Add `action_id()` and `ActionState` to types.rs**
 
-Good — `hound` is available via voxkit's `wav` feature, which supervox-tui already enables. Let me set up task tracking and start building.
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1: Add audio_path field to Call struct'[0m
+First, add `sha2` dependency to supervox-agent.
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/Cargo.toml[0m
 
-**Starting Task 1.1: Add `audio_path: Option<String>` to `Call` struct**
+Now add the types to `types.rs`:
   [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
 
-Now add the backward-compat test and update existing test constructors to include `audio_path`:
+Now add `action_id()`, `ActionState`, and `TrackedAction` after the `CallMatch` struct:
   [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
 
-Now update the existing test that constructs a Call to include `audio_path`:
+Now add tests for `action_id` and the new types:
   [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/types.rs[0m
 
-Now update all `make_call` and `make_tagged_call` helpers in storage.rs tests:
+Now implement Task 1.3 and 1.4 — action store functions in `storage.rs`:
   [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+
+Now add the action store functions before `default_config_path`:
   [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
 
-Now let me check for any other Call struct constructors across the codebase:
-  [36m// [36mGrep[0m [2m"Call \{" ~/startups/active/supervox/crates[0m
-
-Need to update Call constructors in multiple files. Let me do them in parallel:
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/tests/cli_commands.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/history.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/search.rs[0m
-
-Now update all remaining Call constructors across the codebase:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/tests/cli_commands.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/history.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-
-Now update the search.rs Call constructors:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/tools/search.rs[0m
-
-Now let me also check the export_call_markdown test in storage.rs that constructs a Call with explicit fields:
+Now add the storage tests. Let me add them at the end of the existing test module:
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
 
-Good — those use `make_call` which is already updated. Let me run the tests now:
+Now run the tests:
+  [32m$ [0m [33mBash[0m [2mRun supervox-agent tests[0m
+
+All 87 tests pass. Let me update plan.md and commit Phase 1:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mCommit Phase 1[0m
+
+Formatting issues. Let me fix and retry:
+  [32m$ [0m [33mBash[0m [2mFormat all code[0m
+  [32m$ [0m [33mBash[0m [2mCommit Phase 1[0m
+  [32m$ [0m [33mBash[0m [2mGet commit SHA[0m
+
+Now update plan.md with SHA annotations and mark Phase 1 complete:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mCommit Phase 1 checkpoint[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phase 1: Types + Storage (Tasks 1.1–1.4)', 'st[0m
+
+**Starting Phase 2: CLI Commands**
+
+**Task 2.1: Add `Actions` subcommand**
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+
+Now add the match arm and handler functions. First the match arm:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+
+Now add the handler functions before `cmd_insights`:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
+
+Now build and test:
+  [32m$ [0m [33mBash[0m [2mBuild supervox-tui[0m
+
+Build succeeds. Let me run clippy to check:
+  [32m$ [0m [33mBash[0m [2mClippy check on supervox-tui[0m
+
+Clean. Let me run the full test suite and commit:
   [32m$ [0m [33mBash[0m [2mRun all workspace tests[0m
 
-All tests pass. Commit Task 1.1:
-  [32m$ [0m [33mBash[0m [2mCommit Task 1.1[0m
+All tests pass. Update plan.md and commit:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mCommit Phase 2 CLI commands[0m
   [32m$ [0m [33mBash[0m [2mGet commit SHA[0m
 
-Update plan.md and move to next task:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1: Add audio_path field to Call struct'[0m
+Update plan with SHA and checkpoint:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mCommit Phase 2 checkpoint[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phase 1: Types + Storage (Tasks 1.1–1.4)', 'st[0m
 
-**Starting Task 1.2: Add `audio_path_for_call()` and `has_audio()` helpers**
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
+**Starting Phase 3: TUI + Docs**
 
-Now add tests for these helpers:
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [32m$ [0m [33mBash[0m [2mRun supervox-agent tests[0m
-  [32m$ [0m [33mBash[0m [2mCommit Task 1.2[0m
-  [32m$ [0m [33mBash[0m [2mGet commit SHA[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1: Add audio_path field to Call struct'[0m
+**Task 3.1: Update Analysis mode rendering**
 
-**Starting Task 1.3: Update `delete_call()` to also remove WAV file**
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-
-Now update the existing delete test and add a new one for WAV cleanup:
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [32m$ [0m [33mBash[0m [2mRun supervox-agent tests[0m
-  [32m$ [0m [33mBash[0m [2mCommit Task 1.3[0m
-  [32m$ [0m [33mBash[0m [2mFormat code[0m
-  [32m$ [0m [33mBash[0m [2mCommit Task 1.3[0m
-  [32m$ [0m [33mBash[0m [2mGet SHA[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1: Add audio_path field to Call struct'[0m
-
-**Starting Task 1.4: Add WAV recording to `run_pipeline()`**
-
-I need to understand how voxkit's `hound` is used. Let me check the `AudioChunk::to_wav_bytes` method for reference:
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/voxkit/src/types.rs[0m
-
-Good. Now I need to add `hound` as a direct dependency to supervox-tui (since it's used via voxkit's `wav` feature, but we need to create the WavWriter directly). Let me check if `hound` is re-exported by voxkit:
-  [36m// [36mGrep[0m [2m"pub use hound|pub extern crate hound" ~/startups/active/supervox/crates/voxkit/src[0m
-
-Not re-exported. I need to add `hound` directly to supervox-tui's deps. Let me check the workspace lock for the version:
-  [36m// [36mGrep[0m [2m"^name = \"hound\"" ~/startups/active/supervox/Cargo.lock[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/Cargo.toml[0m
-
-Now modify `run_pipeline()` to create and write WAV incrementally. The key change: on start, create a `WavWriter<BufWriter<File>>` at a temp path. In mic chunk handler, write f32→i16 samples. On stop, finalize. Pass the path out via the Stopped event.
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-
-Now I'll implement the changes. The plan:
-1. `run_pipeline()` takes a `calls_dir` parameter to know where to write the WAV
-2. Create `WavWriter<BufWriter<File>>` on first mic chunk (to get sample_rate)
-3. Write samples in mic chunk handler
-4. Finalize on stop, include `audio_path` in Stopped event
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-
-Now update the `AudioEvent::Stopped` variant and `run_pipeline`:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-
-Now update `start()` to pass `calls_dir` to `run_pipeline`:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-
-Now update `run_pipeline` to accept `calls_dir` and handle WAV writing:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-
-Now I need to find where `AudioEvent::Stopped` is handled to update the pattern match, and update `save_recorded_call` to accept and store `audio_path`. Let me first update `save_recorded_call`:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/audio.rs[0m
-
-Now I need to find where `AudioEvent::Stopped` is matched in the app to update the pattern and the `save_recorded_call` call. Let me also find where `start()` is called:
-  [36m// [36mGrep[0m [2m"AudioEvent::Stopped|save_recorded_call|\.start\(" ~/startups/active/supervox/crates/supervox-tui/src[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
-
-Now update the `AudioEvent::Stopped` handler:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
-
-Now update the `audio.start()` call to pass `calls_dir`:
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/app.rs[0m
-
-Now let's compile and test:
-  [32m$ [0m [33mBash[0m [2mBuild workspace[0m
-  [32m$ [0m [33mBash[0m [2mRun workspace tests[0m
-
-All tests pass. Commit Tasks 1.4 and 1.5 together since they're tightly coupled (the Stopped event change is part of the pipeline change):
-  [32m$ [0m [33mBash[0m [2mCommit Tasks 1.4+1.5[0m
-  [32m$ [0m [33mBash[0m [2mGet SHA[0m
-
-Update plan.md for Tasks 1.4 and 1.5:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-
-**Phase 1 complete!** Let me run verification:
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1: Add audio_path field to Call struct'[0m
-  [32m$ [0m [33mBash[0m [2mPhase 1 verification: tests + clippy + fmt[0m
-
-All green. Update plan verification checkboxes and commit:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-  [32m$ [0m [33mBash[0m [2mCommit Phase 1 completion[0m
-  [32m$ [0m [33mBash[0m [2mGet checkpoint SHA[0m
-
-Phase 1 complete! <!-- checkpoint:e35b829 -->
-
-Now starting **Phase 2: CLI Integration**.
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1–1.5: Phase 1 Audio Save Pipeline', 's[0m
-
-**Starting Task 2.1: Add `Play` subcommand**
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
-
-Now add the handler in the match:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
-
-Now add the `cmd_play` function:
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
-  [32m$ [0m [33mBash[0m [2mBuild supervox-tui[0m
-  [32m$ [0m [33mBash[0m [2mRun tests, check for failures[0m
-
-All pass. Commit:
-  [32m$ [0m [33mBash[0m [2mCommit Task 2.1[0m
-  [32m$ [0m [33mBash[0m [2mGet SHA[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1–1.5: Phase 1 Audio Save Pipeline', 's[0m
-
-**Starting Task 2.2: Add audio indicator to `cmd_calls()`**
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/main.rs[0m
-  [32m$ [0m [33mBash[0m [2mBuild[0m
-  [32m$ [0m [33mBash[0m [2mCommit Task 2.2[0m
-  [32m$ [0m [33mBash[0m [2mGet SHA[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Task 1.1–1.5: Phase 1 Audio Save Pipeline', 's[0m
-
-**Starting Task 2.3: Add audio line to export markdown**
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-
-Add a test for this:
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [32m$ [0m [33mBash[0m [2mRun tests[0m
-  [32m$ [0m [33mBash[0m [2mCommit Task 2.3[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-agent/src/storage.rs[0m
-  [32m$ [0m [33mBash[0m [2mCommit Task 2.3[0m
-  [32m$ [0m [33mBash[0m [2mGet SHA[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-
-**Phase 2 verification:**
-  [32m$ [0m [33mBash[0m [2mPhase 2 verification[0m
-
-All green. Update phase 2 verification checkboxes:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-  [32m$ [0m [33mBash[0m [2mCommit Phase 2 completion[0m
-  [32m$ [0m [33mBash[0m [2mGet checkpoint SHA[0m
-
-Phase 2 complete! <!-- checkpoint:40e45b8 -->
-
-Now **Phase 3: TUI + Docs**.
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phase 1+2 done', 'status': 'completed', 'activ[0m
-
-**Starting Task 3.1: Update Analysis mode rendering — audio status + 'p' keybinding**
+Let me read the analysis mode file:
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
 
-I need to add an audio status line to the render function and handle the 'p' key. Let me add the audio status line after the summary in the render:
+I need to update the action items rendering to show completion state. The current code uses `Vec<String>` for action items. I'll update the render function to check the action store:
   [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
 
-Now add the 'p' key handler:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/crates/supervox-tui/src/modes/analysis.rs[0m
-  [32m$ [0m [33mBash[0m [2mBuild[0m
-  [32m$ [0m [33mBash[0m [2mCommit Task 3.1[0m
-  [32m$ [0m [33mBash[0m [2mGet SHA[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phases 1-2 + Task 3.1 done', 'status': 'comple[0m
-
-**Starting Task 3.2: Update CLAUDE.md**
+Now **Task 3.2: Update CLAUDE.md** with the new commands and types:
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/CLAUDE.md[0m
-
-I need to add `audio_path` to the Call docs, `supervox play` command, 'p' keybinding in Analysis mode. Let me find the key types section and commands section:
-  [36m// [36mGrep[0m [2m"### Key types|supervox play|audio_path|### Analysis Mode" ~/startups/active/supervox/CLAUDE.md[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/CLAUDE.md[0m
   [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/CLAUDE.md[0m
 
-Now update the Key types section to add `audio_path`:
+Now add the filter example for actions:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/CLAUDE.md[0m
+
+Now add the new types to the key types section. Let me find it:
+  [36m// [36mGrep[0m [2m"MoodSummary" ~/startups/active/supervox/CLAUDE.md[0m
   [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/CLAUDE.md[0m
   [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/CLAUDE.md[0m
 
-Now update the Storage line and add audio info:
+Now update the Storage line to include actions.json:
   [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/CLAUDE.md[0m
 
-Now add `Call.audio_path` info and WAV storage notes. Let me find where Call fields are described:
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/CLAUDE.md[0m
+Now **Task 3.3: Run clippy and fmt**.
+  [32m$ [0m [33mBash[0m [2mFormat and clippy check[0m
 
-Let me add WAV recording to the live mode pipeline description:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/CLAUDE.md[0m
+Only the upstream `sgr-agent` warning, which is not ours. Run tests:
+  [32m$ [0m [33mBash[0m [2mRun all workspace tests[0m
 
-Now add `audio_path` to the Key types section:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/CLAUDE.md[0m
-  [32m$ [0m [33mBash[0m [2mCommit Task 3.2[0m
-  [32m$ [0m [33mBash[0m [2mGet SHA[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phases 1-2 + Tasks 3.1-3.2 done', 'status': 'c[0m
+All tests pass, linter clean. Update plan.md and commit Phase 3:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [32m$ [0m [33mBash[0m [2mCommit Phase 3[0m
+  [32m$ [0m [33mBash[0m [2mGet commit SHA[0m
 
-**Starting Task 3.3: Update README.md**
-  [36m>>[0m [36mRead[0m [2m~/startups/active/supervox/README.md[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/README.md[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/README.md[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/README.md[0m
+Update plan.md with Phase 3 SHAs and checkpoint:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
 
-Add a note about audio recording in Live mode section:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/README.md[0m
-  [32m$ [0m [33mBash[0m [2mCommit Task 3.3[0m
-  [32m$ [0m [33mBash[0m [2mGet SHA[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phases 1-3 Tasks 3.1-3.3 done', 'status': 'com[0m
-
-**Starting Task 3.4: Clean up dead code + clippy + fmt**
-  [32m$ [0m [33mBash[0m [2mCheck for clippy errors[0m
-  [32m$ [0m [33mBash[0m [2mCheck formatting[0m
-
-Clean — no clippy errors, no fmt issues. No dead code to remove. Let me verify the full test suite one more time:
-  [32m$ [0m [33mBash[0m [2mFull test suite[0m
-
-All 196 tests passing, no failures. Task 3.4 is done (nothing to clean up). Mark it:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-
-Now update Phase 3 verification checkboxes and final verification:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
-
-Update status:
-  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/audio-save_20260320/plan.md[0m
+Now mark final verification checkboxes and status:
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
+  [33m<>[0m [36mEdit[0m [2m~/startups/active/supervox/docs/plan/action-tracker_20260320/plan.md[0m
   [32m$ [0m [33mBash[0m [2mCommit track completion[0m
-  [32m$ [0m [33mBash[0m [2mGet final SHA[0m
-  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Audio save track complete', 'status': 'complet[0m
+  [2m--[0m [36mTodoWrite[0m [2m[{'content': 'Phase 1: Types + Storage (Tasks 1.1–1.4)', 'st[0m
 
-Track complete: **Audio Recording Persistence** (audio-save_20260320)
-
-  Phases: 3/3
-  Tasks:  9/9
-  Tests:  All passing (196 tests)
-
-  Phase checkpoints:
-    Phase 1: e35b829
-    Phase 2: 40e45b8
-    Phase 3: fba1dd0
-
-  Revert entire track: `git revert 72b04ff..HEAD`
-
-Next:
-  `/review audio-save_20260320` — review before deploy
-  `/plan "next feature"` — plan something new
-
-<solo:done/>Track complete: **Audio Recording Persistence** (audio-save_20260320)
+Track complete: **action-tracker_20260320**
 
   Phases: 3/3
-  Tasks:  9/9
-  Tests:  All passing (196 tests)
+  Tasks:  11/11
+  Tests:  All passing (87 agent + 36 voxkit + 9 voxkit-openai + 42 tui)
 
   Phase checkpoints:
-    Phase 1: e35b829
-    Phase 2: 40e45b8
-    Phase 3: fba1dd0
+    Phase 1: 73cb76f
+    Phase 2: 4eb067a
+    Phase 3: 5928138
 
-  Revert entire track: `git revert 72b04ff..HEAD`
+  Revert entire track: `git revert 73cb76f..HEAD`
 
-Next:
-  `/review audio-save_20260320` — review before deploy
-  `/plan "next feature"` — plan something new
+<solo:done/>Track complete: **action-tracker_20260320**
+
+  Phases: 3/3
+  Tasks:  11/11
+  Tests:  All passing (87 agent + 36 voxkit + 9 voxkit-openai + 42 tui)
+
+  Phase checkpoints:
+    Phase 1: 73cb76f
+    Phase 2: 4eb067a
+    Phase 3: 5928138
+
+  Revert entire track: `git revert 73cb76f..HEAD`
 
 <solo:done/>

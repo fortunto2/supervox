@@ -318,3 +318,9 @@
 [12:14:23] CWD | /Users/rustam/startups/active/supervox
 [12:14:23] GRAPH | Updating code graph for RepoMap...
 [12:14:24] INVOKE | /solo:build 
+[12:23:47] SIGNAL | <solo:done/> → creating build
+[12:23:47] ITER | saved iter-001-build.log | commit: b41e1c5 | result: stage complete
+[12:23:47] CHECK | build | /Users/rustam/startups/active/supervox/.solo/states/build -> FOUND
+[12:23:49] STAGE | iter 2/10 | stage 2/3: deploy
+[12:23:49] CWD | /Users/rustam/startups/active/supervox
+[12:23:49] INVOKE | /solo:deploy 
