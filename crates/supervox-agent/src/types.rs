@@ -144,21 +144,65 @@ pub struct TrackedAction {
     pub state: ActionState,
 }
 
+/// Speech-to-text backend.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SttBackend {
+    #[default]
+    Realtime,
+    Whisper,
+}
+
+impl std::fmt::Display for SttBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SttBackend::Realtime => write!(f, "realtime"),
+            SttBackend::Whisper => write!(f, "whisper"),
+        }
+    }
+}
+
+/// Audio capture mode.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub enum CaptureMode {
+    #[serde(rename = "mic")]
+    Mic,
+    #[serde(rename = "mic+system")]
+    #[default]
+    MicSystem,
+}
+
+impl CaptureMode {
+    /// Whether system audio capture is included.
+    pub fn includes_system(&self) -> bool {
+        matches!(self, CaptureMode::MicSystem)
+    }
+}
+
+/// LLM backend selection.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LlmBackend {
+    #[default]
+    Auto,
+    Ollama,
+}
+
 /// SuperVox configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default = "default_language")]
     pub my_language: String,
-    #[serde(default = "default_stt_backend")]
-    pub stt_backend: String,
+    #[serde(default)]
+    pub stt_backend: SttBackend,
     #[serde(default = "default_llm_model")]
     pub llm_model: String,
     #[serde(default = "default_summary_lag")]
     pub summary_lag_secs: u32,
-    #[serde(default = "default_capture")]
-    pub capture: String,
-    #[serde(default = "default_llm_backend")]
-    pub llm_backend: String,
+    #[serde(default)]
+    pub capture: CaptureMode,
+    #[serde(default)]
+    pub llm_backend: LlmBackend,
     #[serde(default = "default_ollama_model")]
     pub ollama_model: String,
     #[serde(default = "default_whisper_model")]
@@ -170,20 +214,11 @@ pub struct Config {
 fn default_language() -> String {
     "ru".into()
 }
-fn default_stt_backend() -> String {
-    "realtime".into()
-}
 fn default_llm_model() -> String {
     "gemini-2.5-flash".into()
 }
 fn default_summary_lag() -> u32 {
     5
-}
-fn default_capture() -> String {
-    "mic+system".into()
-}
-fn default_llm_backend() -> String {
-    "auto".into()
 }
 fn default_ollama_model() -> String {
     "llama3.2:3b".into()
@@ -198,10 +233,13 @@ fn default_ducking_threshold() -> f32 {
 impl Config {
     /// Returns the effective LLM model based on backend config and env override.
     pub fn effective_model(&self) -> &str {
-        // --local flag sets this env var
-        let backend =
-            std::env::var("SUPERVOX_LLM_BACKEND").unwrap_or_else(|_| self.llm_backend.clone());
-        if backend == "ollama" {
+        let backend_str = std::env::var("SUPERVOX_LLM_BACKEND").unwrap_or_default();
+        let is_ollama = if backend_str.is_empty() {
+            self.llm_backend == LlmBackend::Ollama
+        } else {
+            backend_str == "ollama"
+        };
+        if is_ollama {
             &self.ollama_model
         } else {
             &self.llm_model
@@ -213,11 +251,11 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             my_language: default_language(),
-            stt_backend: default_stt_backend(),
+            stt_backend: SttBackend::default(),
             llm_model: default_llm_model(),
             summary_lag_secs: default_summary_lag(),
-            capture: default_capture(),
-            llm_backend: default_llm_backend(),
+            capture: CaptureMode::default(),
+            llm_backend: LlmBackend::default(),
             ollama_model: default_ollama_model(),
             whisper_model: default_whisper_model(),
             ducking_threshold: default_ducking_threshold(),
@@ -456,11 +494,11 @@ mod tests {
     fn config_defaults() {
         let cfg = Config::default();
         assert_eq!(cfg.my_language, "ru");
-        assert_eq!(cfg.stt_backend, "realtime");
+        assert_eq!(cfg.stt_backend, SttBackend::Realtime);
         assert_eq!(cfg.llm_model, "gemini-2.5-flash");
         assert_eq!(cfg.summary_lag_secs, 5);
-        assert_eq!(cfg.capture, "mic+system");
-        assert_eq!(cfg.llm_backend, "auto");
+        assert_eq!(cfg.capture, CaptureMode::MicSystem);
+        assert_eq!(cfg.llm_backend, LlmBackend::Auto);
         assert_eq!(cfg.ollama_model, "llama3.2:3b");
         assert_eq!(cfg.whisper_model, "base");
         assert_eq!(cfg.ducking_threshold, 0.05);

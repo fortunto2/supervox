@@ -75,10 +75,10 @@ impl App {
         let (app_event_tx, app_event_rx) = mpsc::unbounded_channel();
         let mut live_state = modes::live::LiveState::default();
         let effective_stt = crate::audio::effective_stt_backend(&config);
-        if effective_stt == "whisper" {
+        if effective_stt == supervox_agent::types::SttBackend::Whisper {
             live_state.stt_backend = format!("whisper ({})", config.whisper_model);
         } else {
-            live_state.stt_backend = effective_stt;
+            live_state.stt_backend = effective_stt.to_string();
         }
 
         let mut app = Self {

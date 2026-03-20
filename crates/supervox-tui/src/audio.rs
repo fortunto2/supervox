@@ -1,6 +1,6 @@
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
-use supervox_agent::types::Config;
+use supervox_agent::types::{Config, SttBackend};
 use tokio::sync::mpsc;
 use voxkit::mic::MicCapture;
 use voxkit::realtime_stt::{OpenAiStreamingStt, StreamingSttConfig, resample_to_24k};
@@ -80,7 +80,7 @@ impl AudioPipeline {
         self.mic_capture = Some(mic_capture);
 
         // Optionally start system audio capture
-        let system_rx = if config.capture.contains("system") {
+        let system_rx = if config.capture.includes_system() {
             match SystemAudioCapture::start_raw() {
                 Ok((rx, capture)) => {
                     self.system_capture = Some(capture);
@@ -147,22 +147,26 @@ impl AudioPipeline {
     }
 }
 
-/// Effective STT backend name (env override or config value).
-pub fn effective_stt_backend(config: &Config) -> String {
-    std::env::var("SUPERVOX_STT_BACKEND").unwrap_or_else(|_| config.stt_backend.clone())
+/// Effective STT backend (env override or config value).
+pub fn effective_stt_backend(config: &Config) -> SttBackend {
+    match std::env::var("SUPERVOX_STT_BACKEND").ok().as_deref() {
+        Some("whisper") => SttBackend::Whisper,
+        Some("realtime") => SttBackend::Realtime,
+        _ => config.stt_backend.clone(),
+    }
 }
 
 /// Create an STT backend based on config.
 pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend>, String> {
-    match effective_stt_backend(config).as_str() {
-        "realtime" => {
+    match effective_stt_backend(config) {
+        SttBackend::Realtime => {
             let api_key = std::env::var("OPENAI_API_KEY")
                 .map_err(|_| "OPENAI_API_KEY not set — required for realtime STT".to_string())?;
             let stt_config = StreamingSttConfig::new(&api_key);
             Ok(Box::new(OpenAiStreamingStt::new(stt_config)))
         }
         #[cfg(feature = "whisper")]
-        "whisper" => {
+        SttBackend::Whisper => {
             let models_dir = supervox_agent::storage::data_dir().join("models");
             let model_path = models_dir.join(format!("ggml-{}.bin", config.whisper_model));
             if !model_path.exists() {
@@ -176,7 +180,10 @@ pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend
                 &config.my_language,
             )))
         }
-        other => Err(format!("Unknown stt_backend: {other}")),
+        #[cfg(not(feature = "whisper"))]
+        SttBackend::Whisper => {
+            Err("Whisper support not compiled in. Build with --features whisper".into())
+        }
     }
 }
 

@@ -239,7 +239,9 @@ async fn main() -> Result<()> {
                     &supervox_agent::storage::default_config_path(),
                 )
                 .unwrap_or_default();
-                if crate::audio::effective_stt_backend(&config) == "whisper" {
+                if crate::audio::effective_stt_backend(&config)
+                    == supervox_agent::types::SttBackend::Whisper
+                {
                     eprintln!("Checking Whisper model...");
                     crate::audio::ensure_whisper_model(&config)
                         .await

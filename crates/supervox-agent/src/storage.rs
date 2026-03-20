@@ -517,6 +517,7 @@ pub fn save_default_config(path: &Path, config: &Config) -> Result<(), Box<dyn s
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::{CaptureMode, LlmBackend, SttBackend};
     use chrono::Utc;
 
     fn make_call(id: &str, transcript: &str) -> Call {
@@ -599,11 +600,11 @@ mod tests {
 
         let cfg = Config {
             my_language: "en".into(),
-            stt_backend: "openai".into(),
+            stt_backend: SttBackend::Realtime,
             llm_model: "gpt-4o".into(),
             summary_lag_secs: 10,
-            capture: "mic".into(),
-            llm_backend: "auto".into(),
+            capture: CaptureMode::Mic,
+            llm_backend: LlmBackend::Auto,
             ollama_model: "llama3.2:3b".into(),
             whisper_model: "base".into(),
             ducking_threshold: 0.05,
@@ -612,10 +613,10 @@ mod tests {
 
         let loaded = load_config(&path).unwrap();
         assert_eq!(loaded.my_language, "en");
-        assert_eq!(loaded.stt_backend, "openai");
+        assert_eq!(loaded.stt_backend, SttBackend::Realtime);
         assert_eq!(loaded.llm_model, "gpt-4o");
         assert_eq!(loaded.summary_lag_secs, 10);
-        assert_eq!(loaded.capture, "mic");
+        assert_eq!(loaded.capture, CaptureMode::Mic);
     }
 
     #[test]
@@ -642,7 +643,7 @@ mod tests {
         std::fs::write(&path, "my_language = \"de\"\n").unwrap();
         let cfg = load_config(&path).unwrap();
         assert_eq!(cfg.my_language, "de");
-        assert_eq!(cfg.stt_backend, "realtime"); // default
+        assert_eq!(cfg.stt_backend, SttBackend::Realtime); // default
         assert_eq!(cfg.summary_lag_secs, 5); // default
     }
 

@@ -165,15 +165,16 @@ async fn summarize(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use supervox_agent::types::{CaptureMode, LlmBackend, SttBackend};
 
     fn test_config() -> Config {
         Config {
             my_language: "ru".into(),
-            stt_backend: "realtime".into(),
+            stt_backend: SttBackend::Realtime,
             llm_model: "test".into(),
             summary_lag_secs: 1,
-            capture: "mic".into(),
-            llm_backend: "auto".into(),
+            capture: CaptureMode::Mic,
+            llm_backend: LlmBackend::Auto,
             ollama_model: "llama3.2:3b".into(),
             whisper_model: "base".into(),
             ducking_threshold: 0.05,
@@ -230,11 +231,11 @@ mod tests {
         let config = Config {
             my_language: "de".into(),
             summary_lag_secs: 10,
-            capture: "mic+system".into(),
+            capture: CaptureMode::MicSystem,
             ..test_config()
         };
         assert_eq!(config.my_language, "de");
         assert_eq!(config.summary_lag_secs, 10);
-        assert!(config.capture.contains("system"));
+        assert!(config.capture.includes_system());
     }
 }
