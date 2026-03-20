@@ -24,16 +24,16 @@ Add action item ID generation and completion state persistence.
 
 - [x] `cargo test -p supervox-agent` passes with new tests for ID generation, store CRUD, and tracked action listing
 
-## Phase 2: CLI Commands
+## Phase 2: CLI Commands <!-- checkpoint:4eb067a -->
 
 Wire tracked actions into CLI with filter support.
 
 ### Tasks
 
-- [x] Task 2.1: Add `Actions` subcommand to `crates/supervox-tui/src/main.rs` — `supervox actions [--all] [--json] [--tag TAG] [--since DATE] [--until DATE]`. Calls `list_tracked_actions()` and formats output (grouped by call date).
-- [x] Task 2.2: Add `ActionsDone` subcommand — `supervox actions done <id-prefix>`. Finds matching action by prefix, calls `set_action_completed()`. Shows confirmation with action description.
-- [x] Task 2.3: Add `ActionsUndo` subcommand — `supervox actions undo <id-prefix>`. Calls `set_action_incomplete()`. Shows confirmation.
-- [x] Task 2.4: Add CLI tests in `crates/supervox-tui/src/main.rs` or integration test — verify `list_tracked_actions` output format, verify done/undo toggle, verify --json output structure.
+- [x] Task 2.1: Add `Actions` subcommand to `crates/supervox-tui/src/main.rs` — `supervox actions [--all] [--json] [--tag TAG] [--since DATE] [--until DATE]`. Calls `list_tracked_actions()` and formats output (grouped by call date). <!-- sha:4eb067a -->
+- [x] Task 2.2: Add `ActionsDone` subcommand — `supervox actions done <id-prefix>`. Finds matching action by prefix, calls `set_action_completed()`. Shows confirmation with action description. <!-- sha:4eb067a -->
+- [x] Task 2.3: Add `ActionsUndo` subcommand — `supervox actions undo <id-prefix>`. Calls `set_action_incomplete()`. Shows confirmation. <!-- sha:4eb067a -->
+- [x] Task 2.4: Add CLI tests in `crates/supervox-tui/src/main.rs` or integration test — verify `list_tracked_actions` output format, verify done/undo toggle, verify --json output structure. <!-- sha:4eb067a -->
 
 ### Verification
 
