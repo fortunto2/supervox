@@ -10,6 +10,7 @@ use tokio::sync::mpsc;
 
 use crate::audio::{AudioEvent, AudioPipeline};
 use crate::modes;
+use supervox_agent::types::Config;
 
 /// Application mode.
 #[derive(Debug, Clone)]
@@ -20,10 +21,12 @@ pub enum Mode {
 }
 
 /// Application state.
+#[allow(dead_code)] // config used in Phase 2 (realtime pipeline)
 pub struct App {
     pub mode: Mode,
     pub running: bool,
     pub status: String,
+    pub config: Config,
     pub live_state: modes::live::LiveState,
     pub analysis_state: modes::analysis::AnalysisState,
     pub agent_state: modes::agent::AgentState,
@@ -33,7 +36,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(mode: Mode) -> Self {
+    pub fn new(mode: Mode, config: Config) -> Self {
         let status = match &mode {
             Mode::Live => "Live mode — press 'r' to start recording".into(),
             Mode::Analysis { file } => format!("Analysis mode — {file}"),
@@ -50,6 +53,7 @@ impl App {
             mode,
             running: true,
             status,
+            config,
             live_state: modes::live::LiveState::default(),
             analysis_state: modes::analysis::AnalysisState::new(&analysis_file),
             agent_state: modes::agent::AgentState::default(),
@@ -112,7 +116,12 @@ impl App {
 pub async fn run(mode: Mode) -> Result<()> {
     setup_panic_hook();
     let mut terminal = init_terminal()?;
-    let mut app = App::new(mode);
+
+    let config_path = supervox_agent::storage::default_config_path();
+    let config = supervox_agent::storage::load_config(&config_path)
+        .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;
+
+    let mut app = App::new(mode, config);
 
     while app.running {
         terminal.draw(|f| {
