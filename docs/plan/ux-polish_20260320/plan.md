@@ -50,7 +50,7 @@ Add `--json` flag for machine-readable output and Ollama as configurable LLM bac
 
 ### Tasks
 
-- [ ] Task 3.1: Add `--json` flag to `Calls` subcommand in `crates/supervox-tui/src/main.rs`. When set, output `serde_json::to_string_pretty(&calls)` instead of table format.
+- [~] Task 3.1: Add `--json` flag to `Calls` subcommand in `crates/supervox-tui/src/main.rs`. When set, output `serde_json::to_string_pretty(&calls)` instead of table format.
 - [ ] Task 3.2: Add `--json` flag to `Analyze` subcommand. Run analysis pipeline (non-TUI), output `CallAnalysis` as JSON to stdout. Requires extracting analysis logic to work without TUI event loop.
 - [ ] Task 3.3: Add `llm_backend` field to `Config` in `crates/supervox-agent/src/types.rs` — values: `"auto"` (default, current behavior), `"ollama"`. Add `ollama_model` field (default `"llama3.2:3b"`). Update `schemas/config.json`.
 - [ ] Task 3.4: Add `--local` CLI flag in `crates/supervox-tui/src/main.rs` that overrides `llm_backend` to `"ollama"`. When Ollama backend selected, use `LlmConfig::auto(ollama_model)` with Ollama endpoint. Add basic health check (HTTP GET to `localhost:11434`) with warning if unreachable.

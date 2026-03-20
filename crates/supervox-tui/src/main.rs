@@ -25,11 +25,18 @@ enum Commands {
     Analyze {
         /// Path to call JSON file
         file: String,
+        /// Output as JSON (non-TUI)
+        #[arg(long)]
+        json: bool,
     },
     /// Agent chat — Q&A over call history
     Agent,
     /// List past calls
-    Calls,
+    Calls {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[tokio::main]
@@ -37,14 +44,18 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Calls) => {
-            cmd_calls()?;
+        Some(Commands::Calls { json }) => {
+            cmd_calls(json)?;
         }
         Some(Commands::Live) | None => {
             app::run(app::Mode::Live).await?;
         }
-        Some(Commands::Analyze { file }) => {
-            app::run(app::Mode::Analysis { file }).await?;
+        Some(Commands::Analyze { file, json }) => {
+            if json {
+                cmd_analyze_json(&file).await?;
+            } else {
+                app::run(app::Mode::Analysis { file }).await?;
+            }
         }
         Some(Commands::Agent) => {
             app::run(app::Mode::Agent).await?;
@@ -54,10 +65,15 @@ async fn main() -> Result<()> {
 }
 
 /// List saved calls to stdout (non-TUI).
-fn cmd_calls() -> Result<()> {
+fn cmd_calls(json: bool) -> Result<()> {
     let calls_dir = supervox_agent::storage::default_calls_dir();
     let calls =
         supervox_agent::storage::list_calls(&calls_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&calls)?);
+        return Ok(());
+    }
 
     if calls.is_empty() {
         println!("No calls found in {}", calls_dir.display());
@@ -82,5 +98,25 @@ fn cmd_calls() -> Result<()> {
     }
 
     println!("\n{} call(s) total", calls.len());
+    Ok(())
+}
+
+/// Run analysis on a call file and output JSON (non-TUI).
+async fn cmd_analyze_json(file: &str) -> Result<()> {
+    let json_str = std::fs::read_to_string(file)?;
+    let call: supervox_agent::types::Call = serde_json::from_str(&json_str)?;
+
+    if call.transcript.is_empty() {
+        anyhow::bail!("Call has no transcript to analyze");
+    }
+
+    let config_path = supervox_agent::storage::default_config_path();
+    let config = supervox_agent::storage::load_config(&config_path)
+        .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;
+
+    let analysis = analysis_pipeline::analyze_transcript(&call.transcript, &config.llm_model)
+        .await
+        .map_err(|e| anyhow::anyhow!("Analysis failed: {e}"))?;
+    println!("{}", serde_json::to_string_pretty(&analysis)?);
     Ok(())
 }
