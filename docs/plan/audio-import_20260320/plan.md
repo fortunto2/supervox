@@ -3,7 +3,7 @@
 **Track ID:** audio-import_20260320
 **Spec:** [spec.md](./spec.md)
 **Created:** 2026-03-20
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 
 ## Overview
 
@@ -46,19 +46,21 @@ Wire the `supervox import` command that orchestrates file → transcribe → sav
 ## Phase 3: Docs & Cleanup
 
 ### Tasks
-- [ ] Task 3.1: Update CLAUDE.md with `supervox import` command, supported formats, and usage examples
-- [ ] Task 3.2: Remove dead code — unused imports, orphaned files, stale exports
+- [x] Task 3.1: Update CLAUDE.md with `supervox import` command, supported formats, and usage examples <!-- sha:6757e42 -->
+- [x] Task 3.2: Remove dead code — unused imports, orphaned files, stale exports <!-- sha:6757e42 -->
 
 ### Verification
-- [ ] CLAUDE.md reflects current project state
-- [ ] Linter clean, tests pass
+- [x] CLAUDE.md reflects current project state
+- [x] Linter clean, tests pass
+
+## Phase 3: Docs & Cleanup <!-- checkpoint:6757e42 -->
 
 ## Final Verification
-- [ ] All acceptance criteria from spec met
-- [ ] Tests pass
-- [ ] Linter clean
-- [ ] Build succeeds
-- [ ] Documentation up to date
+- [x] All acceptance criteria from spec met
+- [x] Tests pass
+- [x] Linter clean
+- [x] Build succeeds
+- [x] Documentation up to date
 
 ## Context Handoff
 _Summary for /build to load at session start — keeps context compact._
