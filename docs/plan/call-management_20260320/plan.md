@@ -9,7 +9,7 @@
 
 Add delete, export, and CLI search to make call history manageable. Three phases: storage layer + tests, CLI commands, TUI integration.
 
-## Phase 1: Storage Layer — Delete & Export
+## Phase 1: Storage Layer — Delete & Export <!-- checkpoint:93ec640 -->
 
 Add `delete_call()` and `export_call_markdown()` to `supervox-agent/src/storage.rs`. TDD — tests first.
 
@@ -23,21 +23,21 @@ Add `delete_call()` and `export_call_markdown()` to `supervox-agent/src/storage.
 - [x] `delete_call` removes file and `load_call` fails after
 - [x] `export_call_markdown` produces valid markdown with all sections
 
-## Phase 2: CLI Commands — Delete, Export, Search
+## Phase 2: CLI Commands — Delete, Export, Search <!-- checkpoint:4596872 -->
 
 Wire storage functions to CLI subcommands in `crates/supervox-tui/src/main.rs`.
 
 ### Tasks
-- [ ] Task 2.1: Add `Delete { call_id, force }` subcommand to `crates/supervox-tui/src/main.rs` — load call to confirm it exists, print call summary, prompt for confirmation (unless `--force`), call `delete_call()`.
-- [ ] Task 2.2: Add `Export { call_id, output }` subcommand to `crates/supervox-tui/src/main.rs` — load call, optionally run analysis (via `analyze_transcript`), format with `export_call_markdown()`, write to file or stdout.
-- [ ] Task 2.3: Add `Search { query, json }` subcommand to `crates/supervox-tui/src/main.rs` — use `supervox_agent::tools::search::search_calls()` to find matches, display results with call date + matching snippet. Support `--json` for machine output.
-- [ ] Task 2.4: Write CLI integration tests in `crates/supervox-tui/tests/` or inline — test delete with force flag, export output format, search result format.
+- [x] Task 2.1: Add `Delete { call_id, force }` subcommand to `crates/supervox-tui/src/main.rs` — load call to confirm it exists, print call summary, prompt for confirmation (unless `--force`), call `delete_call()`. <!-- sha:1288cd5 -->
+- [x] Task 2.2: Add `Export { call_id, output }` subcommand to `crates/supervox-tui/src/main.rs` — load call, optionally run analysis (via `analyze_transcript`), format with `export_call_markdown()`, write to file or stdout. <!-- sha:1288cd5 -->
+- [x] Task 2.3: Add `Search { query, json }` subcommand to `crates/supervox-tui/src/main.rs` — use `supervox_agent::tools::search::search_calls()` to find matches, display results with call date + matching snippet. Support `--json` for machine output. <!-- sha:1288cd5 -->
+- [x] Task 2.4: Write CLI integration tests in `crates/supervox-tui/tests/` or inline — test delete with force flag, export output format, search result format. <!-- sha:4596872 -->
 
 ### Verification
-- [ ] `supervox delete <id> --force` removes call file
-- [ ] `supervox export <id>` outputs markdown to stdout
-- [ ] `supervox search <query>` shows matching calls with context
-- [ ] `cargo test -p supervox-tui` passes with new tests
+- [x] `supervox delete <id> --force` removes call file
+- [x] `supervox export <id>` outputs markdown to stdout
+- [x] `supervox search <query>` shows matching calls with context
+- [x] `cargo test -p supervox-tui` passes with new tests
 
 ## Phase 3: TUI Integration — Delete in History + Export in Analysis
 
