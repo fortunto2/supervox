@@ -28,7 +28,6 @@ impl WhisperStt {
     }
 
     /// Transcribe a segment of f32 PCM audio (16kHz mono).
-    /// Transcribe a segment of f32 PCM audio (16kHz mono).
     pub fn transcribe_segment(
         ctx: &WhisperContext,
         audio: &[f32],
