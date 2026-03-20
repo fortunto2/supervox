@@ -162,6 +162,9 @@ Space/Enter/b keys during recording → add Bookmark (Enter/b) or stop (Space)
 - 't' key: open tag filter popup — select/deselect tags to filter call list
 
 ### Key types
+- `SttBackend::Realtime | Whisper` — typed enum for STT backend config (serde: "realtime"/"whisper")
+- `CaptureMode::Mic | MicSystem` — typed enum for audio capture (serde: "mic"/"mic+system"), use `.includes_system()`
+- `LlmBackend::Auto | Ollama` — typed enum for LLM backend (serde: "auto"/"ollama")
 - `AudioSource::Mic | System` — "You:" (cyan) vs "Them:" (yellow) labels
 - `TranscriptLine { source, text, is_translation }` — unified line type for Live mode
 - `AudioEvent::Transcript{source, text, is_final}` — delta (dimmed) + final (normal)
