@@ -1,6 +1,6 @@
 # SuperVox Phase 1 — Implementation Plan
 
-**Status:** [x] Complete
+**Status:** [~] In Progress
 **Track:** phase1
 **Estimated tasks:** 17
 
@@ -62,3 +62,9 @@
 ## Phase 6: Verification
 
 - [x] Task 6.1: Run full verification: `cargo test --workspace`, `cargo clippy --workspace -- -D warnings`, `cargo fmt --all -- --check`. Fix all issues. Commit with message `feat: SuperVox Phase 1 complete`. <!-- sha:600bbff -->
+
+## Phase 7: Review Fixes
+
+- [ ] Task 7.1: Fix UTF-8 slicing bug in `crates/supervox-agent/src/tools/search.rs:69-71` — use `floor_char_boundary()` or `char_indices()` to avoid panics on multibyte chars (Cyrillic, CJK). Add test with Cyrillic transcript.
+- [ ] Task 7.2: Add `README.md` — project description, quick start commands (`make test`, `make run`), feature overview.
+- [ ] Task 7.3: Set up pre-commit hooks (cargo fmt + clippy check) — consider lefthook or git hooks directly.
