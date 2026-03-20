@@ -1,6 +1,6 @@
 # SuperVox Phase 1 — Implementation Plan
 
-**Status:** [~] In Progress
+**Status:** [x] Complete
 **Track:** phase1
 **Estimated tasks:** 17
 
@@ -65,6 +65,6 @@
 
 ## Phase 7: Review Fixes
 
-- [ ] Task 7.1: Fix UTF-8 slicing bug in `crates/supervox-agent/src/tools/search.rs:69-71` — use `floor_char_boundary()` or `char_indices()` to avoid panics on multibyte chars (Cyrillic, CJK). Add test with Cyrillic transcript.
-- [ ] Task 7.2: Add `README.md` — project description, quick start commands (`make test`, `make run`), feature overview.
-- [ ] Task 7.3: Set up pre-commit hooks (cargo fmt + clippy check) — consider lefthook or git hooks directly.
+- [x] Task 7.1: Fix UTF-8 slicing bug in `crates/supervox-agent/src/tools/search.rs:69-71` — use `floor_char_boundary()` or `char_indices()` to avoid panics on multibyte chars (Cyrillic, CJK). Add test with Cyrillic transcript. <!-- sha:a6810a9 -->
+- [x] Task 7.2: Add `README.md` — project description, quick start commands (`make test`, `make run`), feature overview. <!-- sha:79bce5c -->
+- [x] Task 7.3: Set up pre-commit hooks (cargo fmt + clippy check) — consider lefthook or git hooks directly. <!-- sha:636527d -->
