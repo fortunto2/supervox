@@ -97,15 +97,6 @@ impl OpenAiStreamingStt {
         Self { config }
     }
 
-    /// Connect to OpenAI Realtime API (static method for backward compatibility).
-    pub async fn connect_static(
-        config: StreamingSttConfig,
-    ) -> Result<(mpsc::Sender<SttInput>, mpsc::Receiver<TranscriptEvent>), WsError> {
-        Self::do_connect(&config)
-            .await
-            .map_err(|e| WsError::Connection(e.to_string()))
-    }
-
     /// Internal connect logic using local error type.
     async fn do_connect(
         config: &StreamingSttConfig,
