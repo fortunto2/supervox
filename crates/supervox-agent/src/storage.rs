@@ -1,4 +1,4 @@
-use crate::types::Call;
+use crate::types::{Call, Config};
 use std::path::{Path, PathBuf};
 
 /// Default calls directory: ~/.supervox/calls/
@@ -57,6 +57,36 @@ pub fn list_calls(calls_dir: &Path) -> Result<Vec<Call>, Box<dyn std::error::Err
     }
     calls.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     Ok(calls)
+}
+
+/// Default config path: ~/.supervox/config.toml
+pub fn default_config_path() -> PathBuf {
+    directories::BaseDirs::new()
+        .map(|d| d.home_dir().join(".supervox").join("config.toml"))
+        .unwrap_or_else(|| PathBuf::from(".supervox/config.toml"))
+}
+
+/// Load config from a TOML file. If missing, create default and return it.
+pub fn load_config(path: &Path) -> Result<Config, Box<dyn std::error::Error>> {
+    if path.exists() {
+        let content = std::fs::read_to_string(path)?;
+        let cfg: Config = toml::from_str(&content)?;
+        Ok(cfg)
+    } else {
+        let cfg = Config::default();
+        save_default_config(path, &cfg)?;
+        Ok(cfg)
+    }
+}
+
+/// Write config to a TOML file, creating parent directories if needed.
+pub fn save_default_config(path: &Path, config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let content = toml::to_string_pretty(config)?;
+    std::fs::write(path, content)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -133,6 +163,56 @@ mod tests {
     fn list_calls_nonexistent_dir() {
         let calls = list_calls(Path::new("/nonexistent/path")).unwrap();
         assert!(calls.is_empty());
+    }
+
+    #[test]
+    fn config_roundtrip_toml() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("config.toml");
+
+        let cfg = Config {
+            my_language: "en".into(),
+            stt_backend: "openai".into(),
+            llm_model: "gpt-4o".into(),
+            summary_lag_secs: 10,
+            capture: "mic".into(),
+        };
+        save_default_config(&path, &cfg).unwrap();
+
+        let loaded = load_config(&path).unwrap();
+        assert_eq!(loaded.my_language, "en");
+        assert_eq!(loaded.stt_backend, "openai");
+        assert_eq!(loaded.llm_model, "gpt-4o");
+        assert_eq!(loaded.summary_lag_secs, 10);
+        assert_eq!(loaded.capture, "mic");
+    }
+
+    #[test]
+    fn config_creates_default_when_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("nested").join("config.toml");
+
+        let cfg = load_config(&path).unwrap();
+        assert_eq!(cfg.my_language, "ru"); // default
+        assert_eq!(cfg.summary_lag_secs, 5);
+        assert!(path.exists(), "default config file should be created");
+
+        // Verify written file is valid TOML
+        let content = std::fs::read_to_string(&path).unwrap();
+        let reloaded: Config = toml::from_str(&content).unwrap();
+        assert_eq!(reloaded.my_language, "ru");
+    }
+
+    #[test]
+    fn config_partial_toml_uses_defaults() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("config.toml");
+
+        std::fs::write(&path, "my_language = \"de\"\n").unwrap();
+        let cfg = load_config(&path).unwrap();
+        assert_eq!(cfg.my_language, "de");
+        assert_eq!(cfg.stt_backend, "realtime"); // default
+        assert_eq!(cfg.summary_lag_secs, 5); // default
     }
 
     #[test]
