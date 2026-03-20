@@ -13,16 +13,16 @@ This track adds persistent action item tracking: a stable ID for each action, co
 
 ## Acceptance Criteria
 
-- [ ] Each action item has a deterministic ID (hash of call_id + description)
-- [ ] Action completion state persists in `~/.supervox/actions.json`
-- [ ] `supervox actions` lists all open action items across calls (grouped by call)
-- [ ] `supervox actions --all` includes completed items
-- [ ] `supervox actions done <id-prefix>` marks an action as complete
-- [ ] `supervox actions undo <id-prefix>` reverts completion
-- [ ] `supervox actions --json` outputs structured JSON
-- [ ] Filter flags (--tag, --since, --until) work with `supervox actions`
-- [ ] Analysis mode TUI shows ☐/☑ status for each action item
-- [ ] All new functions have unit tests
+- [x] Each action item has a deterministic ID (hash of call_id + description)
+- [x] Action completion state persists in `~/.supervox/actions.json`
+- [x] `supervox actions` lists all open action items across calls (grouped by call)
+- [x] `supervox actions --all` includes completed items
+- [x] `supervox actions done <id-prefix>` marks an action as complete
+- [x] `supervox actions undo <id-prefix>` reverts completion
+- [x] `supervox actions --json` outputs structured JSON
+- [x] Filter flags (--tag, --since, --until) work with `supervox actions`
+- [x] Analysis mode TUI shows ☐/☑ status for each action item
+- [x] All new functions have unit tests
 
 ## Dependencies
 
