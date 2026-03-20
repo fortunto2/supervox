@@ -5,7 +5,8 @@
 
 use sgr_agent::Llm;
 use sgr_agent::types::{LlmConfig, Message};
-use supervox_agent::types::CallAnalysis;
+use supervox_agent::storage;
+use supervox_agent::types::{CallAnalysis, CallInsights};
 
 const LLM_TIMEOUT_SECS: u64 = 30;
 
@@ -62,6 +63,82 @@ pub async fn draft_follow_up(
         Ok(Ok(text)) => Ok(text),
         Ok(Err(e)) => Err(format!("Follow-up LLM error: {e}")),
         Err(_) => Err(format!("Follow-up timed out after {LLM_TIMEOUT_SECS}s")),
+    }
+}
+
+const INSIGHTS_TIMEOUT_SECS: u64 = 60;
+
+/// Generate cross-call insights from all saved calls and analyses.
+pub async fn generate_insights(model: &str) -> Result<CallInsights, String> {
+    let calls_dir = storage::default_calls_dir();
+    let calls =
+        storage::list_calls(&calls_dir).map_err(|e| format!("Failed to load calls: {e}"))?;
+
+    if calls.is_empty() {
+        return Err("No calls found. Record some calls first.".into());
+    }
+
+    let mut context = String::new();
+    let mut analyzed_count = 0;
+    for call in &calls {
+        let date = call.created_at.format("%Y-%m-%d %H:%M");
+        context.push_str(&format!(
+            "--- Call ({date}, {:.0}s) ---\n",
+            call.duration_secs
+        ));
+        match storage::load_analysis(&calls_dir, &call.id) {
+            Ok(Some(analysis)) => {
+                analyzed_count += 1;
+                context.push_str(&format!("Summary: {}\n", analysis.summary));
+                if !analysis.themes.is_empty() {
+                    context.push_str(&format!("Themes: {}\n", analysis.themes.join(", ")));
+                }
+                if !analysis.action_items.is_empty() {
+                    let items: Vec<&str> = analysis
+                        .action_items
+                        .iter()
+                        .map(|a| a.description.as_str())
+                        .collect();
+                    context.push_str(&format!("Actions: {}\n", items.join("; ")));
+                }
+                context.push_str(&format!("Mood: {:?}\n", analysis.mood));
+            }
+            _ => {
+                let preview: String = call.transcript.chars().take(200).collect();
+                context.push_str(&format!("Transcript preview: {preview}\n"));
+            }
+        }
+        context.push('\n');
+    }
+
+    let llm = Llm::new(&LlmConfig::auto(model));
+    let messages = vec![
+        Message::system(
+            "You are a call analytics assistant. Analyze the following call history and \
+             produce structured cross-call insights: recurring_themes (theme + count), \
+             mood_summary (positive/neutral/negative/mixed counts), open_action_items \
+             (still relevant items with description, optional assignee, optional deadline), \
+             key_patterns (notable patterns across calls), total_calls, and period \
+             (date range as a string like '2026-03-01 to 2026-03-20')."
+                .to_string(),
+        ),
+        Message::user(format!(
+            "{} calls ({} with analysis):\n\n{context}",
+            calls.len(),
+            analyzed_count
+        )),
+    ];
+
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(INSIGHTS_TIMEOUT_SECS),
+        llm.structured(&messages),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(insights)) => Ok(insights),
+        Ok(Err(e)) => Err(format!("Insights LLM error: {e}")),
+        Err(_) => Err(format!("Insights timed out after {INSIGHTS_TIMEOUT_SECS}s")),
     }
 }
 

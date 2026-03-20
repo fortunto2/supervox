@@ -65,6 +65,12 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Cross-call insights — recurring themes, mood trends, action items
+    Insights {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[tokio::main]
@@ -90,6 +96,9 @@ async fn main() -> Result<()> {
         }
         Some(Commands::Search { query, json }) => {
             cmd_search(&query, json)?;
+        }
+        Some(Commands::Insights { json }) => {
+            cmd_insights(json).await?;
         }
         Some(Commands::Live) | None => {
             app::run(app::Mode::Live).await?;
@@ -256,5 +265,64 @@ async fn cmd_analyze_json(file: &str) -> Result<()> {
             .await
             .map_err(|e| anyhow::anyhow!("Analysis failed: {e}"))?;
     println!("{}", serde_json::to_string_pretty(&analysis)?);
+    Ok(())
+}
+
+/// Generate cross-call insights and display formatted output or JSON.
+async fn cmd_insights(json: bool) -> Result<()> {
+    let config_path = supervox_agent::storage::default_config_path();
+    let config = supervox_agent::storage::load_config(&config_path)
+        .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;
+
+    eprintln!("Generating insights from call history...");
+    let insights = analysis_pipeline::generate_insights(config.effective_model())
+        .await
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&insights)?);
+        return Ok(());
+    }
+
+    println!(
+        "Cross-call Insights ({} calls, {})",
+        insights.total_calls, insights.period
+    );
+    println!("{}", "=".repeat(50));
+
+    if !insights.recurring_themes.is_empty() {
+        println!("\nRecurring Themes:");
+        for t in &insights.recurring_themes {
+            println!("  {} ({}x)", t.theme, t.count);
+        }
+    }
+
+    let ms = &insights.mood_summary;
+    println!(
+        "\nMood Summary: +{} neutral:{} -{} mixed:{}",
+        ms.positive, ms.neutral, ms.negative, ms.mixed
+    );
+
+    if !insights.open_action_items.is_empty() {
+        println!("\nOpen Action Items:");
+        for a in &insights.open_action_items {
+            let mut line = format!("  - {}", a.description);
+            if let Some(who) = &a.assignee {
+                line.push_str(&format!(" (@{who})"));
+            }
+            if let Some(when) = &a.deadline {
+                line.push_str(&format!(" — due {when}"));
+            }
+            println!("{line}");
+        }
+    }
+
+    if !insights.key_patterns.is_empty() {
+        println!("\nKey Patterns:");
+        for p in &insights.key_patterns {
+            println!("  • {p}");
+        }
+    }
+
     Ok(())
 }
