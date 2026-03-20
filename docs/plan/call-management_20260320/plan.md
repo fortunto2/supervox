@@ -39,22 +39,22 @@ Wire storage functions to CLI subcommands in `crates/supervox-tui/src/main.rs`.
 - [x] `supervox search <query>` shows matching calls with context
 - [x] `cargo test -p supervox-tui` passes with new tests
 
-## Phase 3: TUI Integration — Delete in History + Export in Analysis
+## Phase 3: TUI Integration — Delete in History + Export in Analysis <!-- checkpoint:e581d2d -->
 
 Add keyboard shortcuts for delete and export in existing TUI modes.
 
 ### Tasks
-- [ ] Task 3.1: Add 'd' key handler in `crates/supervox-tui/src/app.rs` `handle_history_key()` — show confirmation in status bar ("Delete call? y/n"), wait for y/n, call `delete_call()`, refresh call list, adjust cursor.
-- [ ] Task 3.2: Add `confirm_delete` state to `crates/supervox-tui/src/modes/history.rs` `CallHistoryState` — tracks pending delete confirmation.
-- [ ] Task 3.3: Add 'e' key handler in `crates/supervox-tui/src/modes/analysis.rs` `handle_key()` — build markdown from current analysis state, copy to clipboard via `arboard`, show status "Analysis exported to clipboard".
-- [ ] Task 3.4: Update `crates/supervox-tui/src/help.rs` — add 'd' (delete) to History mode help, add 'e' (export) to Analysis mode help.
-- [ ] Task 3.5: Write TUI tests — delete confirmation state transitions, export markdown clipboard content.
+- [x] Task 3.1: Add 'd' key handler in `crates/supervox-tui/src/app.rs` `handle_history_key()` — show confirmation in status bar ("Delete call? y/n"), wait for y/n, call `delete_call()`, refresh call list, adjust cursor. <!-- sha:e581d2d -->
+- [x] Task 3.2: Add `confirm_delete` state to `crates/supervox-tui/src/modes/history.rs` `CallHistoryState` — tracks pending delete confirmation. <!-- sha:e581d2d -->
+- [x] Task 3.3: Add 'e' key handler in `crates/supervox-tui/src/modes/analysis.rs` `handle_key()` — build markdown from current analysis state, copy to clipboard via `arboard`, show status "Analysis exported to clipboard". <!-- sha:e581d2d -->
+- [x] Task 3.4: Update `crates/supervox-tui/src/help.rs` — add 'd' (delete) to History mode help, add 'e' (export) to Analysis mode help. <!-- sha:e581d2d -->
+- [x] Task 3.5: Write TUI tests — delete confirmation state transitions, export markdown clipboard content. <!-- sha:e581d2d -->
 
 ### Verification
-- [ ] 'd' in History shows confirmation, 'y' deletes, 'n' cancels
-- [ ] 'e' in Analysis copies markdown to clipboard
-- [ ] Help overlay shows new keybindings
-- [ ] `cargo test --workspace` passes
+- [x] 'd' in History shows confirmation, 'y' deletes, 'n' cancels
+- [x] 'e' in Analysis copies markdown to clipboard
+- [x] Help overlay shows new keybindings
+- [x] `cargo test --workspace` passes
 
 ## Phase 4: Docs & Cleanup
 
