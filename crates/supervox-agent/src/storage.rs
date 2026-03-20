@@ -321,4 +321,92 @@ mod tests {
         let loaded = load_call(&dir, "test").unwrap();
         assert_eq!(loaded.id, "test");
     }
+
+    #[test]
+    fn delete_call_removes_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().to_path_buf();
+        let call = make_call("del123", "To be deleted");
+
+        save_call(&dir, &call).unwrap();
+        assert!(load_call(&dir, "del123").is_ok());
+
+        delete_call(&dir, "del123").unwrap();
+        assert!(load_call(&dir, "del123").is_err());
+    }
+
+    #[test]
+    fn delete_nonexistent_fails() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path()).unwrap();
+        let result = delete_call(tmp.path(), "nope");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn export_markdown_full() {
+        use crate::types::{ActionItem, Mood};
+
+        let mut call = make_call("exp1", "Hello, how are you?\nI'm fine, thanks.");
+        call.duration_secs = 125.0;
+        call.participants = vec!["Alice".into(), "Bob".into()];
+        call.language = Some("en".into());
+        call.translation = Some("Привет, как дела?\nХорошо, спасибо.".into());
+        call.tags = vec!["meeting".into()];
+
+        let analysis = CallAnalysis {
+            summary: "Discussed greetings".into(),
+            action_items: vec![ActionItem {
+                description: "Send follow-up".into(),
+                assignee: Some("Alice".into()),
+                deadline: Some("2026-03-25".into()),
+            }],
+            follow_up_draft: None,
+            decisions: vec!["Go with plan A".into()],
+            open_questions: vec!["Budget?".into()],
+            mood: Mood::Positive,
+            themes: vec!["greetings".into(), "planning".into()],
+        };
+
+        let md = export_call_markdown(&call, Some(&analysis));
+        assert!(md.contains("# Call —"));
+        assert!(md.contains("**Duration:** 2m 5s"));
+        assert!(md.contains("**Participants:** Alice, Bob"));
+        assert!(md.contains("**Language:** en"));
+        assert!(md.contains("**Tags:** meeting"));
+        assert!(md.contains("## Transcript"));
+        assert!(md.contains("Hello, how are you?"));
+        assert!(md.contains("## Translation"));
+        assert!(md.contains("Привет, как дела?"));
+        assert!(md.contains("## Summary"));
+        assert!(md.contains("Discussed greetings"));
+        assert!(md.contains("## Action Items"));
+        assert!(md.contains("Send follow-up (@Alice) — due 2026-03-25"));
+        assert!(md.contains("## Decisions"));
+        assert!(md.contains("Go with plan A"));
+        assert!(md.contains("## Open Questions"));
+        assert!(md.contains("Budget?"));
+        assert!(md.contains("**Mood:** Positive"));
+        assert!(md.contains("**Themes:** greetings, planning"));
+    }
+
+    #[test]
+    fn export_markdown_no_analysis() {
+        let call = make_call("exp2", "Just a transcript");
+        let md = export_call_markdown(&call, None);
+        assert!(md.contains("# Call —"));
+        assert!(md.contains("## Transcript"));
+        assert!(md.contains("Just a transcript"));
+        assert!(!md.contains("## Summary"));
+        assert!(!md.contains("## Action Items"));
+    }
+
+    #[test]
+    fn export_markdown_with_translation() {
+        let mut call = make_call("exp3", "Original text");
+        call.translation = Some("Translated text".into());
+        let md = export_call_markdown(&call, None);
+        assert!(md.contains("## Translation"));
+        assert!(md.contains("Translated text"));
+    }
 }
