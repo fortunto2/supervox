@@ -164,6 +164,32 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         lines.push(Line::from(""));
     }
 
+    // Audio status
+    {
+        let has_audio = state
+            .call_id
+            .as_ref()
+            .map(|id| {
+                let calls_dir = supervox_agent::storage::default_calls_dir();
+                supervox_agent::storage::load_call(&calls_dir, id)
+                    .ok()
+                    .is_some_and(|call| supervox_agent::storage::has_audio(&calls_dir, &call))
+            })
+            .unwrap_or(false);
+        if has_audio {
+            lines.push(Line::from(Span::styled(
+                "Audio: \u{266b} (press 'p' to play)",
+                Style::default().fg(Color::Green),
+            )));
+        } else {
+            lines.push(Line::from(Span::styled(
+                "Audio: none",
+                Style::default().fg(Color::DarkGray),
+            )));
+        }
+        lines.push(Line::from(""));
+    }
+
     if let Some(mood) = &state.mood {
         lines.push(Line::from(format!("Mood: {mood}")));
         lines.push(Line::from(""));
@@ -328,6 +354,24 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                 match crate::clipboard::copy_to_clipboard(&md) {
                     Ok(()) => app.status = "Analysis exported to clipboard (markdown)".into(),
                     Err(e) => app.status = format!("Export failed: {e}"),
+                }
+            }
+        }
+        crossterm::event::KeyCode::Char('p') => {
+            // Play audio recording via system player
+            if let Some(call_id) = &app.analysis_state.call_id {
+                let calls_dir = supervox_agent::storage::default_calls_dir();
+                match supervox_agent::storage::load_call(&calls_dir, call_id) {
+                    Ok(call) if supervox_agent::storage::has_audio(&calls_dir, &call) => {
+                        let wav_path =
+                            supervox_agent::storage::audio_path_for_call(&calls_dir, &call);
+                        match std::process::Command::new("open").arg(&wav_path).status() {
+                            Ok(_) => app.status = "Playing audio...".into(),
+                            Err(e) => app.status = format!("Play failed: {e}"),
+                        }
+                    }
+                    Ok(_) => app.status = "No audio recording for this call".into(),
+                    Err(e) => app.status = format!("Error: {e}"),
                 }
             }
         }
