@@ -10,6 +10,8 @@ pub struct LiveState {
     pub transcript_lines: Vec<String>,
     pub translation_lines: Vec<String>,
     pub summary_lines: Vec<String>,
+    /// Current delta (partial) transcript, shown dimmed until final.
+    pub current_delta: Option<String>,
     pub is_recording: bool,
     pub recording_start: Option<Instant>,
     pub audio_level: f32,
@@ -22,6 +24,7 @@ impl Default for LiveState {
             transcript_lines: Vec::new(),
             translation_lines: Vec::new(),
             summary_lines: Vec::new(),
+            current_delta: None,
             is_recording: false,
             recording_start: None,
             audio_level: 0.0,
@@ -43,25 +46,35 @@ impl LiveState {
         self.transcript_lines.clear();
         self.translation_lines.clear();
         self.summary_lines.clear();
+        self.current_delta = None;
     }
 
     pub fn stop_recording(&mut self) {
         self.is_recording = false;
+        self.current_delta = None;
     }
 
-    #[allow(dead_code)] // Used in Task 4.3
-    pub fn push_transcript(&mut self, text: &str) {
-        self.transcript_lines.push(text.to_string());
+    /// Update current delta (partial) transcript, shown dimmed.
+    pub fn update_delta(&mut self, source_label: &str, text: &str) {
+        self.current_delta = Some(format!("{source_label}: {text}"));
     }
 
-    #[allow(dead_code)] // Used in Task 4.3
+    /// Push a finalized transcript line with source label.
+    pub fn push_final_transcript(&mut self, source_label: &str, text: &str) {
+        if !text.is_empty() {
+            self.transcript_lines
+                .push(format!("{source_label}: {text}"));
+        }
+        self.current_delta = None;
+    }
+
     pub fn push_translation(&mut self, text: &str) {
         self.translation_lines.push(text.to_string());
     }
 
-    #[allow(dead_code)] // Used in Task 4.3
-    pub fn set_summary(&mut self, lines: Vec<String>) {
-        self.summary_lines = lines;
+    /// Set the rolling summary text (replaces previous).
+    pub fn set_summary(&mut self, text: &str) {
+        self.summary_lines = text.lines().map(|l| l.to_string()).collect();
     }
 }
 
@@ -74,25 +87,46 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
         Layout::horizontal([Constraint::Percentage(60), Constraint::Percentage(40)])
             .areas(main_area);
 
-    // Left panel: transcript + translation
-    let transcript_text = if state.transcript_lines.is_empty() {
-        if state.is_recording {
-            "Listening...".to_string()
+    // Left panel: transcript + translation + delta
+    let mut text_lines: Vec<Line> = Vec::new();
+
+    if state.transcript_lines.is_empty() && state.current_delta.is_none() {
+        let msg = if state.is_recording {
+            "Listening..."
         } else {
-            "Press 'r' to start recording".to_string()
-        }
+            "Press 'r' to start recording"
+        };
+        text_lines.push(Line::from(Span::styled(
+            msg,
+            Style::default().fg(Color::DarkGray),
+        )));
     } else {
-        let mut lines = Vec::new();
         for (i, t) in state.transcript_lines.iter().enumerate() {
-            lines.push(t.clone());
+            text_lines.push(Line::from(Span::styled(
+                t.clone(),
+                Style::default().fg(Color::White),
+            )));
             if let Some(tr) = state.translation_lines.get(i) {
-                lines.push(format!("  → {tr}"));
+                text_lines.push(Line::from(Span::styled(
+                    format!("  → {tr}"),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::ITALIC),
+                )));
             }
         }
-        lines.join("\n")
-    };
+        // Show current delta (partial) dimmed
+        if let Some(delta) = &state.current_delta {
+            text_lines.push(Line::from(Span::styled(
+                delta.clone(),
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::DIM),
+            )));
+        }
+    }
 
-    let transcript = Paragraph::new(transcript_text)
+    let transcript = Paragraph::new(text_lines)
         .block(
             Block::default()
                 .title(" Transcript ")
@@ -103,8 +137,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
                     Color::Cyan
                 })),
         )
-        .wrap(Wrap { trim: false })
-        .style(Style::default().fg(Color::White));
+        .wrap(Wrap { trim: false });
     f.render_widget(transcript, left);
 
     // Right panel: rolling summary
@@ -186,6 +219,7 @@ mod tests {
         let state = LiveState::default();
         assert!(!state.is_recording);
         assert!(state.transcript_lines.is_empty());
+        assert!(state.current_delta.is_none());
         assert_eq!(state.stt_backend, "realtime");
     }
 
@@ -198,15 +232,37 @@ mod tests {
 
         state.stop_recording();
         assert!(!state.is_recording);
+        assert!(state.current_delta.is_none());
     }
 
     #[test]
-    fn push_transcript_and_translation() {
+    fn delta_and_final_transcript() {
         let mut state = LiveState::default();
-        state.push_transcript("Hello");
+        state.update_delta("You", "Hel");
+        assert_eq!(state.current_delta.as_deref(), Some("You: Hel"));
+        assert!(state.transcript_lines.is_empty());
+
+        state.push_final_transcript("You", "Hello world");
+        assert!(state.current_delta.is_none());
+        assert_eq!(state.transcript_lines.len(), 1);
+        assert_eq!(state.transcript_lines[0], "You: Hello world");
+    }
+
+    #[test]
+    fn push_translation() {
+        let mut state = LiveState::default();
+        state.push_final_transcript("Them", "Bonjour");
         state.push_translation("Привет");
         assert_eq!(state.transcript_lines.len(), 1);
         assert_eq!(state.translation_lines.len(), 1);
+    }
+
+    #[test]
+    fn set_summary_multiline() {
+        let mut state = LiveState::default();
+        state.set_summary("Line 1\nLine 2\nLine 3");
+        assert_eq!(state.summary_lines.len(), 3);
+        assert_eq!(state.summary_lines[0], "Line 1");
     }
 
     #[test]

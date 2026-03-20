@@ -83,8 +83,22 @@ impl App {
             AudioEvent::Level(level) => {
                 self.live_state.audio_level = level;
             }
-            AudioEvent::Transcript(text) => {
-                self.live_state.push_transcript(&text);
+            AudioEvent::Transcript {
+                source,
+                text,
+                is_final,
+            } => {
+                if is_final {
+                    self.live_state.push_final_transcript(source.label(), &text);
+                } else {
+                    self.live_state.update_delta(source.label(), &text);
+                }
+            }
+            AudioEvent::Translation { source_id: _, text } => {
+                self.live_state.push_translation(&text);
+            }
+            AudioEvent::Summary(text) => {
+                self.live_state.set_summary(&text);
             }
             AudioEvent::Error(e) => {
                 self.status = format!("Error: {e}");
@@ -209,7 +223,7 @@ fn handle_live_key(app: &mut App, key: crossterm::event::KeyEvent) {
     match key.code {
         KeyCode::Char('r') if !app.live_state.is_recording => {
             let tx = app.audio_event_tx.clone();
-            match app.audio.start(tx) {
+            match app.audio.start(tx, &app.config) {
                 Ok(()) => {
                     app.live_state.start_recording();
                     app.status = "Recording...".into();

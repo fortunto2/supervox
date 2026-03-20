@@ -1,24 +1,49 @@
 use std::path::Path;
+use supervox_agent::types::Config;
 use tokio::sync::mpsc;
 use voxkit::mic::MicCapture;
-use voxkit::vad::VadConfig;
+use voxkit::realtime_stt::{OpenAiStreamingStt, StreamingSttConfig, SttInput, resample_to_24k};
+use voxkit::stt::TranscriptEvent;
+use voxkit::system_audio::SystemAudioCapture;
+
+/// Audio source identifier.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AudioSource {
+    Mic,
+    System,
+}
+
+impl AudioSource {
+    pub fn label(&self) -> &str {
+        match self {
+            AudioSource::Mic => "You",
+            AudioSource::System => "Them",
+        }
+    }
+}
 
 /// Events from audio capture + STT pipeline.
 #[derive(Debug)]
-#[allow(dead_code)] // Transcript variant used when STT is wired
 pub enum AudioEvent {
-    /// Audio level update (0.0..1.0) for status bar.
+    /// Audio level update (0.0..1.0) for VU meter.
     Level(f32),
-    /// New transcript segment from STT.
-    Transcript(String),
-    /// Error from audio pipeline.
+    /// Transcript segment from STT (delta or final).
+    Transcript {
+        source: AudioSource,
+        text: String,
+        is_final: bool,
+    },
+    /// Translation of a final transcript segment.
     #[allow(dead_code)]
+    Translation { source_id: String, text: String },
+    /// Rolling summary update.
+    #[allow(dead_code)]
+    Summary(String),
+    /// Error from audio pipeline.
     Error(String),
-    /// Recording stopped.
+    /// Recording stopped — full transcript + duration.
     Stopped {
-        /// Full transcript text.
         transcript: String,
-        /// Duration in seconds.
         duration_secs: f64,
     },
 }
@@ -26,54 +51,57 @@ pub enum AudioEvent {
 /// Handle to a running audio capture + STT pipeline.
 #[derive(Default)]
 pub struct AudioPipeline {
-    capture: Option<MicCapture>,
+    mic_capture: Option<MicCapture>,
+    system_capture: Option<SystemAudioCapture>,
     stop_tx: Option<mpsc::Sender<()>>,
 }
 
 impl AudioPipeline {
-    /// Start recording with mic capture. Sends AudioEvents to the provided sender.
-    pub fn start(&mut self, event_tx: mpsc::UnboundedSender<AudioEvent>) -> Result<(), String> {
-        if self.capture.is_some() {
+    /// Start recording with mic + optional system audio, wired to realtime STT.
+    pub fn start(
+        &mut self,
+        event_tx: mpsc::UnboundedSender<AudioEvent>,
+        config: &Config,
+    ) -> Result<(), String> {
+        if self.mic_capture.is_some() {
             return Err("Already recording".into());
         }
 
-        let (mut audio_rx, capture) =
-            MicCapture::start(VadConfig::default()).map_err(|e| format!("Mic error: {e}"))?;
+        let api_key = std::env::var("OPENAI_API_KEY")
+            .map_err(|_| "OPENAI_API_KEY not set — required for realtime STT".to_string())?;
 
-        self.capture = Some(capture);
+        // Start mic capture (raw — no VAD, STT handles voice detection)
+        let (mic_rx, mic_capture) =
+            MicCapture::start_raw().map_err(|e| format!("Mic error: {e}"))?;
+        self.mic_capture = Some(mic_capture);
 
-        let (stop_tx, mut stop_rx) = mpsc::channel::<()>(1);
-        self.stop_tx = Some(stop_tx);
-
-        tokio::spawn(async move {
-            let mut total_samples = 0u64;
-            let mut sample_rate = 16000u32;
-
-            loop {
-                tokio::select! {
-                    chunk = audio_rx.recv() => {
-                        match chunk {
-                            Some(chunk) => {
-                                sample_rate = chunk.sample_rate;
-                                total_samples += chunk.len() as u64;
-
-                                let level = chunk.rms().min(1.0);
-                                let _ = event_tx.send(AudioEvent::Level(level));
-                            }
-                            None => break,
-                        }
-                    }
-                    _ = stop_rx.recv() => {
-                        break;
-                    }
+        // Optionally start system audio capture
+        let system_rx = if config.capture.contains("system") {
+            match SystemAudioCapture::start_raw() {
+                Ok((rx, capture)) => {
+                    self.system_capture = Some(capture);
+                    Some(rx)
+                }
+                Err(e) => {
+                    tracing::warn!("System audio unavailable, mic-only: {e}");
+                    let _ =
+                        event_tx.send(AudioEvent::Error(format!("System audio unavailable: {e}")));
+                    None
                 }
             }
+        } else {
+            None
+        };
 
-            let duration_secs = total_samples as f64 / sample_rate as f64;
-            let _ = event_tx.send(AudioEvent::Stopped {
-                transcript: String::new(),
-                duration_secs,
-            });
+        let (stop_tx, stop_rx) = mpsc::channel::<()>(1);
+        self.stop_tx = Some(stop_tx);
+
+        let stt_config = StreamingSttConfig::new(&api_key);
+
+        tokio::spawn(async move {
+            if let Err(e) = run_pipeline(stt_config, mic_rx, system_rx, stop_rx, event_tx).await {
+                tracing::error!("Audio pipeline error: {e}");
+            }
         });
 
         Ok(())
@@ -81,7 +109,10 @@ impl AudioPipeline {
 
     /// Stop recording.
     pub fn stop(&mut self) {
-        if let Some(capture) = self.capture.take() {
+        if let Some(capture) = self.mic_capture.take() {
+            capture.stop();
+        }
+        if let Some(capture) = self.system_capture.take() {
             capture.stop();
         }
         if let Some(tx) = self.stop_tx.take() {
@@ -91,8 +122,149 @@ impl AudioPipeline {
 
     #[allow(dead_code)]
     pub fn is_recording(&self) -> bool {
-        self.capture.is_some()
+        self.mic_capture.is_some()
     }
+}
+
+/// Receive from an optional channel, or pend forever if None.
+async fn recv_opt<T>(rx: &mut Option<mpsc::Receiver<T>>) -> Option<T> {
+    match rx {
+        Some(rx) => rx.recv().await,
+        None => std::future::pending().await,
+    }
+}
+
+/// Run the audio pipeline: capture → resample → STT → events.
+async fn run_pipeline(
+    stt_config: StreamingSttConfig,
+    mut mic_rx: mpsc::Receiver<voxkit::AudioChunk>,
+    mut system_rx: Option<mpsc::Receiver<voxkit::AudioChunk>>,
+    mut stop_rx: mpsc::Receiver<()>,
+    event_tx: mpsc::UnboundedSender<AudioEvent>,
+) -> Result<(), String> {
+    // Connect to OpenAI realtime STT for mic
+    let (stt_tx, mut stt_rx) = OpenAiStreamingStt::connect(stt_config)
+        .await
+        .map_err(|e| format!("STT connect error: {e}"))?;
+
+    // System audio gets its own STT connection (separate speaker)
+    let (system_stt_tx, mut system_stt_rx) = if system_rx.is_some() {
+        let api_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
+        let cfg = StreamingSttConfig::new(&api_key);
+        let (tx, rx) = OpenAiStreamingStt::connect(cfg)
+            .await
+            .map_err(|e| format!("System STT connect error: {e}"))?;
+        (Some(tx), Some(rx))
+    } else {
+        (None, None)
+    };
+
+    let mut total_samples = 0u64;
+    let mut sample_rate = 48000u32;
+    let mut full_transcript = String::new();
+
+    loop {
+        tokio::select! {
+            // Mic audio chunks
+            chunk = mic_rx.recv() => {
+                match chunk {
+                    Some(chunk) => {
+                        sample_rate = chunk.sample_rate;
+                        total_samples += chunk.len() as u64;
+
+                        let level = chunk.rms().min(1.0);
+                        let _ = event_tx.send(AudioEvent::Level(level));
+
+                        // Resample to 24kHz i16 and send to STT
+                        let resampled = resample_to_24k(&chunk.samples, chunk.sample_rate);
+                        let _ = stt_tx.send(SttInput::Audio(resampled)).await;
+                    }
+                    None => break,
+                }
+            }
+
+            // System audio chunks (pends forever if not enabled)
+            chunk = recv_opt(&mut system_rx) => {
+                if let Some(chunk) = chunk {
+                    let resampled = resample_to_24k(&chunk.samples, chunk.sample_rate);
+                    if let Some(ref tx) = system_stt_tx {
+                        let _ = tx.send(SttInput::Audio(resampled)).await;
+                    }
+                }
+            }
+
+            // Mic STT transcript events
+            event = stt_rx.recv() => {
+                match event {
+                    Some(TranscriptEvent::Delta { text, .. }) => {
+                        let _ = event_tx.send(AudioEvent::Transcript {
+                            source: AudioSource::Mic,
+                            text,
+                            is_final: false,
+                        });
+                    }
+                    Some(TranscriptEvent::Final { text, .. }) => {
+                        if !text.is_empty() {
+                            full_transcript.push_str(&format!("You: {}\n", text));
+                        }
+                        let _ = event_tx.send(AudioEvent::Transcript {
+                            source: AudioSource::Mic,
+                            text,
+                            is_final: true,
+                        });
+                    }
+                    Some(TranscriptEvent::Error(e)) => {
+                        let _ = event_tx.send(AudioEvent::Error(format!("STT: {e}")));
+                    }
+                    None => break,
+                }
+            }
+
+            // System STT transcript events (pends forever if not enabled)
+            event = recv_opt(&mut system_stt_rx) => {
+                match event {
+                    Some(TranscriptEvent::Delta { text, .. }) => {
+                        let _ = event_tx.send(AudioEvent::Transcript {
+                            source: AudioSource::System,
+                            text,
+                            is_final: false,
+                        });
+                    }
+                    Some(TranscriptEvent::Final { text, .. }) => {
+                        if !text.is_empty() {
+                            full_transcript.push_str(&format!("Them: {}\n", text));
+                        }
+                        let _ = event_tx.send(AudioEvent::Transcript {
+                            source: AudioSource::System,
+                            text,
+                            is_final: true,
+                        });
+                    }
+                    Some(TranscriptEvent::Error(e)) => {
+                        let _ = event_tx.send(AudioEvent::Error(format!("System STT: {e}")));
+                    }
+                    None => {} // system STT disconnected, continue with mic
+                }
+            }
+
+            // Stop signal
+            _ = stop_rx.recv() => {
+                let _ = stt_tx.send(SttInput::Close).await;
+                if let Some(ref tx) = system_stt_tx {
+                    let _ = tx.send(SttInput::Close).await;
+                }
+                break;
+            }
+        }
+    }
+
+    let duration_secs = total_samples as f64 / sample_rate as f64;
+    let _ = event_tx.send(AudioEvent::Stopped {
+        transcript: full_transcript,
+        duration_secs,
+    });
+
+    Ok(())
 }
 
 /// Save the recorded call to storage.
