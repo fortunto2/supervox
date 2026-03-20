@@ -1,4 +1,4 @@
-.PHONY: test clippy fmt check run install release
+.PHONY: test clippy fmt check run install release hooks
 
 ## Run all tests
 test:
@@ -33,6 +33,11 @@ install:
 release:
 	git tag -a "v$(V)" -m "Release v$(V)"
 	git push origin "v$(V)"
+
+## Install git pre-commit hooks
+hooks:
+	git config core.hooksPath .githooks
+	@echo "Pre-commit hooks activated (.githooks/pre-commit)"
 
 ## Help
 help:

@@ -69,8 +69,7 @@ pub fn search_calls_in_dir(
             // pos is a byte offset in the lowercased string, which may differ
             // from the original when case-mapping changes byte length (e.g. ß→ss).
             // Use char_indices on the original transcript for safe slicing.
-            let char_offsets: Vec<usize> =
-                call.transcript.char_indices().map(|(i, _)| i).collect();
+            let char_offsets: Vec<usize> = call.transcript.char_indices().map(|(i, _)| i).collect();
             let char_pos = char_offsets
                 .iter()
                 .position(|&b| b >= pos)
