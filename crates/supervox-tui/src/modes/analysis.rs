@@ -10,6 +10,7 @@ use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 pub struct AnalysisState {
     #[allow(dead_code)] // Used for reload
     pub file_path: String,
+    pub call_id: Option<String>,
     pub raw_transcript: Option<String>,
     pub summary: Option<String>,
     pub action_items: Vec<String>,
@@ -27,6 +28,7 @@ impl AnalysisState {
     pub fn new(file_path: &str) -> Self {
         Self {
             file_path: file_path.to_string(),
+            call_id: None,
             raw_transcript: None,
             summary: None,
             action_items: Vec::new(),
@@ -50,6 +52,7 @@ impl AnalysisState {
         match std::fs::read_to_string(file_path) {
             Ok(json) => match serde_json::from_str::<supervox_agent::types::Call>(&json) {
                 Ok(call) => {
+                    self.call_id = Some(call.id.clone());
                     self.summary = Some(format!(
                         "Call: {} ({:.0}s, {})",
                         call.created_at.format("%Y-%m-%d %H:%M"),
@@ -73,6 +76,46 @@ impl AnalysisState {
                 self.loading = false;
             }
         }
+    }
+
+    /// Try to load cached analysis from disk. Returns true if cached analysis was found.
+    pub fn try_load_cached(&mut self, calls_dir: &std::path::Path) -> bool {
+        let call_id = match &self.call_id {
+            Some(id) => id.clone(),
+            None => return false,
+        };
+        match supervox_agent::storage::load_analysis(calls_dir, &call_id) {
+            Ok(Some(analysis)) => {
+                self.populate_from_analysis(&analysis);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Populate state fields from a CallAnalysis.
+    pub fn populate_from_analysis(&mut self, analysis: &supervox_agent::types::CallAnalysis) {
+        self.summary = Some(analysis.summary.clone());
+        self.action_items = analysis
+            .action_items
+            .iter()
+            .map(|a| {
+                let mut s = a.description.clone();
+                if let Some(who) = &a.assignee {
+                    s.push_str(&format!(" (@{who})"));
+                }
+                if let Some(when) = &a.deadline {
+                    s.push_str(&format!(" — due {when}"));
+                }
+                s
+            })
+            .collect();
+        self.decisions = analysis.decisions.clone();
+        self.open_questions = analysis.open_questions.clone();
+        self.mood = Some(format!("{:?}", analysis.mood));
+        self.themes = analysis.themes.clone();
+        self.follow_up = analysis.follow_up_draft.clone();
+        self.loading = false;
     }
 }
 

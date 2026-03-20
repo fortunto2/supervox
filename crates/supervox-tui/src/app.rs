@@ -93,10 +93,13 @@ impl App {
             app_event_tx,
         };
 
-        // Load call file for analysis mode and trigger LLM analysis
+        // Load call file for analysis mode — use cached analysis or trigger LLM
         if !analysis_file.is_empty() {
             app.analysis_state.load_from_call(&analysis_file);
-            if let Some(transcript) = app.analysis_state.get_transcript() {
+            let calls_dir = supervox_agent::storage::default_calls_dir();
+            if !app.analysis_state.try_load_cached(&calls_dir)
+                && let Some(transcript) = app.analysis_state.get_transcript()
+            {
                 app.analysis_state.loading = true;
                 app.spawn_analysis(transcript);
             }
@@ -519,11 +522,13 @@ fn handle_history_key(app: &mut App, key: crossterm::event::KeyEvent) {
                     .to_string();
                 app.analysis_state = modes::analysis::AnalysisState::new(&file);
                 app.analysis_state.load_from_call(&file);
-                app.analysis_state.loading = true;
                 app.mode = Mode::Analysis { file: file.clone() };
                 app.history_state = None;
-                // Spawn LLM analysis
-                if let Some(transcript) = app.analysis_state.get_transcript() {
+                // Use cached analysis or spawn LLM
+                if !app.analysis_state.try_load_cached(&calls_dir)
+                    && let Some(transcript) = app.analysis_state.get_transcript()
+                {
+                    app.analysis_state.loading = true;
                     app.spawn_analysis(transcript);
                 }
             }
