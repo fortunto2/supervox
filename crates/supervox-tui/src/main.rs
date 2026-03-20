@@ -174,6 +174,9 @@ enum ActionCommands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load .env file (project dir or parents) — ignore if missing
+    let _ = dotenvy::dotenv();
+
     let cli = Cli::parse();
 
     // Apply --local override: switch to Ollama + Whisper backends

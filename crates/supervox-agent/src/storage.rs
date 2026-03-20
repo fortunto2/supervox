@@ -606,6 +606,7 @@ mod tests {
             llm_backend: "auto".into(),
             ollama_model: "llama3.2:3b".into(),
             whisper_model: "base".into(),
+            ducking_threshold: 0.05,
         };
         save_default_config(&path, &cfg).unwrap();
 
