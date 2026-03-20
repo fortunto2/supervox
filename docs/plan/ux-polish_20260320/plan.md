@@ -44,25 +44,25 @@ Add in-TUI call browsing accessible from Live and Analysis modes.
 - [x] Esc returns to previous mode
 - [x] Tests pass
 
-## Phase 3: CLI Improvements — JSON Output & Ollama Config
+## Phase 3: CLI Improvements — JSON Output & Ollama Config <!-- checkpoint:f01ad36 -->
 
 Add `--json` flag for machine-readable output and Ollama as configurable LLM backend.
 
 ### Tasks
 
-- [~] Task 3.1: Add `--json` flag to `Calls` subcommand in `crates/supervox-tui/src/main.rs`. When set, output `serde_json::to_string_pretty(&calls)` instead of table format.
-- [ ] Task 3.2: Add `--json` flag to `Analyze` subcommand. Run analysis pipeline (non-TUI), output `CallAnalysis` as JSON to stdout. Requires extracting analysis logic to work without TUI event loop.
-- [ ] Task 3.3: Add `llm_backend` field to `Config` in `crates/supervox-agent/src/types.rs` — values: `"auto"` (default, current behavior), `"ollama"`. Add `ollama_model` field (default `"llama3.2:3b"`). Update `schemas/config.json`.
-- [ ] Task 3.4: Add `--local` CLI flag in `crates/supervox-tui/src/main.rs` that overrides `llm_backend` to `"ollama"`. When Ollama backend selected, use `LlmConfig::auto(ollama_model)` with Ollama endpoint. Add basic health check (HTTP GET to `localhost:11434`) with warning if unreachable.
-- [ ] Task 3.5: Add error resilience — wrap LLM calls in `crates/supervox-tui/src/analysis_pipeline.rs` and `crates/supervox-tui/src/agent_loop.rs` with timeout (30s). On failure, send `AppEvent::StatusError(String)` instead of panic. Show error in status bar (red text) for 5 seconds, then clear. Add `status_message: Option<(String, Instant)>` to `App`.
+- [x] Task 3.1: Add `--json` flag to `Calls` subcommand in `crates/supervox-tui/src/main.rs`. When set, output `serde_json::to_string_pretty(&calls)` instead of table format. <!-- sha:f73eebd -->
+- [x] Task 3.2: Add `--json` flag to `Analyze` subcommand. Run analysis pipeline (non-TUI), output `CallAnalysis` as JSON to stdout. Requires extracting analysis logic to work without TUI event loop. <!-- sha:f73eebd -->
+- [x] Task 3.3: Add `llm_backend` field to `Config` in `crates/supervox-agent/src/types.rs` — values: `"auto"` (default, current behavior), `"ollama"`. Add `ollama_model` field (default `"llama3.2:3b"`). Update `schemas/config.json`. <!-- sha:56cd3ff -->
+- [x] Task 3.4: Add `--local` CLI flag in `crates/supervox-tui/src/main.rs` that overrides `llm_backend` to `"ollama"`. When Ollama backend selected, use `LlmConfig::auto(ollama_model)` with Ollama endpoint. Add basic health check (HTTP GET to `localhost:11434`) with warning if unreachable. <!-- sha:56cd3ff -->
+- [x] Task 3.5: Add error resilience — wrap LLM calls in `crates/supervox-tui/src/analysis_pipeline.rs` and `crates/supervox-tui/src/agent_loop.rs` with timeout (30s). On failure, send `AppEvent::StatusError(String)` instead of panic. Show error in status bar (red text) for 5 seconds, then clear. Add `status_message: Option<(String, Instant)>` to `App`. <!-- sha:f01ad36 -->
 
 ### Verification
 
-- [ ] `supervox calls --json` outputs valid JSON array
-- [ ] `supervox analyze file.json --json` outputs CallAnalysis JSON
-- [ ] `llm_backend = "ollama"` in config uses Ollama endpoint
-- [ ] `--local` flag overrides to Ollama with health check warning
-- [ ] LLM timeout shows error in status bar, no panic
+- [x] `supervox calls --json` outputs valid JSON array
+- [x] `supervox analyze file.json --json` outputs CallAnalysis JSON
+- [x] `llm_backend = "ollama"` in config uses Ollama endpoint
+- [x] `--local` flag overrides to Ollama with health check warning
+- [x] LLM timeout shows error in status bar, no panic
 
 ## Phase 4: Docs & Cleanup
 
