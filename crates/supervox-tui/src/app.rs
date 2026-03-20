@@ -269,11 +269,17 @@ impl App {
             AudioEvent::Stopped {
                 transcript,
                 duration_secs,
+                audio_path,
             } => {
                 self.live_state.stop_recording();
                 let calls_dir = supervox_agent::storage::default_calls_dir();
-                match crate::audio::save_recorded_call(&transcript, duration_secs, &calls_dir) {
-                    Ok(()) => {
+                match crate::audio::save_recorded_call(
+                    &transcript,
+                    duration_secs,
+                    &calls_dir,
+                    audio_path.as_deref(),
+                ) {
+                    Ok(_call_id) => {
                         if transcript.is_empty() {
                             self.status = "Recording stopped (no speech detected)".into();
                         } else {
@@ -607,7 +613,8 @@ fn handle_live_key(app: &mut App, key: crossterm::event::KeyEvent) {
         }
         KeyCode::Char('r') if !app.live_state.is_recording => {
             let tx = app.audio_event_tx.clone();
-            match app.audio.start(tx, &app.config) {
+            let calls_dir = supervox_agent::storage::default_calls_dir();
+            match app.audio.start(tx, &app.config, calls_dir) {
                 Ok(()) => {
                     app.live_state.start_recording();
                     app.status = "Recording...".into();

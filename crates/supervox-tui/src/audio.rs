@@ -1,4 +1,5 @@
-use std::path::Path;
+use std::io::BufWriter;
+use std::path::{Path, PathBuf};
 use supervox_agent::types::Config;
 use tokio::sync::mpsc;
 use voxkit::mic::MicCapture;
@@ -41,10 +42,11 @@ pub enum AudioEvent {
     Summary(String),
     /// Error from audio pipeline.
     Error(String),
-    /// Recording stopped — full transcript + duration.
+    /// Recording stopped — full transcript + duration + optional audio path.
     Stopped {
         transcript: String,
         duration_secs: f64,
+        audio_path: Option<String>,
     },
 }
 
@@ -62,6 +64,7 @@ impl AudioPipeline {
         &mut self,
         event_tx: mpsc::UnboundedSender<AudioEvent>,
         config: &Config,
+        calls_dir: PathBuf,
     ) -> Result<(), String> {
         if self.mic_capture.is_some() {
             return Err("Already recording".into());
@@ -99,7 +102,9 @@ impl AudioPipeline {
         let stt_config = StreamingSttConfig::new(&api_key);
 
         tokio::spawn(async move {
-            if let Err(e) = run_pipeline(stt_config, mic_rx, system_rx, stop_rx, event_tx).await {
+            if let Err(e) =
+                run_pipeline(stt_config, mic_rx, system_rx, stop_rx, event_tx, calls_dir).await
+            {
                 tracing::error!("Audio pipeline error: {e}");
             }
         });
@@ -134,13 +139,14 @@ async fn recv_opt<T>(rx: &mut Option<mpsc::Receiver<T>>) -> Option<T> {
     }
 }
 
-/// Run the audio pipeline: capture → resample → STT → events.
+/// Run the audio pipeline: capture → resample → STT → events, with WAV recording.
 async fn run_pipeline(
     stt_config: StreamingSttConfig,
     mut mic_rx: mpsc::Receiver<voxkit::AudioChunk>,
     mut system_rx: Option<mpsc::Receiver<voxkit::AudioChunk>>,
     mut stop_rx: mpsc::Receiver<()>,
     event_tx: mpsc::UnboundedSender<AudioEvent>,
+    calls_dir: PathBuf,
 ) -> Result<(), String> {
     // Connect to OpenAI realtime STT for mic
     let (stt_tx, mut stt_rx) = OpenAiStreamingStt::connect(stt_config)
@@ -163,6 +169,10 @@ async fn run_pipeline(
     let mut sample_rate = 48000u32;
     let mut full_transcript = String::new();
 
+    // WAV writer — initialized lazily on first mic chunk (to get actual sample rate)
+    let mut wav_writer: Option<hound::WavWriter<BufWriter<std::fs::File>>> = None;
+    let mut wav_path: Option<PathBuf> = None;
+
     loop {
         tokio::select! {
             // Mic audio chunks
@@ -174,6 +184,34 @@ async fn run_pipeline(
 
                         let level = chunk.rms().min(1.0);
                         let _ = event_tx.send(AudioEvent::Level(level));
+
+                        // Initialize WAV writer on first chunk
+                        if wav_writer.is_none() {
+                            match create_wav_writer(&calls_dir, chunk.sample_rate) {
+                                Ok((writer, path)) => {
+                                    wav_path = Some(path);
+                                    wav_writer = Some(writer);
+                                }
+                                Err(e) => {
+                                    tracing::warn!("WAV recording unavailable: {e}");
+                                    let _ = event_tx.send(AudioEvent::Error(
+                                        format!("WAV recording failed: {e}"),
+                                    ));
+                                }
+                            }
+                        }
+
+                        // Write raw samples to WAV
+                        if let Some(ref mut writer) = wav_writer {
+                            for &sample in &chunk.samples {
+                                let i16_val = (sample * 32767.0).clamp(-32768.0, 32767.0) as i16;
+                                if writer.write_sample(i16_val).is_err() {
+                                    tracing::warn!("WAV write error, stopping recording");
+                                    wav_writer = None;
+                                    break;
+                                }
+                            }
+                        }
 
                         // Resample to 24kHz i16 and send to STT
                         let resampled = resample_to_24k(&chunk.samples, chunk.sample_rate);
@@ -258,41 +296,112 @@ async fn run_pipeline(
         }
     }
 
+    // Finalize WAV file
+    let audio_path = if let Some(writer) = wav_writer {
+        match writer.finalize() {
+            Ok(()) => wav_path.map(|p| p.to_string_lossy().into_owned()),
+            Err(e) => {
+                tracing::warn!("WAV finalize error: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     let duration_secs = total_samples as f64 / sample_rate as f64;
     let _ = event_tx.send(AudioEvent::Stopped {
         transcript: full_transcript,
         duration_secs,
+        audio_path,
     });
 
     Ok(())
 }
 
-/// Save the recorded call to storage.
+/// Create a WAV writer for incremental recording.
+/// Returns the writer and the file path. Uses a temp filename that will be
+/// renamed by save_recorded_call to match the call's final name.
+fn create_wav_writer(
+    calls_dir: &Path,
+    sample_rate: u32,
+) -> Result<(hound::WavWriter<BufWriter<std::fs::File>>, PathBuf), String> {
+    std::fs::create_dir_all(calls_dir).map_err(|e| format!("Create dir: {e}"))?;
+
+    let timestamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
+    let path = calls_dir.join(format!("recording-{timestamp}.wav"));
+
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+
+    let file = std::fs::File::create(&path).map_err(|e| format!("Create WAV: {e}"))?;
+    let writer =
+        hound::WavWriter::new(BufWriter::new(file), spec).map_err(|e| format!("WAV init: {e}"))?;
+
+    Ok((writer, path))
+}
+
+/// Save the recorded call to storage. If `temp_audio_path` is provided,
+/// renames the temp WAV to match the call's canonical name.
 pub fn save_recorded_call(
     transcript: &str,
     duration_secs: f64,
     calls_dir: &Path,
-) -> Result<(), String> {
+    temp_audio_path: Option<&str>,
+) -> Result<String, String> {
     use chrono::Utc;
     use supervox_agent::types::Call;
 
     if transcript.is_empty() {
-        return Ok(());
+        // Clean up temp WAV if no transcript
+        if let Some(p) = temp_audio_path {
+            let _ = std::fs::remove_file(p);
+        }
+        return Ok(String::new());
     }
 
+    let id = uuid::Uuid::now_v7().to_string();
+    let now = Utc::now();
+
+    // Rename temp WAV to canonical path
+    let final_audio_path = if let Some(temp_path) = temp_audio_path {
+        let temp = std::path::PathBuf::from(temp_path);
+        if temp.exists() {
+            let date = now.format("%Y%m%d");
+            let canonical = calls_dir.join(format!("{date}-{id}.wav"));
+            match std::fs::rename(&temp, &canonical) {
+                Ok(()) => Some(canonical.to_string_lossy().into_owned()),
+                Err(e) => {
+                    tracing::warn!("Failed to rename WAV: {e}");
+                    // Keep temp path as fallback
+                    Some(temp_path.to_string())
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     let call = Call {
-        id: uuid::Uuid::now_v7().to_string(),
-        created_at: Utc::now(),
+        id: id.clone(),
+        created_at: now,
         duration_secs,
         participants: vec![],
         language: None,
         transcript: transcript.to_string(),
         translation: None,
         tags: vec![],
-        audio_path: None,
+        audio_path: final_audio_path,
     };
 
-    supervox_agent::storage::save_call(calls_dir, &call).map_err(|e| format!("Save error: {e}"))
+    supervox_agent::storage::save_call(calls_dir, &call).map_err(|e| format!("Save error: {e}"))?;
+    Ok(id)
 }
 
 /// Get the path to the most recently saved call file.
