@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use supervox_agent::types::Config;
 use tokio::sync::mpsc;
 use voxkit::mic::MicCapture;
-use voxkit::realtime_stt::{OpenAiStreamingStt, StreamingSttConfig, SttInput, resample_to_24k};
-use voxkit::stt::TranscriptEvent;
+use voxkit::realtime_stt::{OpenAiStreamingStt, StreamingSttConfig, resample_to_24k};
+use voxkit::stt::{StreamingSttBackend, SttInput, TranscriptEvent};
 use voxkit::system_audio::SystemAudioCapture;
 
 /// Audio source identifier.
@@ -59,7 +59,7 @@ pub struct AudioPipeline {
 }
 
 impl AudioPipeline {
-    /// Start recording with mic + optional system audio, wired to realtime STT.
+    /// Start recording with mic + optional system audio, wired to STT backend.
     pub fn start(
         &mut self,
         event_tx: mpsc::UnboundedSender<AudioEvent>,
@@ -70,8 +70,7 @@ impl AudioPipeline {
             return Err("Already recording".into());
         }
 
-        let api_key = std::env::var("OPENAI_API_KEY")
-            .map_err(|_| "OPENAI_API_KEY not set — required for realtime STT".to_string())?;
+        let stt_backend = create_stt_backend(config)?;
 
         // Start mic capture (raw — no VAD, STT handles voice detection)
         let (mic_rx, mic_capture) =
@@ -99,11 +98,24 @@ impl AudioPipeline {
         let (stop_tx, stop_rx) = mpsc::channel::<()>(1);
         self.stop_tx = Some(stop_tx);
 
-        let stt_config = StreamingSttConfig::new(&api_key);
+        // Create system audio STT backend (same type as mic backend)
+        let system_stt_backend = if system_rx.is_some() {
+            Some(create_stt_backend(config)?)
+        } else {
+            None
+        };
 
         tokio::spawn(async move {
-            if let Err(e) =
-                run_pipeline(stt_config, mic_rx, system_rx, stop_rx, event_tx, calls_dir).await
+            if let Err(e) = run_pipeline(
+                stt_backend,
+                system_stt_backend,
+                mic_rx,
+                system_rx,
+                stop_rx,
+                event_tx,
+                calls_dir,
+            )
+            .await
             {
                 tracing::error!("Audio pipeline error: {e}");
             }
@@ -131,6 +143,19 @@ impl AudioPipeline {
     }
 }
 
+/// Create an STT backend based on config.
+pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend>, String> {
+    match config.stt_backend.as_str() {
+        "realtime" => {
+            let api_key = std::env::var("OPENAI_API_KEY")
+                .map_err(|_| "OPENAI_API_KEY not set — required for realtime STT".to_string())?;
+            let stt_config = StreamingSttConfig::new(&api_key);
+            Ok(Box::new(OpenAiStreamingStt::new(stt_config)))
+        }
+        other => Err(format!("Unknown stt_backend: {other}")),
+    }
+}
+
 /// Receive from an optional channel, or pend forever if None.
 async fn recv_opt<T>(rx: &mut Option<mpsc::Receiver<T>>) -> Option<T> {
     match rx {
@@ -141,23 +166,24 @@ async fn recv_opt<T>(rx: &mut Option<mpsc::Receiver<T>>) -> Option<T> {
 
 /// Run the audio pipeline: capture → resample → STT → events, with WAV recording.
 async fn run_pipeline(
-    stt_config: StreamingSttConfig,
+    stt_backend: Box<dyn StreamingSttBackend>,
+    system_stt_backend: Option<Box<dyn StreamingSttBackend>>,
     mut mic_rx: mpsc::Receiver<voxkit::AudioChunk>,
     mut system_rx: Option<mpsc::Receiver<voxkit::AudioChunk>>,
     mut stop_rx: mpsc::Receiver<()>,
     event_tx: mpsc::UnboundedSender<AudioEvent>,
     calls_dir: PathBuf,
 ) -> Result<(), String> {
-    // Connect to OpenAI realtime STT for mic
-    let (stt_tx, mut stt_rx) = OpenAiStreamingStt::connect(stt_config)
+    // Connect mic STT
+    let (stt_tx, mut stt_rx) = stt_backend
+        .connect()
         .await
         .map_err(|e| format!("STT connect error: {e}"))?;
 
     // System audio gets its own STT connection (separate speaker)
-    let (system_stt_tx, mut system_stt_rx) = if system_rx.is_some() {
-        let api_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
-        let cfg = StreamingSttConfig::new(&api_key);
-        let (tx, rx) = OpenAiStreamingStt::connect(cfg)
+    let (system_stt_tx, mut system_stt_rx) = if let Some(backend) = system_stt_backend {
+        let (tx, rx) = backend
+            .connect()
             .await
             .map_err(|e| format!("System STT connect error: {e}"))?;
         (Some(tx), Some(rx))

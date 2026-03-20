@@ -9,21 +9,10 @@ use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite;
 
-use crate::stt::TranscriptEvent;
+use crate::stt::{StreamingSttBackend, SttInput, SttStreamError, TranscriptEvent};
 
 /// Default OpenAI Realtime API WebSocket URL.
 const DEFAULT_REALTIME_URL: &str = "wss://api.openai.com/v1/realtime";
-
-/// Audio input commands for the streaming STT session.
-#[derive(Debug)]
-pub enum SttInput {
-    /// Raw PCM audio samples (24kHz mono i16 LE, base64-encoded on the wire).
-    Audio(Vec<i16>),
-    /// Update the context prompt mid-session.
-    UpdatePrompt(String),
-    /// Gracefully close the connection.
-    Close,
-}
 
 /// Configuration for streaming STT.
 #[derive(Debug, Clone)]
@@ -76,7 +65,7 @@ impl StreamingSttConfig {
 
 /// Errors from streaming STT operations.
 #[derive(Debug, Error)]
-pub enum SttStreamError {
+pub enum WsError {
     /// WebSocket connection failed.
     #[error("WebSocket connection: {0}")]
     Connection(String),
@@ -91,33 +80,43 @@ pub enum SttStreamError {
     ChannelClosed,
 }
 
-impl From<tungstenite::Error> for SttStreamError {
+impl From<tungstenite::Error> for WsError {
     fn from(e: tungstenite::Error) -> Self {
-        SttStreamError::WebSocket(e.to_string())
+        WsError::WebSocket(e.to_string())
     }
 }
 
-/// Streaming STT session handle.
-pub struct OpenAiStreamingStt;
+/// Streaming STT session using OpenAI Realtime API.
+pub struct OpenAiStreamingStt {
+    config: StreamingSttConfig,
+}
 
 impl OpenAiStreamingStt {
-    /// Connect to OpenAI Realtime API.
-    ///
-    /// Returns `(audio_sender, transcript_receiver)`:
-    /// - Send `SttInput::Audio(samples)` to stream audio
-    /// - Send `SttInput::UpdatePrompt(text)` to update context mid-session
-    /// - Send `SttInput::Close` to shut down
-    /// - Receive `TranscriptEvent` for partial/final transcripts
-    pub async fn connect(
+    /// Create a new OpenAI streaming STT backend.
+    pub fn new(config: StreamingSttConfig) -> Self {
+        Self { config }
+    }
+
+    /// Connect to OpenAI Realtime API (static method for backward compatibility).
+    pub async fn connect_static(
         config: StreamingSttConfig,
-    ) -> Result<(mpsc::Sender<SttInput>, mpsc::Receiver<TranscriptEvent>), SttStreamError> {
-        let url = build_ws_url(&config);
+    ) -> Result<(mpsc::Sender<SttInput>, mpsc::Receiver<TranscriptEvent>), WsError> {
+        Self::do_connect(&config)
+            .await
+            .map_err(|e| WsError::Connection(e.to_string()))
+    }
+
+    /// Internal connect logic using local error type.
+    async fn do_connect(
+        config: &StreamingSttConfig,
+    ) -> Result<(mpsc::Sender<SttInput>, mpsc::Receiver<TranscriptEvent>), WsError> {
+        let url = build_ws_url(config);
 
         let request = build_ws_request(&url, &config.api_key)?;
 
         let (ws_stream, _response) = tokio_tungstenite::connect_async(request)
             .await
-            .map_err(|e| SttStreamError::Connection(e.to_string()))?;
+            .map_err(|e| WsError::Connection(e.to_string()))?;
 
         let (ws_writer, ws_reader) = ws_stream.split();
 
@@ -125,7 +124,7 @@ impl OpenAiStreamingStt {
         let (transcript_tx, transcript_rx) = mpsc::channel::<TranscriptEvent>(64);
 
         // Send session config
-        let session_config = build_session_config(&config);
+        let session_config = build_session_config(config);
 
         // Writer task: reads from input_rx, sends to WebSocket
         let tx_clone = transcript_tx.clone();
@@ -138,6 +137,21 @@ impl OpenAiStreamingStt {
     }
 }
 
+#[async_trait::async_trait]
+impl StreamingSttBackend for OpenAiStreamingStt {
+    async fn connect(
+        &self,
+    ) -> Result<(mpsc::Sender<SttInput>, mpsc::Receiver<TranscriptEvent>), SttStreamError> {
+        Self::do_connect(&self.config)
+            .await
+            .map_err(|e| SttStreamError::Connection(e.to_string()))
+    }
+
+    fn display_name(&self) -> &str {
+        "realtime"
+    }
+}
+
 /// Build the WebSocket URL with model query parameter.
 fn build_ws_url(config: &StreamingSttConfig) -> String {
     let base = config.url.as_deref().unwrap_or(DEFAULT_REALTIME_URL);
@@ -145,10 +159,10 @@ fn build_ws_url(config: &StreamingSttConfig) -> String {
 }
 
 /// Build the HTTP upgrade request with auth headers.
-fn build_ws_request(url: &str, api_key: &str) -> Result<http::Request<()>, SttStreamError> {
+fn build_ws_request(url: &str, api_key: &str) -> Result<http::Request<()>, WsError> {
     let uri: http::Uri = url
         .parse()
-        .map_err(|e: http::uri::InvalidUri| SttStreamError::Connection(e.to_string()))?;
+        .map_err(|e: http::uri::InvalidUri| WsError::Connection(e.to_string()))?;
 
     let host = uri.host().unwrap_or("api.openai.com").to_owned();
 
@@ -165,7 +179,7 @@ fn build_ws_request(url: &str, api_key: &str) -> Result<http::Request<()>, SttSt
             tungstenite::handshake::client::generate_key(),
         )
         .body(())
-        .map_err(|e| SttStreamError::Connection(e.to_string()))
+        .map_err(|e| WsError::Connection(e.to_string()))
 }
 
 /// Build session.update config message for the Realtime API.
