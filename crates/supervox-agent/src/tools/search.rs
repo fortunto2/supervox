@@ -66,9 +66,23 @@ pub fn search_calls_in_dir(
     for call in calls {
         let transcript_lower = call.transcript.to_lowercase();
         if let Some(pos) = transcript_lower.find(&query_lower) {
-            let start = pos.saturating_sub(50);
-            let end = (pos + query.len() + 50).min(call.transcript.len());
-            let snippet = call.transcript[start..end].to_string();
+            // pos is a byte offset in the lowercased string, which may differ
+            // from the original when case-mapping changes byte length (e.g. ß→ss).
+            // Use char_indices on the original transcript for safe slicing.
+            let char_offsets: Vec<usize> =
+                call.transcript.char_indices().map(|(i, _)| i).collect();
+            let char_pos = char_offsets
+                .iter()
+                .position(|&b| b >= pos)
+                .unwrap_or(char_offsets.len());
+            let char_start = char_pos.saturating_sub(50);
+            let char_end = (char_pos + query.chars().count() + 50).min(char_offsets.len());
+            let byte_start = char_offsets.get(char_start).copied().unwrap_or(0);
+            let byte_end = char_offsets
+                .get(char_end)
+                .copied()
+                .unwrap_or(call.transcript.len());
+            let snippet = call.transcript[byte_start..byte_end].to_string();
 
             // Simple relevance: count occurrences
             let count = transcript_lower.matches(&query_lower).count();
@@ -187,5 +201,29 @@ mod tests {
 
         let results = search_calls_in_dir(&calls_dir, "BUDGET").unwrap();
         assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn search_cyrillic_no_panic() {
+        let tmp = tempfile::tempdir().unwrap();
+        let calls_dir = tmp.path().to_path_buf();
+        std::fs::create_dir_all(&calls_dir).unwrap();
+
+        let call = Call {
+            id: "cyrillic-1".into(),
+            created_at: Utc::now(),
+            duration_secs: 45.0,
+            participants: vec![],
+            language: Some("ru".into()),
+            transcript: "Обсудили бюджет на второй квартал и план проекта".into(),
+            translation: None,
+            tags: vec![],
+        };
+        storage::save_call(&calls_dir, &call).unwrap();
+
+        let results = search_calls_in_dir(&calls_dir, "бюджет").unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].call_id, "cyrillic-1");
+        assert!(results[0].snippet.contains("бюджет"));
     }
 }
