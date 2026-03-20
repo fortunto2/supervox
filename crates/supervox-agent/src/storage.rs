@@ -181,6 +181,21 @@ pub fn load_analysis(
     Ok(None)
 }
 
+/// Update call tags from analysis themes. Idempotent — no-op if tags match.
+pub fn update_call_tags(
+    calls_dir: &Path,
+    call_id: &str,
+    themes: &[String],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut call = load_call(calls_dir, call_id)?;
+    if call.tags == themes {
+        return Ok(());
+    }
+    call.tags = themes.to_vec();
+    save_call(calls_dir, &call)?;
+    Ok(())
+}
+
 /// Delete a call by ID from the calls directory.
 /// Finds the file by ID suffix match (same pattern as `load_call`).
 pub fn delete_call(calls_dir: &Path, call_id: &str) -> Result<(), Box<dyn std::error::Error>> {
