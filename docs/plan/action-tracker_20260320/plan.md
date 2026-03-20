@@ -30,18 +30,18 @@ Wire tracked actions into CLI with filter support.
 
 ### Tasks
 
-- [ ] Task 2.1: Add `Actions` subcommand to `crates/supervox-tui/src/main.rs` — `supervox actions [--all] [--json] [--tag TAG] [--since DATE] [--until DATE]`. Calls `list_tracked_actions()` and formats output (grouped by call date).
-- [ ] Task 2.2: Add `ActionsDone` subcommand — `supervox actions done <id-prefix>`. Finds matching action by prefix, calls `set_action_completed()`. Shows confirmation with action description.
-- [ ] Task 2.3: Add `ActionsUndo` subcommand — `supervox actions undo <id-prefix>`. Calls `set_action_incomplete()`. Shows confirmation.
-- [ ] Task 2.4: Add CLI tests in `crates/supervox-tui/src/main.rs` or integration test — verify `list_tracked_actions` output format, verify done/undo toggle, verify --json output structure.
+- [x] Task 2.1: Add `Actions` subcommand to `crates/supervox-tui/src/main.rs` — `supervox actions [--all] [--json] [--tag TAG] [--since DATE] [--until DATE]`. Calls `list_tracked_actions()` and formats output (grouped by call date).
+- [x] Task 2.2: Add `ActionsDone` subcommand — `supervox actions done <id-prefix>`. Finds matching action by prefix, calls `set_action_completed()`. Shows confirmation with action description.
+- [x] Task 2.3: Add `ActionsUndo` subcommand — `supervox actions undo <id-prefix>`. Calls `set_action_incomplete()`. Shows confirmation.
+- [x] Task 2.4: Add CLI tests in `crates/supervox-tui/src/main.rs` or integration test — verify `list_tracked_actions` output format, verify done/undo toggle, verify --json output structure.
 
 ### Verification
 
-- [ ] `supervox actions` lists open items grouped by call
-- [ ] `supervox actions done <prefix>` marks item complete
-- [ ] `supervox actions undo <prefix>` reverts
-- [ ] `supervox actions --json` outputs valid JSON array of TrackedAction
-- [ ] Filter flags narrow the call scope
+- [x] `supervox actions` lists open items grouped by call
+- [x] `supervox actions done <prefix>` marks item complete
+- [x] `supervox actions undo <prefix>` reverts
+- [x] `supervox actions --json` outputs valid JSON array of TrackedAction
+- [x] Filter flags narrow the call scope
 
 ## Phase 3: TUI + Docs
 

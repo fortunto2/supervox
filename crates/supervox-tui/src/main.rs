@@ -143,6 +143,33 @@ enum Commands {
         /// Call ID (suffix match)
         call_id: String,
     },
+    /// List action items across calls
+    Actions {
+        /// Include completed actions
+        #[arg(long)]
+        all: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        #[command(flatten)]
+        filter: FilterArgs,
+        #[command(subcommand)]
+        action: Option<ActionCommands>,
+    },
+}
+
+#[derive(Subcommand)]
+enum ActionCommands {
+    /// Mark an action item as complete
+    Done {
+        /// Action ID prefix
+        id: String,
+    },
+    /// Undo action completion
+    Undo {
+        /// Action ID prefix
+        id: String,
+    },
 }
 
 #[tokio::main]
@@ -188,6 +215,16 @@ async fn main() -> Result<()> {
         Some(Commands::Play { call_id }) => {
             cmd_play(&call_id)?;
         }
+        Some(Commands::Actions {
+            all,
+            json,
+            filter,
+            action,
+        }) => match action {
+            Some(ActionCommands::Done { id }) => cmd_action_done(&id)?,
+            Some(ActionCommands::Undo { id }) => cmd_action_undo(&id)?,
+            None => cmd_actions(all, json, &filter)?,
+        },
         Some(Commands::Live) | None => {
             app::run(app::Mode::Live).await?;
         }
@@ -608,6 +645,106 @@ async fn cmd_analyze_all(dry_run: bool) -> Result<()> {
     }
 
     eprintln!("Batch analysis complete.");
+    Ok(())
+}
+
+/// List tracked action items across calls.
+fn cmd_actions(include_completed: bool, json: bool, filter_args: &FilterArgs) -> Result<()> {
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    let actions_path = supervox_agent::storage::default_actions_path();
+    let call_filter = filter_args.to_call_filter()?;
+
+    let actions = supervox_agent::storage::list_tracked_actions(
+        &calls_dir,
+        &actions_path,
+        &call_filter,
+        include_completed,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&actions)?);
+        return Ok(());
+    }
+
+    if actions.is_empty() {
+        if include_completed {
+            println!("No action items found. Analyze calls first.");
+        } else {
+            println!("No open action items. Use --all to include completed.");
+        }
+        return Ok(());
+    }
+
+    // Group by call date
+    let mut current_call = String::new();
+    for action in &actions {
+        if action.call_id != current_call {
+            current_call = action.call_id.clone();
+            let date = action.call_date.format("%Y-%m-%d %H:%M");
+            println!("\n{date} ({}):", action.call_id);
+        }
+        let check = if action.state.completed {
+            "\u{2611}" // ☑
+        } else {
+            "\u{2610}" // ☐
+        };
+        let mut line = format!("  {check} [{}] {}", action.action_id, action.description);
+        if let Some(who) = &action.assignee {
+            line.push_str(&format!(" (@{who})"));
+        }
+        if let Some(when) = &action.deadline {
+            line.push_str(&format!(" — due {when}"));
+        }
+        println!("{line}");
+    }
+
+    let total = actions.len();
+    let completed = actions.iter().filter(|a| a.state.completed).count();
+    let open = total - completed;
+    println!("\n{open} open, {completed} completed, {total} total");
+    Ok(())
+}
+
+/// Mark an action as done by ID prefix.
+fn cmd_action_done(prefix: &str) -> Result<()> {
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    let actions_path = supervox_agent::storage::default_actions_path();
+
+    let action = supervox_agent::storage::find_action_by_prefix(&calls_dir, &actions_path, prefix)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    match action {
+        Some(a) => {
+            supervox_agent::storage::set_action_completed(&actions_path, &a.action_id)
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
+            println!("\u{2611} Done: {} [{}]", a.description, a.action_id);
+        }
+        None => {
+            anyhow::bail!("No action found matching prefix \"{prefix}\"");
+        }
+    }
+    Ok(())
+}
+
+/// Undo action completion by ID prefix.
+fn cmd_action_undo(prefix: &str) -> Result<()> {
+    let calls_dir = supervox_agent::storage::default_calls_dir();
+    let actions_path = supervox_agent::storage::default_actions_path();
+
+    let action = supervox_agent::storage::find_action_by_prefix(&calls_dir, &actions_path, prefix)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    match action {
+        Some(a) => {
+            supervox_agent::storage::set_action_incomplete(&actions_path, &a.action_id)
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
+            println!("\u{2610} Undone: {} [{}]", a.description, a.action_id);
+        }
+        None => {
+            anyhow::bail!("No action found matching prefix \"{prefix}\"");
+        }
+    }
     Ok(())
 }
 
