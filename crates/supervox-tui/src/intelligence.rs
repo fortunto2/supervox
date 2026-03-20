@@ -25,7 +25,7 @@ pub fn start_translation_pipeline(
     event_tx: mpsc::UnboundedSender<AudioEvent>,
 ) {
     let to_lang = config.my_language.clone();
-    let model = config.llm_model.clone();
+    let model = config.effective_model().to_string();
 
     tokio::spawn(async move {
         while let Some((source_id, text)) = transcript_rx.recv().await {
@@ -63,7 +63,7 @@ pub fn start_summary_pipeline(
 ) {
     let interval = Duration::from_secs(config.summary_lag_secs as u64);
     let target_lang = config.my_language.clone();
-    let model = config.llm_model.clone();
+    let model = config.effective_model().to_string();
 
     let state = Arc::new(Mutex::new(SummaryState {
         pending_chunks: Vec::new(),
@@ -173,6 +173,8 @@ mod tests {
             llm_model: "test".into(),
             summary_lag_secs: 1,
             capture: "mic".into(),
+            llm_backend: "auto".into(),
+            ollama_model: "llama3.2:3b".into(),
         }
     }
 

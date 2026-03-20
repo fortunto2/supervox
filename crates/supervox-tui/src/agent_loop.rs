@@ -45,7 +45,7 @@ pub async fn run_agent_query(
     config: &Config,
     tx: mpsc::UnboundedSender<AppEvent>,
 ) {
-    let llm = Llm::new(&LlmConfig::auto(&config.llm_model));
+    let llm = Llm::new(&LlmConfig::auto(config.effective_model()));
 
     let messages = vec![
         Message::system(format!(

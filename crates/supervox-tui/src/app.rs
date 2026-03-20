@@ -113,7 +113,7 @@ impl App {
 
     /// Spawn async LLM analysis for the given transcript.
     pub fn spawn_analysis(&self, transcript: String) {
-        let model = self.config.llm_model.clone();
+        let model = self.config.effective_model().to_string();
         let tx = self.app_event_tx.clone();
         tokio::spawn(async move {
             match crate::analysis_pipeline::analyze_transcript(&transcript, &model).await {
@@ -149,7 +149,7 @@ impl App {
         };
         let analysis_json = serde_json::to_string(&analysis).unwrap_or_default();
         let language = self.config.my_language.clone();
-        let model = self.config.llm_model.clone();
+        let model = self.config.effective_model().to_string();
         let tx = self.app_event_tx.clone();
         tokio::spawn(async move {
             match crate::analysis_pipeline::draft_follow_up(&analysis_json, &language, &model).await

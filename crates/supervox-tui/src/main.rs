@@ -15,6 +15,10 @@ mod modes;
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
+
+    /// Use local Ollama LLM instead of cloud model
+    #[arg(long, global = true)]
+    local: bool,
 }
 
 #[derive(Subcommand)]
@@ -43,6 +47,13 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // Apply --local override: switch to Ollama backend
+    if cli.local {
+        // SAFETY: set_var before any threads are spawned (single-threaded at this point)
+        unsafe { std::env::set_var("SUPERVOX_LLM_BACKEND", "ollama") };
+        check_ollama_health();
+    }
+
     match cli.command {
         Some(Commands::Calls { json }) => {
             cmd_calls(json)?;
@@ -62,6 +73,20 @@ async fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Check if Ollama is reachable; warn if not.
+fn check_ollama_health() {
+    use std::net::TcpStream;
+    match TcpStream::connect_timeout(
+        &"127.0.0.1:11434".parse().unwrap(),
+        std::time::Duration::from_secs(2),
+    ) {
+        Ok(_) => {}
+        Err(_) => {
+            eprintln!("warning: Ollama not reachable at localhost:11434 — LLM calls may fail");
+        }
+    }
 }
 
 /// List saved calls to stdout (non-TUI).
@@ -114,9 +139,10 @@ async fn cmd_analyze_json(file: &str) -> Result<()> {
     let config = supervox_agent::storage::load_config(&config_path)
         .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;
 
-    let analysis = analysis_pipeline::analyze_transcript(&call.transcript, &config.llm_model)
-        .await
-        .map_err(|e| anyhow::anyhow!("Analysis failed: {e}"))?;
+    let analysis =
+        analysis_pipeline::analyze_transcript(&call.transcript, config.effective_model())
+            .await
+            .map_err(|e| anyhow::anyhow!("Analysis failed: {e}"))?;
     println!("{}", serde_json::to_string_pretty(&analysis)?);
     Ok(())
 }

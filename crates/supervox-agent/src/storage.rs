@@ -176,6 +176,8 @@ mod tests {
             llm_model: "gpt-4o".into(),
             summary_lag_secs: 10,
             capture: "mic".into(),
+            llm_backend: "auto".into(),
+            ollama_model: "llama3.2:3b".into(),
         };
         save_default_config(&path, &cfg).unwrap();
 

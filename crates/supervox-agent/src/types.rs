@@ -71,6 +71,10 @@ pub struct Config {
     pub summary_lag_secs: u32,
     #[serde(default = "default_capture")]
     pub capture: String,
+    #[serde(default = "default_llm_backend")]
+    pub llm_backend: String,
+    #[serde(default = "default_ollama_model")]
+    pub ollama_model: String,
 }
 
 fn default_language() -> String {
@@ -88,6 +92,26 @@ fn default_summary_lag() -> u32 {
 fn default_capture() -> String {
     "mic+system".into()
 }
+fn default_llm_backend() -> String {
+    "auto".into()
+}
+fn default_ollama_model() -> String {
+    "llama3.2:3b".into()
+}
+
+impl Config {
+    /// Returns the effective LLM model based on backend config and env override.
+    pub fn effective_model(&self) -> &str {
+        // --local flag sets this env var
+        let backend =
+            std::env::var("SUPERVOX_LLM_BACKEND").unwrap_or_else(|_| self.llm_backend.clone());
+        if backend == "ollama" {
+            &self.ollama_model
+        } else {
+            &self.llm_model
+        }
+    }
+}
 
 impl Default for Config {
     fn default() -> Self {
@@ -97,6 +121,8 @@ impl Default for Config {
             llm_model: default_llm_model(),
             summary_lag_secs: default_summary_lag(),
             capture: default_capture(),
+            llm_backend: default_llm_backend(),
+            ollama_model: default_ollama_model(),
         }
     }
 }
@@ -189,6 +215,8 @@ mod tests {
         assert_eq!(cfg.llm_model, "gemini-2.5-flash");
         assert_eq!(cfg.summary_lag_secs, 5);
         assert_eq!(cfg.capture, "mic+system");
+        assert_eq!(cfg.llm_backend, "auto");
+        assert_eq!(cfg.ollama_model, "llama3.2:3b");
     }
 
     #[test]

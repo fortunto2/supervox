@@ -31,6 +31,17 @@
       "enum": ["mic", "system", "mic+system"],
       "default": "mic+system",
       "description": "Audio capture mode"
+    },
+    "llm_backend": {
+      "type": "string",
+      "enum": ["auto", "ollama"],
+      "default": "auto",
+      "description": "LLM backend: 'auto' for cloud models, 'ollama' for local"
+    },
+    "ollama_model": {
+      "type": "string",
+      "default": "llama3.2:3b",
+      "description": "Ollama model name when llm_backend is 'ollama'"
     }
   }
 }
