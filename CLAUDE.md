@@ -35,7 +35,7 @@ supervox/
 | Batch STT | voxkit openai (gpt-4o-transcribe) |
 | LLM | sgr-agent genai (Gemini Flash / OpenRouter / Ollama) |
 | Audio | voxkit mic + system_audio (cpal, ScreenCaptureKit) |
-| Storage | JSON in `~/.supervox/` (calls, analyses, sessions, config) |
+| Storage | JSON + WAV in `~/.supervox/` (calls, analyses, audio, config) |
 
 ## Dependencies (workspace)
 
@@ -79,6 +79,7 @@ supervox tags                        # list all unique tags with counts
 supervox tags --json                 # output tag list as JSON
 supervox analyze-all                 # batch-analyze all unanalyzed calls
 supervox analyze-all --dry-run       # list unanalyzed calls without processing
+supervox play <call-id>              # play audio recording in system player
 
 # Filtering (calls, search, stats, insights)
 supervox calls --tag meeting         # filter by tag (repeatable, OR logic)
@@ -113,7 +114,8 @@ system audio → SystemAudioCapture::start_raw() → resample_to_24k() → separ
                                                                      ↓
                                                ┌─ translate (async per final) → left panel
                                                └─ rolling_summary (timer) → right panel
-on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
+mic chunks → hound::WavWriter (incremental, 16-bit PCM mono) → {date}-{id}.wav
+on stop → finalize WAV → save call (with audio_path) → auto-switch to Analysis mode → trigger LLM analysis
 ```
 
 ### Analysis Mode
@@ -126,7 +128,9 @@ on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 - 'c' key: copy analysis to clipboard
 - 'C' key: copy follow-up to clipboard
 - 'e' key: export call + analysis as markdown to clipboard
+- 'p' key: play audio recording via system player (if available)
 - 'h' key: open call history browser
+- Shows "Audio: ♫ (press 'p' to play)" or "Audio: none" in header
 - Loading state shown during LLM call
 
 ### Agent Mode
@@ -147,7 +151,9 @@ on stop → save call → auto-switch to Analysis mode → trigger LLM analysis
 - `TranscriptLine { source, text, is_translation }` — unified line type for Live mode
 - `AudioEvent::Transcript{source, text, is_final}` — delta (dimmed) + final (normal)
 - `AudioEvent::Translation{source_id, text}` — shown italic below original
+- `AudioEvent::Stopped{transcript, duration_secs, audio_path}` — recording ended with optional WAV path
 - `AudioEvent::Summary(String)` — replaces right panel content
+- `Call.audio_path: Option<String>` — path to WAV recording (None for calls without audio)
 - `CallInsights { recurring_themes, mood_summary, open_action_items, key_patterns, total_calls, period }` — cross-call analysis
 - `CallStats { total_calls, total_duration_secs, analyzed_count, unanalyzed_count, top_themes, calls_this_week, calls_this_month }` — aggregate statistics
 - `ThemeCount { theme, count }` — frequency of a recurring theme
