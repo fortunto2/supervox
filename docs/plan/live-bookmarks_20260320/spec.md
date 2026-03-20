@@ -13,15 +13,15 @@ This feature adds bookmarks: press 'b' during a live call to drop a timestamped 
 
 ## Acceptance Criteria
 
-- [ ] Pressing 'b' during live recording creates a bookmark at current elapsed time
-- [ ] Bookmark count shown in live mode status bar (e.g. "2 bookmarks")
-- [ ] Bookmarks persisted in Call JSON (`bookmarks` field, backward-compatible)
-- [ ] Old calls without bookmarks deserialize correctly (empty vec default)
-- [ ] Analysis mode shows bookmarks section with timestamps
-- [ ] Markdown export includes bookmarks section
+- [x] Pressing 'b' during live recording creates a bookmark at current elapsed time
+- [x] Bookmark count shown in live mode status bar (e.g. "2 bookmarks")
+- [x] Bookmarks persisted in Call JSON (`bookmarks` field, backward-compatible)
+- [x] Old calls without bookmarks deserialize correctly (empty vec default)
+- [x] Analysis mode shows bookmarks section with timestamps
+- [x] Markdown export includes bookmarks section
 - [ ] `supervox calls` shows bookmark count per call (if any)
-- [ ] Help overlay updated with 'b' key in live mode
-- [ ] JSON schema updated for bookmarks field
+- [x] Help overlay updated with 'b' key in live mode
+- [x] JSON schema updated for bookmarks field
 
 ## Dependencies
 
