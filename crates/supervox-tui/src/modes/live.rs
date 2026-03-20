@@ -296,9 +296,9 @@ fn source_color(source: &AudioSource) -> Color {
 }
 
 fn audio_level_bar(level: f32, width: usize) -> String {
-    // Amplify: speech RMS is typically 0.01-0.1, scale up for visible bars
-    let amplified = (level * 10.0).min(1.0);
-    let bars = (amplified * width as f32) as usize;
+    // RMS 0.0-0.15 is typical speech range (same scale as souffleur)
+    let normalized = (level.min(0.15) / 0.15).min(1.0);
+    let bars = (normalized * width as f32) as usize;
     format!("[{}{}]", "█".repeat(bars), "░".repeat(width - bars))
 }
 
@@ -415,12 +415,12 @@ mod tests {
 
     #[test]
     fn audio_level_bar_full() {
-        assert_eq!(audio_level_bar(0.1, 6), "[██████]"); // 0.1 * 10 = 1.0 → full
+        assert_eq!(audio_level_bar(0.15, 6), "[██████]"); // 0.15 = max speech → full
     }
 
     #[test]
     fn audio_level_bar_half() {
-        assert_eq!(audio_level_bar(0.05, 6), "[███░░░]"); // 0.05 * 10 = 0.5 → half
+        assert_eq!(audio_level_bar(0.075, 6), "[███░░░]"); // half of 0.15 range
     }
 
     #[test]
