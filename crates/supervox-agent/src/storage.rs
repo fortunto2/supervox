@@ -4,11 +4,16 @@ use crate::types::{
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+/// Base data directory: ~/.supervox/
+pub fn data_dir() -> PathBuf {
+    directories::BaseDirs::new()
+        .map(|d| d.home_dir().join(".supervox"))
+        .unwrap_or_else(|| PathBuf::from(".supervox"))
+}
+
 /// Default calls directory: ~/.supervox/calls/
 pub fn default_calls_dir() -> PathBuf {
-    directories::BaseDirs::new()
-        .map(|d| d.home_dir().join(".supervox").join("calls"))
-        .unwrap_or_else(|| PathBuf::from(".supervox/calls"))
+    data_dir().join("calls")
 }
 
 /// Save a call to JSON file. Filename: <date>-<id>.json

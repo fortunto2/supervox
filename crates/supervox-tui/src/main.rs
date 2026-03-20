@@ -176,10 +176,13 @@ enum ActionCommands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Apply --local override: switch to Ollama backend
+    // Apply --local override: switch to Ollama + Whisper backends
     if cli.local {
         // SAFETY: set_var before any threads are spawned (single-threaded at this point)
-        unsafe { std::env::set_var("SUPERVOX_LLM_BACKEND", "ollama") };
+        unsafe {
+            std::env::set_var("SUPERVOX_LLM_BACKEND", "ollama");
+            std::env::set_var("SUPERVOX_STT_BACKEND", "whisper");
+        };
         check_ollama_health();
     }
 
@@ -226,6 +229,20 @@ async fn main() -> Result<()> {
             None => cmd_actions(all, json, &filter)?,
         },
         Some(Commands::Live) | None => {
+            // Auto-download Whisper model if whisper backend is selected
+            #[cfg(feature = "whisper")]
+            {
+                let config = supervox_agent::storage::load_config(
+                    &supervox_agent::storage::default_config_path(),
+                )
+                .unwrap_or_default();
+                if crate::audio::effective_stt_backend(&config) == "whisper" {
+                    eprintln!("Checking Whisper model...");
+                    crate::audio::ensure_whisper_model(&config)
+                        .await
+                        .map_err(|e| anyhow::anyhow!(e))?;
+                }
+            }
             app::run(app::Mode::Live).await?;
         }
         Some(Commands::Analyze { file, json }) => {

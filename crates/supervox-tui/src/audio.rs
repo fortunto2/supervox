@@ -143,17 +143,46 @@ impl AudioPipeline {
     }
 }
 
+/// Effective STT backend name (env override or config value).
+pub fn effective_stt_backend(config: &Config) -> String {
+    std::env::var("SUPERVOX_STT_BACKEND").unwrap_or_else(|_| config.stt_backend.clone())
+}
+
 /// Create an STT backend based on config.
 pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend>, String> {
-    match config.stt_backend.as_str() {
+    match effective_stt_backend(config).as_str() {
         "realtime" => {
             let api_key = std::env::var("OPENAI_API_KEY")
                 .map_err(|_| "OPENAI_API_KEY not set — required for realtime STT".to_string())?;
             let stt_config = StreamingSttConfig::new(&api_key);
             Ok(Box::new(OpenAiStreamingStt::new(stt_config)))
         }
+        #[cfg(feature = "whisper")]
+        "whisper" => {
+            let models_dir = supervox_agent::storage::data_dir().join("models");
+            let model_path = models_dir.join(format!("ggml-{}.bin", config.whisper_model));
+            if !model_path.exists() {
+                return Err(format!(
+                    "Whisper model not found: {}. Run `supervox` once with internet to auto-download.",
+                    model_path.display()
+                ));
+            }
+            Ok(Box::new(voxkit::whisper_stt::WhisperStt::new(
+                model_path,
+                &config.my_language,
+            )))
+        }
         other => Err(format!("Unknown stt_backend: {other}")),
     }
+}
+
+/// Ensure whisper model is downloaded (called at startup if whisper backend selected).
+#[cfg(feature = "whisper")]
+pub async fn ensure_whisper_model(config: &Config) -> Result<std::path::PathBuf, String> {
+    let models_dir = supervox_agent::storage::data_dir().join("models");
+    voxkit::whisper_stt::ensure_model(&config.whisper_model, &models_dir)
+        .await
+        .map_err(|e| format!("Model download failed: {e}"))
 }
 
 /// Receive from an optional channel, or pend forever if None.

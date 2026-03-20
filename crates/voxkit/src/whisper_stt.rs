@@ -55,11 +55,11 @@ impl WhisperStt {
 
         let mut text = String::new();
         for i in 0..n_segments {
-            if let Some(segment) = state.get_segment(i) {
-                if let Ok(segment_text) = segment.to_str() {
-                    text.push_str(segment_text.trim());
-                    text.push(' ');
-                }
+            if let Some(segment) = state.get_segment(i)
+                && let Ok(segment_text) = segment.to_str()
+            {
+                text.push_str(segment_text.trim());
+                text.push(' ');
             }
         }
         let trimmed = text.trim().to_string();
@@ -189,12 +189,11 @@ impl StreamingSttBackend for WhisperStt {
                             // >100ms
                             item_counter += 1;
                             let item_id = format!("whisper_{item_counter}");
-                            match WhisperStt::transcribe_segment(&ctx, &audio_buffer, &language) {
-                                Ok(text) => {
-                                    let _ = transcript_tx
-                                        .blocking_send(TranscriptEvent::Final { item_id, text });
-                                }
-                                Err(_) => {}
+                            if let Ok(text) =
+                                WhisperStt::transcribe_segment(&ctx, &audio_buffer, &language)
+                            {
+                                let _ = transcript_tx
+                                    .blocking_send(TranscriptEvent::Final { item_id, text });
                             }
                         }
                         break;

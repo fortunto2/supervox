@@ -73,12 +73,20 @@ impl App {
 
         let (audio_event_tx, audio_event_rx) = mpsc::unbounded_channel();
         let (app_event_tx, app_event_rx) = mpsc::unbounded_channel();
+        let mut live_state = modes::live::LiveState::default();
+        let effective_stt = crate::audio::effective_stt_backend(&config);
+        if effective_stt == "whisper" {
+            live_state.stt_backend = format!("whisper ({})", config.whisper_model);
+        } else {
+            live_state.stt_backend = effective_stt;
+        }
+
         let mut app = Self {
             mode,
             running: true,
             status,
             config,
-            live_state: modes::live::LiveState::default(),
+            live_state,
             analysis_state: modes::analysis::AnalysisState::new(&analysis_file),
             agent_state: modes::agent::AgentState::default(),
             history_state: None,
