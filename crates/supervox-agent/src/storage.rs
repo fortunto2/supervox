@@ -492,16 +492,20 @@ pub fn default_config_path() -> PathBuf {
 }
 
 /// Load config from a TOML file. If missing, create default and return it.
+/// Validates loaded config and logs warnings for out-of-range values.
 pub fn load_config(path: &Path) -> Result<Config, Box<dyn std::error::Error>> {
-    if path.exists() {
+    let cfg = if path.exists() {
         let content = std::fs::read_to_string(path)?;
-        let cfg: Config = toml::from_str(&content)?;
-        Ok(cfg)
+        toml::from_str(&content)?
     } else {
         let cfg = Config::default();
         save_default_config(path, &cfg)?;
-        Ok(cfg)
+        cfg
+    };
+    for warning in cfg.validate() {
+        tracing::warn!("Config: {warning}");
     }
+    Ok(cfg)
 }
 
 /// Write config to a TOML file, creating parent directories if needed.

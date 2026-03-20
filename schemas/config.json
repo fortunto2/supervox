@@ -11,7 +11,7 @@
     },
     "stt_backend": {
       "type": "string",
-      "enum": ["realtime", "openai"],
+      "enum": ["realtime", "whisper"],
       "default": "realtime",
       "description": "Speech-to-text backend"
     },
@@ -28,7 +28,7 @@
     },
     "capture": {
       "type": "string",
-      "enum": ["mic", "system", "mic+system"],
+      "enum": ["mic", "mic+system"],
       "default": "mic+system",
       "description": "Audio capture mode"
     },
@@ -42,6 +42,19 @@
       "type": "string",
       "default": "llama3.2:3b",
       "description": "Ollama model name when llm_backend is 'ollama'"
+    },
+    "whisper_model": {
+      "type": "string",
+      "enum": ["tiny", "base", "small", "medium"],
+      "default": "base",
+      "description": "Whisper model size for local STT"
+    },
+    "ducking_threshold": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "default": 0.05,
+      "description": "System audio level above which mic STT is suppressed (0.0-1.0)"
     }
   }
 }

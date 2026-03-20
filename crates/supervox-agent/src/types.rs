@@ -245,6 +245,29 @@ impl Config {
             &self.llm_model
         }
     }
+
+    /// Validate config values, returning a list of warnings.
+    /// Lenient: returns warnings but never rejects the config.
+    pub fn validate(&self) -> Vec<String> {
+        let mut warnings = Vec::new();
+        if !(0.0..=1.0).contains(&self.ducking_threshold) {
+            warnings.push(format!(
+                "ducking_threshold {} is out of range 0.0–1.0, using as-is",
+                self.ducking_threshold
+            ));
+        }
+        if self.summary_lag_secs == 0 {
+            warnings.push("summary_lag_secs is 0, summaries will fire on every chunk".into());
+        }
+        const KNOWN_WHISPER_MODELS: &[&str] = &["tiny", "base", "small", "medium"];
+        if !KNOWN_WHISPER_MODELS.contains(&self.whisper_model.as_str()) {
+            warnings.push(format!(
+                "whisper_model \"{}\" is not a known model (tiny/base/small/medium)",
+                self.whisper_model
+            ));
+        }
+        warnings
+    }
 }
 
 impl Default for Config {
@@ -675,5 +698,64 @@ llm_backend = "ollama"
     fn stt_backend_display() {
         assert_eq!(SttBackend::Realtime.to_string(), "realtime");
         assert_eq!(SttBackend::Whisper.to_string(), "whisper");
+    }
+
+    #[test]
+    fn validate_valid_config_no_warnings() {
+        let cfg = Config::default();
+        assert!(cfg.validate().is_empty());
+    }
+
+    #[test]
+    fn validate_ducking_threshold_out_of_range() {
+        let cfg = Config {
+            ducking_threshold: 1.5,
+            ..Config::default()
+        };
+        let warnings = cfg.validate();
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("ducking_threshold"));
+    }
+
+    #[test]
+    fn validate_ducking_threshold_negative() {
+        let cfg = Config {
+            ducking_threshold: -0.1,
+            ..Config::default()
+        };
+        assert!(!cfg.validate().is_empty());
+    }
+
+    #[test]
+    fn validate_summary_lag_zero() {
+        let cfg = Config {
+            summary_lag_secs: 0,
+            ..Config::default()
+        };
+        let warnings = cfg.validate();
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("summary_lag_secs"));
+    }
+
+    #[test]
+    fn validate_unknown_whisper_model() {
+        let cfg = Config {
+            whisper_model: "xlarge".into(),
+            ..Config::default()
+        };
+        let warnings = cfg.validate();
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("whisper_model"));
+    }
+
+    #[test]
+    fn validate_known_whisper_models_ok() {
+        for model in &["tiny", "base", "small", "medium"] {
+            let cfg = Config {
+                whisper_model: model.to_string(),
+                ..Config::default()
+            };
+            assert!(cfg.validate().is_empty(), "model {model} should be valid");
+        }
     }
 }
