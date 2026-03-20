@@ -455,6 +455,39 @@ pub fn open_history(app: &mut App) {
 }
 
 fn handle_history_key(app: &mut App, key: crossterm::event::KeyEvent) {
+    // Handle delete confirmation state first
+    if let Some(hs) = &mut app.history_state
+        && hs.confirm_delete
+    {
+        match key.code {
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                let call_id = hs.selected().map(|c| c.id.clone());
+                if let Some(id) = call_id {
+                    let calls_dir = supervox_agent::storage::default_calls_dir();
+                    match supervox_agent::storage::delete_call(&calls_dir, &id) {
+                        Ok(()) => {
+                            hs.calls.remove(hs.cursor);
+                            if hs.cursor > 0 && hs.cursor >= hs.calls.len() {
+                                hs.cursor = hs.calls.len().saturating_sub(1);
+                            }
+                            app.status = format!("Deleted call {id}");
+                        }
+                        Err(e) => {
+                            app.status = format!("Delete failed: {e}");
+                        }
+                    }
+                }
+                hs.confirm_delete = false;
+            }
+            _ => {
+                // Any other key cancels
+                hs.confirm_delete = false;
+                app.status = "Delete cancelled".into();
+            }
+        }
+        return;
+    }
+
     match key.code {
         KeyCode::Up | KeyCode::Char('k') => {
             if let Some(hs) = &mut app.history_state {
@@ -464,6 +497,14 @@ fn handle_history_key(app: &mut App, key: crossterm::event::KeyEvent) {
         KeyCode::Down | KeyCode::Char('j') => {
             if let Some(hs) = &mut app.history_state {
                 hs.move_down();
+            }
+        }
+        KeyCode::Char('d') => {
+            if let Some(hs) = &mut app.history_state
+                && !hs.calls.is_empty()
+            {
+                hs.confirm_delete = true;
+                app.status = "Delete this call? Press 'y' to confirm".into();
             }
         }
         KeyCode::Enter => {
@@ -488,8 +529,6 @@ fn handle_history_key(app: &mut App, key: crossterm::event::KeyEvent) {
             }
         }
         KeyCode::Char('q') => {
-            // q in history returns to previous mode (same as Esc)
-            // Esc is handled above, so we just quit here
             app.running = false;
         }
         _ => {}

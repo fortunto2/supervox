@@ -279,9 +279,63 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                 app.status = "No follow-up to copy".into();
             }
         }
+        crossterm::event::KeyCode::Char('e') => {
+            // Export call + analysis as markdown to clipboard
+            let md = build_export_markdown(&app.analysis_state);
+            if !md.is_empty() {
+                match crate::clipboard::copy_to_clipboard(&md) {
+                    Ok(()) => app.status = "Analysis exported to clipboard (markdown)".into(),
+                    Err(e) => app.status = format!("Export failed: {e}"),
+                }
+            }
+        }
         crossterm::event::KeyCode::Char('h') => {
             crate::app::open_history(app);
         }
         _ => {}
+    }
+}
+
+/// Build markdown export from current analysis state.
+fn build_export_markdown(state: &AnalysisState) -> String {
+    // Try to load the original call for full context
+    let call = if !state.file_path.is_empty() {
+        std::fs::read_to_string(&state.file_path)
+            .ok()
+            .and_then(|json| serde_json::from_str::<supervox_agent::types::Call>(&json).ok())
+    } else {
+        None
+    };
+
+    // Build a CallAnalysis from current state
+    let analysis = if state.summary.is_some() || !state.action_items.is_empty() {
+        Some(supervox_agent::types::CallAnalysis {
+            summary: state.summary.clone().unwrap_or_default(),
+            action_items: state
+                .action_items
+                .iter()
+                .map(|d| supervox_agent::types::ActionItem {
+                    description: d.clone(),
+                    assignee: None,
+                    deadline: None,
+                })
+                .collect(),
+            follow_up_draft: state.follow_up.clone(),
+            decisions: state.decisions.clone(),
+            open_questions: state.open_questions.clone(),
+            mood: state
+                .mood
+                .as_deref()
+                .and_then(|m| serde_json::from_str(&format!("\"{m}\"")).ok())
+                .unwrap_or(supervox_agent::types::Mood::Neutral),
+            themes: state.themes.clone(),
+        })
+    } else {
+        None
+    };
+
+    match call {
+        Some(c) => supervox_agent::storage::export_call_markdown(&c, analysis.as_ref()),
+        None => format_analysis_for_clipboard(state),
     }
 }

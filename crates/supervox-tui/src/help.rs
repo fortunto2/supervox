@@ -18,6 +18,7 @@ const ANALYSIS_KEYS: &[(&str, &str)] = &[
     ("f", "Generate follow-up email"),
     ("c", "Copy analysis to clipboard"),
     ("C", "Copy follow-up to clipboard"),
+    ("e", "Export as markdown to clipboard"),
     ("h", "Call history"),
     ("↑/↓", "Scroll"),
     ("q", "Quit"),
@@ -30,12 +31,22 @@ const AGENT_KEYS: &[(&str, &str)] = &[
     ("?", "Toggle help"),
 ];
 
+const HISTORY_KEYS: &[(&str, &str)] = &[
+    ("↑/↓/j/k", "Navigate"),
+    ("Enter", "Open in Analysis"),
+    ("d", "Delete call"),
+    ("Esc", "Back"),
+    ("q", "Quit"),
+    ("?", "Toggle help"),
+];
+
 /// Returns keybinding definitions for the given mode name.
 pub fn keys_for_mode(mode: &str) -> &'static [(&'static str, &'static str)] {
     match mode {
         "LIVE" => LIVE_KEYS,
         "ANALYSIS" => ANALYSIS_KEYS,
         "AGENT" => AGENT_KEYS,
+        "HISTORY" => HISTORY_KEYS,
         _ => &[],
     }
 }
@@ -127,5 +138,22 @@ mod tests {
     fn analysis_keys_contain_follow_up() {
         let keys = keys_for_mode("ANALYSIS");
         assert!(keys.iter().any(|(k, _)| *k == "f"));
+    }
+
+    #[test]
+    fn analysis_keys_contain_export() {
+        let keys = keys_for_mode("ANALYSIS");
+        assert!(keys.iter().any(|(k, _)| *k == "e"));
+    }
+
+    #[test]
+    fn history_keys_contain_delete() {
+        let keys = keys_for_mode("HISTORY");
+        assert!(keys.iter().any(|(k, _)| *k == "d"));
+    }
+
+    #[test]
+    fn history_keys_not_empty() {
+        assert!(!keys_for_mode("HISTORY").is_empty());
     }
 }

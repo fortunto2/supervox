@@ -10,6 +10,8 @@ pub struct CallHistoryState {
     pub calls: Vec<Call>,
     pub cursor: usize,
     pub scroll_offset: usize,
+    /// When true, waiting for y/n confirmation to delete selected call.
+    pub confirm_delete: bool,
 }
 
 impl CallHistoryState {
@@ -18,6 +20,7 @@ impl CallHistoryState {
             calls,
             cursor: 0,
             scroll_offset: 0,
+            confirm_delete: false,
         }
     }
 
@@ -97,10 +100,12 @@ pub fn render(f: &mut Frame, area: Rect, state: &CallHistoryState) {
     f.render_widget(list, list_area);
 
     // Detail bar
-    let detail_text = if state.calls.is_empty() {
+    let detail_text = if state.confirm_delete {
+        "Delete this call? (y/n)".to_string()
+    } else if state.calls.is_empty() {
         "No calls recorded yet".to_string()
     } else {
-        "↑/↓/j/k = navigate  Enter = open  Esc = back".to_string()
+        "↑/↓/j/k = navigate  Enter = open  d = delete  Esc = back".to_string()
     };
     let detail = Paragraph::new(Line::from(detail_text))
         .style(Style::default().fg(Color::DarkGray))
@@ -188,5 +193,34 @@ mod tests {
         assert_eq!(format_duration(0.0), "0:00");
         assert_eq!(format_duration(65.0), "1:05");
         assert_eq!(format_duration(3600.0), "60:00");
+    }
+
+    #[test]
+    fn confirm_delete_initial_state() {
+        let state = CallHistoryState::new(vec![make_call("1", "Hello")]);
+        assert!(!state.confirm_delete);
+    }
+
+    #[test]
+    fn confirm_delete_toggle() {
+        let mut state = CallHistoryState::new(vec![make_call("1", "Hello")]);
+        state.confirm_delete = true;
+        assert!(state.confirm_delete);
+        state.confirm_delete = false;
+        assert!(!state.confirm_delete);
+    }
+
+    #[test]
+    fn confirm_delete_preserves_cursor() {
+        let calls = vec![
+            make_call("1", "A"),
+            make_call("2", "B"),
+            make_call("3", "C"),
+        ];
+        let mut state = CallHistoryState::new(calls);
+        state.move_down(); // cursor at 1
+        state.confirm_delete = true;
+        assert_eq!(state.cursor, 1);
+        assert_eq!(state.selected().unwrap().id, "2");
     }
 }
