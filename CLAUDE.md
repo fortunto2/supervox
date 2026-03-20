@@ -101,6 +101,7 @@ supervox --local live                # use Ollama instead of cloud LLM
 
 | Tool | Mode | What |
 |------|------|------|
+| `bookmark` | Live | Drop a timestamped marker at current position |
 | `translate` | Live | Translate text chunk (any pair, configurable) |
 | `rolling_summary` | Live | Condensed meaning every ~5s (not word-for-word) |
 | `analyze_call` | Analysis | Full summary + action items + mood + themes |
@@ -121,8 +122,12 @@ system audio → SystemAudioCapture::start_raw() → resample_to_24k() → separ
                                                ┌─ translate (async per final) → left panel
                                                └─ rolling_summary (timer) → right panel
 mic chunks → hound::WavWriter (incremental, 16-bit PCM mono) → {date}-{id}.wav
-on stop → finalize WAV → save call (with audio_path) → auto-switch to Analysis mode → trigger LLM analysis
+on stop → finalize WAV → save call (with audio_path + bookmarks) → auto-switch to Analysis mode → trigger LLM analysis
+'b' key during recording → add Bookmark{timestamp_secs, note: None} to LiveState → visual marker in transcript → saved with Call
 ```
+
+- 'b' key: add bookmark at current timestamp (shown in status bar + transcript)
+- Bookmarks saved with Call, shown in Analysis mode and markdown export
 
 ### Analysis Mode
 - Auto-triggers `analyze_call` (structured LLM output → CallAnalysis)
@@ -157,6 +162,7 @@ on stop → finalize WAV → save call (with audio_path) → auto-switch to Anal
 - `TranscriptLine { source, text, is_translation }` — unified line type for Live mode
 - `AudioEvent::Transcript{source, text, is_final}` — delta (dimmed) + final (normal)
 - `AudioEvent::Translation{source_id, text}` — shown italic below original
+- `Bookmark { timestamp_secs: f64, note: Option<String> }` — timestamped marker placed during live recording
 - `AudioEvent::Stopped{transcript, duration_secs, audio_path}` — recording ended with optional WAV path
 - `AudioEvent::Summary(String)` — replaces right panel content
 - `Call.audio_path: Option<String>` — path to WAV recording (None for calls without audio)
