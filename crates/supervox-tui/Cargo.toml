@@ -13,7 +13,8 @@ path = "src/main.rs"
 supervox-agent = { path = "../supervox-agent" }
 sgr-agent = { path = "../../../../shared/rust-code/crates/sgr-agent", features = ["agent", "session", "genai"] }
 sgr-agent-tui = { path = "../../../../shared/rust-code/crates/sgr-agent-tui" }
-voxkit = { path = "../voxkit", features = ["openai", "mic", "wav"] }
+voxkit = { path = "../voxkit", features = ["openai", "mic", "wav", "realtime", "macos-system-audio"] }
+toml = "0.8"
 ratatui = "0.29.0"
 crossterm = "0.27"
 tokio = { version = "1", features = ["full"] }
