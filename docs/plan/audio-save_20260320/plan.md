@@ -33,15 +33,15 @@ Wire audio into CLI commands: play, calls list indicator, delete cleanup.
 
 ### Tasks
 
-- [ ] Task 2.1: Add `Play` subcommand to `crates/supervox-tui/src/main.rs` — `supervox play <call-id>`. Finds call, checks `has_audio()`, opens WAV with `open` (macOS) via `std::process::Command`. Error if no audio.
-- [ ] Task 2.2: Update `cmd_calls()` to show audio indicator — `♫` if WAV exists, blank if not. Add column to the header.
-- [ ] Task 2.3: Update `export_call_markdown()` in `crates/supervox-agent/src/storage.rs` to include `**Audio:** {filename}` line when `call.audio_path` is set.
+- [x] Task 2.1: Add `Play` subcommand to `crates/supervox-tui/src/main.rs` — `supervox play <call-id>`. Finds call, checks `has_audio()`, opens WAV with `open` (macOS) via `std::process::Command`. Error if no audio. <!-- sha:5911451 -->
+- [x] Task 2.2: Update `cmd_calls()` to show audio indicator — `♫` if WAV exists, blank if not. Add column to the header. <!-- sha:6584ac9 -->
+- [x] Task 2.3: Update `export_call_markdown()` in `crates/supervox-agent/src/storage.rs` to include `**Audio:** {filename}` line when `call.audio_path` is set. <!-- sha:fc4cc40 -->
 
 ### Verification
 
-- [ ] `supervox play <call-id>` opens audio in system player
-- [ ] `supervox calls` shows ♫ indicator for calls with audio
-- [ ] `supervox delete <call-id>` removes both JSON and WAV files
+- [x] `supervox play <call-id>` opens audio in system player
+- [x] `supervox calls` shows ♫ indicator for calls with audio
+- [x] `supervox delete <call-id>` removes both JSON and WAV files
 
 ## Phase 3: TUI + Docs
 
