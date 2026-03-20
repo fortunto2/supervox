@@ -9,6 +9,7 @@ use tokio::sync::mpsc;
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 use crate::stt::{StreamingSttBackend, SttError, SttInput, SttStreamError, TranscriptEvent};
+use crate::types::{AudioChunk, Transcript};
 
 /// Local Whisper STT backend.
 pub struct WhisperStt {
@@ -66,6 +67,74 @@ impl WhisperStt {
             return Err(SttError::Empty);
         }
         Ok(trimmed)
+    }
+
+    /// Batch-transcribe a full AudioChunk (not streaming).
+    ///
+    /// Resamples to 16kHz internally if needed. Returns Transcript with text + duration.
+    pub fn transcribe_chunk(
+        ctx: &WhisperContext,
+        audio: &AudioChunk,
+        language: &str,
+    ) -> Result<Transcript, SttError> {
+        let samples = if audio.sample_rate != 16000 {
+            resample_to_16k(&audio.samples, audio.sample_rate)
+        } else {
+            audio.samples.clone()
+        };
+
+        let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+        params.set_language(Some(language));
+        params.set_print_special(false);
+        params.set_print_progress(false);
+        params.set_print_realtime(false);
+        params.set_print_timestamps(true);
+        params.set_suppress_blank(true);
+
+        let mut state = ctx
+            .create_state()
+            .map_err(|e| SttError::Other(format!("Whisper state: {e}")))?;
+
+        state
+            .full(params, &samples)
+            .map_err(|e| SttError::Other(format!("Whisper transcribe: {e}")))?;
+
+        let n_segments = state.full_n_segments();
+
+        let mut full_text = String::new();
+        let mut segments = Vec::new();
+
+        for i in 0..n_segments {
+            if let Some(segment) = state.get_segment(i)
+                && let Ok(segment_text) = segment.to_str()
+            {
+                let text = segment_text.trim().to_string();
+                if !text.is_empty() {
+                    full_text.push_str(&text);
+                    full_text.push(' ');
+                    segments.push(crate::types::Segment {
+                        start: segment.start_timestamp() as f64 / 100.0,
+                        end: segment.end_timestamp() as f64 / 100.0,
+                        text,
+                        speaker: None,
+                    });
+                }
+            }
+        }
+
+        let trimmed = full_text.trim().to_string();
+        if trimmed.is_empty() {
+            return Err(SttError::Empty);
+        }
+
+        let duration_secs = audio.duration_ms as f64 / 1000.0;
+
+        Ok(Transcript {
+            text: trimmed,
+            segments,
+            language: Some(language.to_string()),
+            duration_secs,
+        })
     }
 }
 

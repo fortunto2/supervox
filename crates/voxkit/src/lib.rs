@@ -45,6 +45,8 @@ pub mod system_audio;
 pub mod mic_mode;
 
 // Re-exports
+#[cfg(feature = "wav")]
+pub use types::read_wav_file;
 pub use types::{AudioChunk, Segment, Speaker, Transcript};
 
 pub use stt::{StreamingSttBackend, SttBackend, SttError, SttInput, SttStreamError};

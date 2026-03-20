@@ -52,6 +52,86 @@ impl OpenAiStt {
     }
 }
 
+impl OpenAiStt {
+    /// Transcribe a file from raw bytes (batch upload).
+    ///
+    /// Sends the file directly to OpenAI's transcriptions API as multipart upload.
+    /// Supports all formats the API accepts: WAV, MP3, M4A, FLAC, OGG, WebM.
+    pub async fn transcribe_file_bytes(
+        &self,
+        bytes: &[u8],
+        filename: &str,
+        mime: &str,
+    ) -> Result<Transcript, SttError> {
+        let url = format!("{}/audio/transcriptions", self.base_url);
+        let mut form = reqwest::multipart::Form::new()
+            .text("model", self.model.clone())
+            .text("language", self.language.clone())
+            .text("response_format", "verbose_json")
+            .part(
+                "file",
+                reqwest::multipart::Part::bytes(bytes.to_vec())
+                    .file_name(filename.to_string())
+                    .mime_str(mime)
+                    .map_err(|e| SttError::Encoding(e.to_string()))?,
+            );
+
+        if let Some(p) = &self.prompt {
+            form = form.text("prompt", p.clone());
+        }
+
+        let resp = self
+            .client
+            .post(&url)
+            .bearer_auth(&self.api_key)
+            .multipart(form)
+            .send()
+            .await
+            .map_err(|e| SttError::Request(e.to_string()))?;
+
+        let status = resp.status().as_u16();
+        if status != 200 {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(SttError::Api { status, body });
+        }
+
+        let body: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| SttError::Request(e.to_string()))?;
+
+        let text = body["text"].as_str().unwrap_or("").to_string();
+        if text.is_empty() {
+            return Err(SttError::Empty);
+        }
+
+        let duration = body["duration"].as_f64().unwrap_or(0.0);
+
+        let segments = body["segments"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .map(|s| crate::types::Segment {
+                        start: s["start"].as_f64().unwrap_or(0.0),
+                        end: s["end"].as_f64().unwrap_or(0.0),
+                        text: s["text"].as_str().unwrap_or("").to_string(),
+                        speaker: None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let language = body["language"].as_str().map(String::from);
+
+        Ok(Transcript {
+            text,
+            segments,
+            language,
+            duration_secs: duration,
+        })
+    }
+}
+
 #[async_trait::async_trait]
 impl SttBackend for OpenAiStt {
     async fn transcribe(&self, audio: &AudioChunk) -> Result<Transcript, SttError> {
@@ -145,6 +225,25 @@ impl SttBackend for OpenAiStt {
 
     fn name(&self) -> &str {
         "openai"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn openai_stt_builder() {
+        let stt = OpenAiStt::new("test-key")
+            .with_language("ru")
+            .with_model("whisper-1")
+            .with_base_url("http://localhost:8080/v1")
+            .with_prompt("SuperVox meeting");
+
+        assert_eq!(stt.language, "ru");
+        assert_eq!(stt.model, "whisper-1");
+        assert_eq!(stt.base_url, "http://localhost:8080/v1");
+        assert_eq!(stt.prompt, Some("SuperVox meeting".to_string()));
     }
 }
 

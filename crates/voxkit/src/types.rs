@@ -149,6 +149,52 @@ impl Transcript {
     }
 }
 
+/// Read a WAV file into an AudioChunk.
+///
+/// Handles mono and stereo (averages channels). Normalizes i16/i32 to f32 -1.0..1.0.
+#[cfg(feature = "wav")]
+pub fn read_wav_file(path: &std::path::Path) -> Result<AudioChunk, crate::stt::SttError> {
+    use crate::stt::SttError;
+
+    let reader = hound::WavReader::open(path)
+        .map_err(|e| SttError::Other(format!("Read WAV {}: {e}", path.display())))?;
+
+    let spec = reader.spec();
+    let channels = spec.channels as usize;
+    let sample_rate = spec.sample_rate;
+
+    let samples_f32: Vec<f32> = match spec.sample_format {
+        hound::SampleFormat::Int => {
+            let bit_depth = spec.bits_per_sample;
+            let max_val = (1u32 << (bit_depth - 1)) as f32;
+            reader
+                .into_samples::<i32>()
+                .map(|s| s.unwrap_or(0) as f32 / max_val)
+                .collect()
+        }
+        hound::SampleFormat::Float => reader
+            .into_samples::<f32>()
+            .map(|s| s.unwrap_or(0.0))
+            .collect(),
+    };
+
+    // Convert to mono if stereo (average channels)
+    let mono = if channels > 1 {
+        samples_f32
+            .chunks(channels)
+            .map(|frame| frame.iter().sum::<f32>() / channels as f32)
+            .collect()
+    } else {
+        samples_f32
+    };
+
+    if mono.is_empty() {
+        return Err(SttError::Empty);
+    }
+
+    Ok(AudioChunk::new(mono, sample_rate))
+}
+
 /// Resample f32 audio from `src_rate` to `dst_rate` Hz (linear interpolation).
 pub fn resample(samples: &[f32], src_rate: u32, dst_rate: u32) -> Vec<f32> {
     if src_rate == dst_rate || samples.is_empty() {
@@ -301,6 +347,60 @@ mod tests {
     #[test]
     fn resample_empty() {
         assert!(resample(&[], 16000, 24000).is_empty());
+    }
+
+    #[cfg(feature = "wav")]
+    #[test]
+    fn read_wav_file_mono() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 16000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(tmp.path(), spec).unwrap();
+        for i in 0..16000 {
+            let sample = (i as f32 / 16000.0 * std::f32::consts::TAU).sin();
+            writer.write_sample((sample * 32767.0) as i16).unwrap();
+        }
+        writer.finalize().unwrap();
+
+        let chunk = super::read_wav_file(tmp.path()).unwrap();
+        assert_eq!(chunk.sample_rate, 16000);
+        assert_eq!(chunk.len(), 16000);
+        assert_eq!(chunk.duration_ms, 1000);
+    }
+
+    #[cfg(feature = "wav")]
+    #[test]
+    fn read_wav_file_stereo_to_mono() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let spec = hound::WavSpec {
+            channels: 2,
+            sample_rate: 44100,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(tmp.path(), spec).unwrap();
+        // Write 1 second of stereo silence
+        for _ in 0..44100 {
+            writer.write_sample(0i16).unwrap(); // left
+            writer.write_sample(0i16).unwrap(); // right
+        }
+        writer.finalize().unwrap();
+
+        let chunk = super::read_wav_file(tmp.path()).unwrap();
+        assert_eq!(chunk.sample_rate, 44100);
+        assert_eq!(chunk.len(), 44100); // mono after averaging
+        assert_eq!(chunk.duration_ms, 1000);
+    }
+
+    #[cfg(feature = "wav")]
+    #[test]
+    fn read_wav_file_not_found() {
+        let result = super::read_wav_file(std::path::Path::new("/tmp/nonexistent_voxkit_test.wav"));
+        assert!(result.is_err());
     }
 
     #[test]
