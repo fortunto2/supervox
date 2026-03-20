@@ -40,6 +40,7 @@ pub struct App {
     pub live_state: modes::live::LiveState,
     pub analysis_state: modes::analysis::AnalysisState,
     pub agent_state: modes::agent::AgentState,
+    pub show_help: bool,
     pub audio: AudioPipeline,
     pub audio_event_rx: mpsc::UnboundedReceiver<AudioEvent>,
     pub audio_event_tx: mpsc::UnboundedSender<AudioEvent>,
@@ -75,6 +76,7 @@ impl App {
             live_state: modes::live::LiveState::default(),
             analysis_state: modes::analysis::AnalysisState::new(&analysis_file),
             agent_state: modes::agent::AgentState::default(),
+            show_help: false,
             audio: AudioPipeline::default(),
             audio_event_rx,
             audio_event_tx,
@@ -312,13 +314,18 @@ pub async fn run(mode: Mode) -> Result<()> {
                     }
 
                     let status = Paragraph::new(Line::from(format!(
-                        " [{}] {} | q=quit",
+                        " [{}] {} | ?=help q=quit",
                         app.mode_label(),
                         app.status
                     )))
                     .style(Style::default().fg(Color::White).bg(Color::DarkGray));
                     f.render_widget(status, status_area);
                 }
+            }
+
+            // Help overlay on top of everything
+            if app.show_help {
+                crate::help::render_help(f, area, app.mode_label());
             }
         })?;
 
@@ -340,6 +347,18 @@ pub async fn run(mode: Mode) -> Result<()> {
             if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c') {
                 app.audio.stop();
                 app.running = false;
+                continue;
+            }
+
+            // Any key dismisses help overlay
+            if app.show_help {
+                app.show_help = false;
+                continue;
+            }
+
+            // `?` toggles help overlay
+            if key.code == KeyCode::Char('?') {
+                app.show_help = true;
                 continue;
             }
 

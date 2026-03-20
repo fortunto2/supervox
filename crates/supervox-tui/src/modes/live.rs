@@ -231,7 +231,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
         Span::styled(timer, Style::default().fg(Color::White)),
         Span::raw(" │ "),
         Span::styled(
-            " r=record s=stop q=quit ",
+            " r=record s=stop ?=help q=quit ",
             Style::default().fg(Color::DarkGray),
         ),
     ]);

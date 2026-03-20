@@ -6,6 +6,7 @@ mod analysis_pipeline;
 mod app;
 mod audio;
 mod clipboard;
+mod help;
 mod intelligence;
 mod modes;
 
