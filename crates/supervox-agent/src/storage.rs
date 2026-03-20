@@ -1,4 +1,7 @@
-use crate::types::{Call, CallAnalysis, CallFilter, CallStats, Config, ThemeCount};
+use crate::types::{
+    ActionState, Call, CallAnalysis, CallFilter, CallStats, Config, ThemeCount, TrackedAction,
+};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Default calls directory: ~/.supervox/calls/
@@ -329,6 +332,134 @@ pub fn compute_stats(calls_dir: &Path) -> Result<CallStats, Box<dyn std::error::
         calls_this_week,
         calls_this_month,
     })
+}
+
+/// Default actions store path: ~/.supervox/actions.json
+pub fn default_actions_path() -> PathBuf {
+    directories::BaseDirs::new()
+        .map(|d| d.home_dir().join(".supervox").join("actions.json"))
+        .unwrap_or_else(|| PathBuf::from(".supervox/actions.json"))
+}
+
+/// Load the action completion store from JSON file.
+/// Returns empty HashMap if file doesn't exist.
+pub fn load_action_store(
+    path: &Path,
+) -> Result<HashMap<String, ActionState>, Box<dyn std::error::Error>> {
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+    let json = std::fs::read_to_string(path)?;
+    let store: HashMap<String, ActionState> = serde_json::from_str(&json)?;
+    Ok(store)
+}
+
+/// Save the action completion store to JSON file.
+pub fn save_action_store(
+    path: &Path,
+    store: &HashMap<String, ActionState>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let json = serde_json::to_string_pretty(store)?;
+    std::fs::write(path, json)?;
+    Ok(())
+}
+
+/// Mark an action as completed. Creates the entry if it doesn't exist.
+pub fn set_action_completed(
+    path: &Path,
+    action_id: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut store = load_action_store(path)?;
+    store.insert(
+        action_id.to_string(),
+        ActionState {
+            completed: true,
+            completed_at: Some(chrono::Utc::now()),
+        },
+    );
+    save_action_store(path, &store)
+}
+
+/// Mark an action as incomplete (undo completion). Removes the entry.
+pub fn set_action_incomplete(
+    path: &Path,
+    action_id: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut store = load_action_store(path)?;
+    store.remove(action_id);
+    save_action_store(path, &store)
+}
+
+/// Scan all calls + analyses, generate TrackedAction list enriched with completion state.
+/// Optionally filters by CallFilter and include_completed flag.
+pub fn list_tracked_actions(
+    calls_dir: &Path,
+    actions_path: &Path,
+    filter: &CallFilter,
+    include_completed: bool,
+) -> Result<Vec<TrackedAction>, Box<dyn std::error::Error>> {
+    let all_calls = list_calls(calls_dir)?;
+    let calls = filter_calls(&all_calls, filter);
+    let store = load_action_store(actions_path)?;
+
+    let mut actions = Vec::new();
+    for call in &calls {
+        if let Ok(Some(analysis)) = load_analysis(calls_dir, &call.id) {
+            for item in &analysis.action_items {
+                let aid = crate::types::action_id(&call.id, &item.description);
+                let state = store.get(&aid).cloned().unwrap_or(ActionState {
+                    completed: false,
+                    completed_at: None,
+                });
+                if !include_completed && state.completed {
+                    continue;
+                }
+                actions.push(TrackedAction {
+                    action_id: aid,
+                    call_id: call.id.clone(),
+                    call_date: call.created_at,
+                    description: item.description.clone(),
+                    assignee: item.assignee.clone(),
+                    deadline: item.deadline.clone(),
+                    state,
+                });
+            }
+        }
+    }
+
+    // Sort by call date descending (newest first)
+    actions.sort_by(|a, b| b.call_date.cmp(&a.call_date));
+    Ok(actions)
+}
+
+/// Find a tracked action by ID prefix. Returns (action_id, description) if found.
+pub fn find_action_by_prefix(
+    calls_dir: &Path,
+    actions_path: &Path,
+    prefix: &str,
+) -> Result<Option<TrackedAction>, Box<dyn std::error::Error>> {
+    let actions = list_tracked_actions(
+        calls_dir,
+        actions_path,
+        &CallFilter::default(),
+        true, // search all including completed
+    )?;
+    let matches: Vec<_> = actions
+        .into_iter()
+        .filter(|a| a.action_id.starts_with(prefix))
+        .collect();
+    match matches.len() {
+        0 => Ok(None),
+        1 => Ok(Some(matches.into_iter().next().unwrap())),
+        _ => Err(format!(
+            "Ambiguous prefix \"{prefix}\" — matches {} actions. Use more characters.",
+            matches.len()
+        )
+        .into()),
+    }
 }
 
 /// Default config path: ~/.supervox/config.toml
@@ -1024,5 +1155,171 @@ mod tests {
         let wav_path = audio_path_for_call(tmp.path(), &call);
         std::fs::write(&wav_path, b"RIFF fake wav").unwrap();
         assert!(has_audio(tmp.path(), &call));
+    }
+
+    // --- action store tests ---
+
+    #[test]
+    fn action_store_empty_when_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("actions.json");
+        let store = load_action_store(&path).unwrap();
+        assert!(store.is_empty());
+    }
+
+    #[test]
+    fn action_store_save_and_load_roundtrip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("actions.json");
+
+        let mut store = HashMap::new();
+        store.insert(
+            "abc12345".to_string(),
+            crate::types::ActionState {
+                completed: true,
+                completed_at: Some(chrono::Utc::now()),
+            },
+        );
+        save_action_store(&path, &store).unwrap();
+
+        let loaded = load_action_store(&path).unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert!(loaded["abc12345"].completed);
+    }
+
+    #[test]
+    fn set_action_completed_creates_entry() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("actions.json");
+
+        set_action_completed(&path, "test1234").unwrap();
+
+        let store = load_action_store(&path).unwrap();
+        assert!(store["test1234"].completed);
+        assert!(store["test1234"].completed_at.is_some());
+    }
+
+    #[test]
+    fn set_action_incomplete_removes_entry() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("actions.json");
+
+        set_action_completed(&path, "test1234").unwrap();
+        set_action_incomplete(&path, "test1234").unwrap();
+
+        let store = load_action_store(&path).unwrap();
+        assert!(!store.contains_key("test1234"));
+    }
+
+    #[test]
+    fn list_tracked_actions_returns_actions_from_analyzed_calls() {
+        let tmp = tempfile::tempdir().unwrap();
+        let calls_dir = tmp.path().join("calls");
+        let actions_path = tmp.path().join("actions.json");
+
+        let call = make_call("track1", "Some transcript");
+        save_call(&calls_dir, &call).unwrap();
+
+        let analysis = make_analysis(); // has 1 action item: "Follow up"
+        save_analysis(&calls_dir, "track1", &analysis).unwrap();
+
+        let actions =
+            list_tracked_actions(&calls_dir, &actions_path, &CallFilter::default(), false).unwrap();
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0].description, "Follow up");
+        assert_eq!(actions[0].call_id, "track1");
+        assert!(!actions[0].state.completed);
+    }
+
+    #[test]
+    fn list_tracked_actions_excludes_completed_by_default() {
+        let tmp = tempfile::tempdir().unwrap();
+        let calls_dir = tmp.path().join("calls");
+        let actions_path = tmp.path().join("actions.json");
+
+        let call = make_call("track2", "Transcript");
+        save_call(&calls_dir, &call).unwrap();
+        let analysis = make_analysis();
+        save_analysis(&calls_dir, "track2", &analysis).unwrap();
+
+        // Mark the action as completed
+        let aid = crate::types::action_id("track2", "Follow up");
+        set_action_completed(&actions_path, &aid).unwrap();
+
+        // Without include_completed: should be empty
+        let actions =
+            list_tracked_actions(&calls_dir, &actions_path, &CallFilter::default(), false).unwrap();
+        assert!(actions.is_empty());
+
+        // With include_completed: should show 1
+        let actions =
+            list_tracked_actions(&calls_dir, &actions_path, &CallFilter::default(), true).unwrap();
+        assert_eq!(actions.len(), 1);
+        assert!(actions[0].state.completed);
+    }
+
+    #[test]
+    fn list_tracked_actions_respects_filter() {
+        let tmp = tempfile::tempdir().unwrap();
+        let calls_dir = tmp.path().join("calls");
+        let actions_path = tmp.path().join("actions.json");
+
+        let mut c1 = make_tagged_call("ft1", &["meeting"], "2026-03-10");
+        c1.transcript = "Call 1".into();
+        save_call(&calls_dir, &c1).unwrap();
+
+        let mut c2 = make_tagged_call("ft2", &["budget"], "2026-03-15");
+        c2.transcript = "Call 2".into();
+        save_call(&calls_dir, &c2).unwrap();
+
+        let a1 = make_analysis();
+        save_analysis(&calls_dir, "ft1", &a1).unwrap();
+        let a2 = make_analysis();
+        save_analysis(&calls_dir, "ft2", &a2).unwrap();
+
+        // Filter by tag "meeting" — should only include ft1's actions
+        let filter = CallFilter {
+            tags: vec!["meeting".into()],
+            ..Default::default()
+        };
+        let actions = list_tracked_actions(&calls_dir, &actions_path, &filter, false).unwrap();
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0].call_id, "ft1");
+    }
+
+    #[test]
+    fn find_action_by_prefix_exact() {
+        let tmp = tempfile::tempdir().unwrap();
+        let calls_dir = tmp.path().join("calls");
+        let actions_path = tmp.path().join("actions.json");
+
+        let call = make_call("pfx1", "Transcript");
+        save_call(&calls_dir, &call).unwrap();
+        let analysis = make_analysis();
+        save_analysis(&calls_dir, "pfx1", &analysis).unwrap();
+
+        let actions =
+            list_tracked_actions(&calls_dir, &actions_path, &CallFilter::default(), true).unwrap();
+        let full_id = &actions[0].action_id;
+
+        // Full ID match
+        let found = find_action_by_prefix(&calls_dir, &actions_path, full_id).unwrap();
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().action_id, *full_id);
+
+        // Prefix match (first 4 chars)
+        let found = find_action_by_prefix(&calls_dir, &actions_path, &full_id[..4]).unwrap();
+        assert!(found.is_some());
+    }
+
+    #[test]
+    fn find_action_by_prefix_not_found() {
+        let tmp = tempfile::tempdir().unwrap();
+        let calls_dir = tmp.path().join("calls");
+        let actions_path = tmp.path().join("actions.json");
+        std::fs::create_dir_all(&calls_dir).unwrap();
+
+        let found = find_action_by_prefix(&calls_dir, &actions_path, "zzz").unwrap();
+        assert!(found.is_none());
     }
 }

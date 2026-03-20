@@ -19,6 +19,7 @@ schemars = { version = "0.8", features = ["chrono"] }
 uuid = { version = "1", features = ["v7"] }
 directories = "6"
 toml = "0.8"
+sha2 = "0.10"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

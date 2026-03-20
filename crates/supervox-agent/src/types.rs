@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// A recorded call with transcript and metadata.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -105,6 +106,33 @@ pub struct CallMatch {
     pub call_id: String,
     pub snippet: String,
     pub score: f64,
+}
+
+/// Generate a deterministic action item ID from call_id + description.
+/// Returns first 8 chars of SHA-256 hex digest of "{call_id}:{description}".
+pub fn action_id(call_id: &str, description: &str) -> String {
+    let input = format!("{call_id}:{description}");
+    let hash = Sha256::digest(input.as_bytes());
+    format!("{:x}", hash)[..8].to_string()
+}
+
+/// Completion state of an action item.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ActionState {
+    pub completed: bool,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+/// A tracked action item enriched with ID, call context, and completion state.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct TrackedAction {
+    pub action_id: String,
+    pub call_id: String,
+    pub call_date: DateTime<Utc>,
+    pub description: String,
+    pub assignee: Option<String>,
+    pub deadline: Option<String>,
+    pub state: ActionState,
 }
 
 /// SuperVox configuration.
@@ -255,6 +283,61 @@ mod tests {
         let back: CallMatch = serde_json::from_str(&json).unwrap();
         assert_eq!(back.call_id, "abc");
         assert_eq!(back.score, 0.85);
+    }
+
+    #[test]
+    fn action_id_deterministic() {
+        let id1 = action_id("call-123", "Send proposal");
+        let id2 = action_id("call-123", "Send proposal");
+        assert_eq!(id1, id2);
+        assert_eq!(id1.len(), 8);
+    }
+
+    #[test]
+    fn action_id_different_inputs() {
+        let id1 = action_id("call-123", "Send proposal");
+        let id2 = action_id("call-123", "Review budget");
+        let id3 = action_id("call-456", "Send proposal");
+        assert_ne!(id1, id2);
+        assert_ne!(id1, id3);
+    }
+
+    #[test]
+    fn action_id_is_hex() {
+        let id = action_id("test", "test");
+        assert!(id.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn action_state_serialization() {
+        let state = ActionState {
+            completed: true,
+            completed_at: Some(Utc::now()),
+        };
+        let json = serde_json::to_string(&state).unwrap();
+        let back: ActionState = serde_json::from_str(&json).unwrap();
+        assert!(back.completed);
+        assert!(back.completed_at.is_some());
+    }
+
+    #[test]
+    fn tracked_action_serialization() {
+        let tracked = TrackedAction {
+            action_id: "abcd1234".into(),
+            call_id: "call-1".into(),
+            call_date: Utc::now(),
+            description: "Follow up".into(),
+            assignee: Some("Alice".into()),
+            deadline: Some("2026-03-25".into()),
+            state: ActionState {
+                completed: false,
+                completed_at: None,
+            },
+        };
+        let json = serde_json::to_string(&tracked).unwrap();
+        let back: TrackedAction = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.action_id, "abcd1234");
+        assert!(!back.state.completed);
     }
 
     #[test]
