@@ -28,7 +28,26 @@ body {
     height: 100vh;
 }
 
+/* Config bar */
+.config-bar {
+    display: flex;
+    gap: 16px;
+    padding: 3px 12px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+}
+
+.config-item {
+    color: var(--text-dim);
+}
+
 /* Status bar */
+.vu-label {
+    color: var(--text-dim);
+    font-size: 10px;
+}
+
 .status-bar {
     display: flex;
     align-items: center;
@@ -109,6 +128,14 @@ body {
     margin-bottom: 8px;
     text-transform: uppercase;
     letter-spacing: 1px;
+}
+
+.summary-text {
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text);
 }
 
 /* Transcript lines */

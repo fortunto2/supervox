@@ -5674,6 +5674,7 @@ dependencies = [
  "dioxus",
  "dotenvy",
  "hound",
+ "sgr-agent",
  "supervox-agent",
  "tokio",
  "tracing",

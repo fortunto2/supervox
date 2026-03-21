@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 supervox-agent = { path = "../supervox-agent" }
+sgr-agent = { path = "../../../../shared/rust-code/crates/sgr-agent", features = ["genai"] }
 voxkit = { path = "../voxkit", features = ["openai", "mic", "wav", "realtime", "macos-system-audio"] }
 dioxus = { version = "0.7", features = ["desktop"] }
 tokio = { version = "1", features = ["full"] }

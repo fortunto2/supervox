@@ -9,11 +9,16 @@ use crate::audio::{AudioEvent, AudioPipeline};
 struct AppState {
     is_recording: bool,
     mic_level: f32,
+    system_level: f32,
     lines: Vec<String>,
     current_delta: Option<String>,
     summary: String,
     timer_start: Option<Instant>,
+    // Config display
     stt_backend: String,
+    my_language: String,
+    capture_mode: String,
+    translate: bool,
     error: Option<String>,
 }
 
@@ -29,11 +34,15 @@ impl Default for AppState {
         Self {
             is_recording: false,
             mic_level: 0.0,
+            system_level: 0.0,
             lines: Vec::new(),
             current_delta: None,
             summary: String::new(),
             timer_start: None,
             stt_backend: stt,
+            my_language: config.my_language.clone(),
+            capture_mode: format!("{:?}", config.capture).to_lowercase(),
+            translate: config.translate,
             error: None,
         }
     }
@@ -46,16 +55,15 @@ fn toggle_recording(
 ) {
     let is_rec = state.read().is_recording;
     if is_rec {
-        // Stop
         if let Some(ref mut p) = *pipeline.write() {
             p.stop();
         }
         let mut s = state.write();
         s.is_recording = false;
         s.mic_level = 0.0;
+        s.system_level = 0.0;
         s.timer_start = None;
     } else {
-        // Start
         let config =
             supervox_agent::storage::load_config(&supervox_agent::storage::default_config_path())
                 .unwrap_or_default();
@@ -93,6 +101,7 @@ pub fn App() -> Element {
                     let mut s = state.write();
                     match event {
                         AudioEvent::MicLevel(level) => s.mic_level = level,
+                        AudioEvent::SystemLevel(level) => s.system_level = level,
                         AudioEvent::Transcript { text, is_final } => {
                             if is_final {
                                 s.lines.push(text);
@@ -101,10 +110,12 @@ pub fn App() -> Element {
                                 s.current_delta = Some(text);
                             }
                         }
+                        AudioEvent::Summary(text) => s.summary = text,
                         AudioEvent::Error(e) => s.error = Some(e),
                         AudioEvent::Stopped => {
                             s.is_recording = false;
                             s.mic_level = 0.0;
+                            s.system_level = 0.0;
                             s.timer_start = None;
                         }
                     }
@@ -123,25 +134,19 @@ pub fn App() -> Element {
         })
         .unwrap_or_else(|| "0:00".into());
 
-    let vu_bars: Vec<f32> = (0..8)
-        .map(|i| {
-            let threshold = i as f32 * 0.15 / 8.0;
-            if s.mic_level > threshold {
-                ((s.mic_level - threshold) / (0.15 / 8.0)).min(1.0)
-            } else {
-                0.0
-            }
-        })
-        .collect();
+    let mic_bars = vu_bars(s.mic_level);
+    let sys_bars = vu_bars(s.system_level);
 
     let is_recording = s.is_recording;
     let lines = s.lines.clone();
     let current_delta = s.current_delta.clone();
     let stt_backend = s.stt_backend.clone();
+    let my_language = s.my_language.clone();
+    let capture_mode = s.capture_mode.clone();
+    let translate_label = if s.translate { "on" } else { "off" };
     let error = s.error.clone();
     let summary = s.summary.clone();
 
-    // Drop the read guard before rsx
     drop(s);
 
     rsx! {
@@ -157,7 +162,6 @@ pub fn App() -> Element {
                         toggle_recording(&mut state, &mut pipeline, &mut event_rx);
                     }
                     Key::Character(c) if c == "q" || c == "Q" => {
-                        // Quit - stop recording first
                         if state.read().is_recording {
                             toggle_recording(&mut state, &mut pipeline, &mut event_rx);
                         }
@@ -166,6 +170,15 @@ pub fn App() -> Element {
                     _ => {}
                 }
             },
+
+            // Config bar
+            div { class: "config-bar",
+                span { class: "config-item", "lang: {my_language}" }
+                span { class: "config-item", "capture: {capture_mode}" }
+                span { class: "config-item",
+                    "translate: {translate_label}"
+                }
+            }
 
             // Status bar
             div { class: "status-bar",
@@ -178,12 +191,25 @@ pub fn App() -> Element {
                     span { "IDLE" }
                 }
 
-                span { "mic " }
+                // Mic VU
+                span { class: "vu-label", "mic" }
                 div { class: "vu-meter",
-                    for (i, &level) in vu_bars.iter().enumerate() {
+                    for (i, &level) in mic_bars.iter().enumerate() {
                         div {
-                            key: "{i}",
+                            key: "mic-{i}",
                             class: "vu-bar",
+                            style: "height: {(level * 14.0 + 2.0).min(16.0)}px",
+                        }
+                    }
+                }
+
+                // System VU
+                span { class: "vu-label", "sys" }
+                div { class: "vu-meter",
+                    for (i, &level) in sys_bars.iter().enumerate() {
+                        div {
+                            key: "sys-{i}",
+                            class: "vu-bar system",
                             style: "height: {(level * 14.0 + 2.0).min(16.0)}px",
                         }
                     }
@@ -205,7 +231,6 @@ pub fn App() -> Element {
                 },
                 style: "cursor: pointer;",
 
-                // Transcript panel
                 div { class: "transcript-panel",
                     for (i, line) in lines.iter().enumerate() {
                         div { key: "{i}", class: "line",
@@ -226,13 +251,14 @@ pub fn App() -> Element {
                     }
                 }
 
-                // Summary panel
                 div { class: "summary-panel",
                     h3 { "Rolling Summary" }
                     if summary.is_empty() {
-                        p { style: "color: var(--text-dim);", "Summary will appear during recording..." }
+                        p { style: "color: var(--text-dim);",
+                            "Summary appears after ~{config_summary_lag()}s of speech..."
+                        }
                     } else {
-                        p { "{summary}" }
+                        pre { class: "summary-text", "{summary}" }
                     }
                 }
             }
@@ -245,4 +271,23 @@ pub fn App() -> Element {
             }
         }
     }
+}
+
+fn vu_bars(level: f32) -> Vec<f32> {
+    (0..8)
+        .map(|i| {
+            let threshold = i as f32 * 0.15 / 8.0;
+            if level > threshold {
+                ((level - threshold) / (0.15 / 8.0)).min(1.0)
+            } else {
+                0.0
+            }
+        })
+        .collect()
+}
+
+fn config_summary_lag() -> u32 {
+    supervox_agent::storage::load_config(&supervox_agent::storage::default_config_path())
+        .map(|c| c.summary_lag_secs)
+        .unwrap_or(5)
 }
