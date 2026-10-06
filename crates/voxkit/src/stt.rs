@@ -52,7 +52,12 @@ pub enum TranscriptEvent {
     /// Partial/incremental transcript (updated as user speaks).
     Delta { item_id: String, text: String },
     /// Final transcript for a completed speech turn.
-    Final { item_id: String, text: String },
+    Final {
+        item_id: String,
+        text: String,
+        /// 1-based speaker index when diarization is on (local backends only).
+        speaker: Option<usize>,
+    },
     /// Provider error.
     Error(String),
 }
@@ -150,6 +155,7 @@ mod tests {
             text: "hel".into(),
         };
         let final_ = TranscriptEvent::Final {
+            speaker: None,
             item_id: "x".into(),
             text: "hello".into(),
         };

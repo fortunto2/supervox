@@ -23,6 +23,7 @@ macos-mic-mode = []
 wav = ["dep:hound"]
 whisper = ["silero", "dep:whisper-rs", "dep:reqwest"]
 parakeet = ["dep:parakeet-rs", "dep:directories"]
+speaker = ["dep:ort", "dep:knf-rs", "dep:ndarray"]
 
 [dependencies]
 tokio = { version = "1", features = ["sync", "macros"] }
@@ -38,7 +39,9 @@ base64 = { version = "0.22", optional = true }
 tokio-tungstenite = { version = "0.28", features = ["native-tls"], optional = true }
 futures-util = { version = "0.3", optional = true }
 http = { version = "1", optional = true }
-ort = { version = "2.0.0-rc.12", optional = true }
+ort = { version = "2.0.0-rc.12", optional = true, features = ["ndarray"] }
+knf-rs = { version = "0.3.2", optional = true }
+ndarray = { version = "0.16", optional = true }
 rodio = { version = "0.20", optional = true, default-features = false, features = ["mp3"] }
 cpal = { version = "0.15", optional = true }
 hound = { version = "3.5", optional = true }

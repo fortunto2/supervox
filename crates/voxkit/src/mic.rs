@@ -98,8 +98,23 @@ impl MicCapture {
     ///
     /// Every buffer from the audio device is sent as an `AudioChunk`.
     pub fn start_raw() -> Result<(mpsc::Receiver<AudioChunk>, Self), MicError> {
+        Self::start_raw_on(None)
+    }
+
+    /// Start raw capture on a named input device (`None` = system default).
+    /// Names come from [`list_input_devices`].
+    pub fn start_raw_on(
+        device_name: Option<&str>,
+    ) -> Result<(mpsc::Receiver<AudioChunk>, Self), MicError> {
         let host = cpal::default_host();
-        let device = host.default_input_device().ok_or(MicError::NoDevice)?;
+        let device = match device_name {
+            Some(name) => host
+                .input_devices()
+                .map_err(|e| MicError::DeviceConfig(e.to_string()))?
+                .find(|d| d.name().map(|n| n == name).unwrap_or(false))
+                .ok_or(MicError::NoDevice)?,
+            None => host.default_input_device().ok_or(MicError::NoDevice)?,
+        };
 
         let supported_config = device
             .default_input_config()

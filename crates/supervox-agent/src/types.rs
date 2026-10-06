@@ -191,6 +191,20 @@ pub enum LlmBackend {
 }
 
 /// SuperVox configuration.
+/// Where the live summary comes from.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SummaryMode {
+    /// No summary panel updates.
+    Off,
+    /// Built-in LLM pipeline (Ollama / cloud) every `summary_lag_secs`.
+    Internal,
+    /// An outside agent reads `~/.supervox/live/current.jsonl` and writes
+    /// `~/.supervox/live/summary.md`; supervox just displays that file.
+    #[default]
+    External,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default = "default_language")]
@@ -213,6 +227,25 @@ pub struct Config {
     pub ducking_threshold: f32,
     #[serde(default = "default_true")]
     pub translate: bool,
+    /// Trailing silence (ms) that closes an utterance in local STT (parakeet).
+    #[serde(default = "default_vad_pause_ms")]
+    pub vad_pause_ms: u32,
+    /// Tell mic speakers apart (S1..Sn) — local STT only, needs the speaker model.
+    #[serde(default = "default_true")]
+    pub diarize: bool,
+    #[serde(default = "default_max_speakers")]
+    pub max_speakers: usize,
+    #[serde(default)]
+    pub summary: SummaryMode,
+    /// Input device name; `None` = system default. Press `m` in Live to cycle.
+    #[serde(default)]
+    pub mic_device: Option<String>,
+}
+fn default_vad_pause_ms() -> u32 {
+    1200
+}
+fn default_max_speakers() -> usize {
+    3
 }
 
 fn default_true() -> bool {
@@ -264,6 +297,15 @@ impl Config {
                 self.ducking_threshold
             ));
         }
+        if self.max_speakers == 0 || self.max_speakers > 8 {
+            warnings.push(format!(
+                "max_speakers = {} is outside 1..=8",
+                self.max_speakers
+            ));
+        }
+        if self.vad_pause_ms < 300 {
+            warnings.push("vad_pause_ms < 300 will chop phrases mid-sentence".into());
+        }
         if self.summary_lag_secs == 0 {
             warnings.push("summary_lag_secs is 0, summaries will fire on every chunk".into());
         }
@@ -291,6 +333,11 @@ impl Default for Config {
             whisper_model: default_whisper_model(),
             ducking_threshold: default_ducking_threshold(),
             translate: default_true(),
+            vad_pause_ms: default_vad_pause_ms(),
+            diarize: default_true(),
+            max_speakers: default_max_speakers(),
+            summary: SummaryMode::default(),
+            mic_device: None,
         }
     }
 }

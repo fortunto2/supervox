@@ -5,4 +5,5 @@ pub mod audio;
 pub mod clipboard;
 pub mod help;
 pub mod intelligence;
+pub mod live_log;
 pub mod modes;

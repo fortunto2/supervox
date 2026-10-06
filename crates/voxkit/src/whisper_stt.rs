@@ -255,8 +255,11 @@ impl StreamingSttBackend for WhisperStt {
 
                             match WhisperStt::transcribe_segment(&ctx, &segment, &language) {
                                 Ok(text) => {
-                                    let _ = transcript_tx
-                                        .blocking_send(TranscriptEvent::Final { item_id, text });
+                                    let _ = transcript_tx.blocking_send(TranscriptEvent::Final {
+                                        item_id,
+                                        text,
+                                        speaker: None,
+                                    });
                                 }
                                 Err(SttError::Empty) => {} // silence, skip
                                 Err(e) => {
@@ -277,8 +280,11 @@ impl StreamingSttBackend for WhisperStt {
                             if let Ok(text) =
                                 WhisperStt::transcribe_segment(&ctx, &audio_buffer, &language)
                             {
-                                let _ = transcript_tx
-                                    .blocking_send(TranscriptEvent::Final { item_id, text });
+                                let _ = transcript_tx.blocking_send(TranscriptEvent::Final {
+                                    item_id,
+                                    text,
+                                    speaker: None,
+                                });
                             }
                         }
                         break;

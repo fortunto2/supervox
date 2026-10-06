@@ -8,6 +8,7 @@ mod audio;
 mod clipboard;
 mod help;
 mod intelligence;
+mod live_log;
 mod modes;
 
 #[derive(Parser)]

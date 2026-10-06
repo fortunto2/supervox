@@ -55,6 +55,10 @@ pub struct App {
     /// Channel for async app events (analysis, follow-up, agent).
     pub app_event_rx: mpsc::UnboundedReceiver<AppEvent>,
     pub app_event_tx: mpsc::UnboundedSender<AppEvent>,
+    /// JSONL stream of the live call for outside agents.
+    pub live_log: crate::live_log::LiveLog,
+    /// Stop flag for the external summary file watcher.
+    pub summary_watch_stop: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl App {
@@ -80,6 +84,22 @@ impl App {
         } else {
             live_state.stt_backend = effective_stt.to_string();
         }
+        live_state.mic_device = config.mic_device.clone();
+        {
+            use supervox_agent::types::SummaryMode;
+            let (title, raw) = match config.summary {
+                SummaryMode::Internal => (
+                    format!(" Rolling Summary ({}) ", config.effective_model()),
+                    false,
+                ),
+                SummaryMode::External => {
+                    (" Summary ← ~/.supervox/live/summary.md ".to_string(), true)
+                }
+                SummaryMode::Off => (" Summary (off) ".to_string(), true),
+            };
+            live_state.summary_title = title;
+            live_state.summary_raw = raw;
+        }
 
         let mut app = Self {
             mode,
@@ -97,6 +117,8 @@ impl App {
             audio_event_tx,
             translate_tx: None,
             summary_tx: None,
+            live_log: crate::live_log::LiveLog::default(),
+            summary_watch_stop: None,
             app_event_rx,
             app_event_tx,
         };
@@ -240,11 +262,16 @@ impl App {
                 source,
                 text,
                 is_final,
+                speaker,
             } => {
                 if is_final {
-                    self.live_state.push_final_transcript(source.clone(), &text);
+                    self.live_state
+                        .push_final_transcript(source.clone(), &text, speaker);
                     // Feed into translation + summary pipelines
                     if !text.is_empty() {
+                        let label = crate::audio::speaker_label(&source, speaker);
+                        self.live_log
+                            .transcript(self.live_state.elapsed_secs(), &label, &text);
                         if let Some(tx) = &self.translate_tx {
                             let _ = tx.send((
                                 format!(
@@ -256,7 +283,7 @@ impl App {
                             ));
                         }
                         if let Some(tx) = &self.summary_tx {
-                            let _ = tx.send(format!("{}: {}", source.label(), text));
+                            let _ = tx.send(format!("{label}: {text}"));
                         }
                     }
                 } else {
@@ -273,6 +300,7 @@ impl App {
                 self.live_state.push_translation(source, &text);
             }
             AudioEvent::Summary(text) => {
+                self.live_log.summary(&text);
                 self.live_state.set_summary(&text);
             }
             AudioEvent::Error(e) => {
@@ -294,7 +322,8 @@ impl App {
                     audio_path.as_deref(),
                     &bookmarks,
                 ) {
-                    Ok(_call_id) => {
+                    Ok(call_id) => {
+                        self.live_log.stop(Some(&call_id.to_string()));
                         if transcript.is_empty() {
                             self.status = "Recording stopped (no speech detected)".into();
                         } else {
@@ -316,6 +345,7 @@ impl App {
                         }
                     }
                     Err(e) => {
+                        self.live_log.stop(None);
                         self.status = format!("Save error: {e}");
                     }
                 }
@@ -639,7 +669,11 @@ fn start_recording(app: &mut App) {
     match app.audio.start(tx, &app.config, calls_dir) {
         Ok(()) => {
             app.live_state.start_recording();
-            app.status = "Recording...".into();
+            app.live_log.start(
+                &app.live_state.stt_backend,
+                app.config.mic_device.as_deref(),
+            );
+            app.status = format!("Recording... stream: {}", app.live_log.path().display());
 
             // Start translation pipeline (skip if translate = false)
             if app.config.translate {
@@ -652,14 +686,27 @@ fn start_recording(app: &mut App) {
                 app.translate_tx = Some(tr_tx);
             }
 
-            // Start summary pipeline
-            let (sum_tx, sum_rx) = mpsc::unbounded_channel();
-            crate::intelligence::start_summary_pipeline(
-                &app.config,
-                sum_rx,
-                app.audio_event_tx.clone(),
-            );
-            app.summary_tx = Some(sum_tx);
+            // Summary: built-in LLM, an outside agent via summary.md, or nothing
+            match app.config.summary {
+                supervox_agent::types::SummaryMode::Internal => {
+                    let (sum_tx, sum_rx) = mpsc::unbounded_channel();
+                    crate::intelligence::start_summary_pipeline(
+                        &app.config,
+                        sum_rx,
+                        app.audio_event_tx.clone(),
+                    );
+                    app.summary_tx = Some(sum_tx);
+                }
+                supervox_agent::types::SummaryMode::External => {
+                    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                    crate::live_log::watch_external_summary(
+                        app.audio_event_tx.clone(),
+                        stop.clone(),
+                    );
+                    app.summary_watch_stop = Some(stop);
+                }
+                supervox_agent::types::SummaryMode::Off => {}
+            }
         }
         Err(e) => {
             app.status_error = Some((format!("Error: {e}"), std::time::Instant::now()));
@@ -673,7 +720,40 @@ fn stop_recording(app: &mut App) {
     // Drop intelligence pipeline senders to stop background tasks
     app.translate_tx = None;
     app.summary_tx = None;
+    if let Some(stop) = app.summary_watch_stop.take() {
+        stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
     app.status = "Stopping...".into();
+}
+
+/// Cycle to the next input device (idle only). Takes effect on the next recording.
+fn next_mic(app: &mut App) {
+    let devices = match voxkit::mic::list_input_devices() {
+        Ok(d) if !d.is_empty() => d,
+        Ok(_) => {
+            app.status = "No input devices found".into();
+            return;
+        }
+        Err(e) => {
+            app.status = format!("Mic list error: {e}");
+            return;
+        }
+    };
+    // None (system default) → first → … → last → None
+    let next = match &app.config.mic_device {
+        None => devices.first().cloned(),
+        Some(cur) => devices
+            .iter()
+            .position(|d| d == cur)
+            .and_then(|i| devices.get(i + 1).cloned()),
+    };
+    app.config.mic_device = next.clone();
+    app.live_state.mic_device = next.clone();
+    app.status = format!(
+        "Mic: {} ({} devices, m = next)",
+        next.as_deref().unwrap_or("system default"),
+        devices.len()
+    );
 }
 
 /// Add bookmark at current recording position.
@@ -688,6 +768,7 @@ fn add_bookmark(app: &mut App) {
         source: crate::audio::AudioSource::Mic,
         text: format!("▶ Bookmark at {mins}:{s:02}"),
         is_translation: false,
+        speaker: None,
     });
 }
 
@@ -695,6 +776,9 @@ fn handle_live_key(app: &mut App, key: crossterm::event::KeyEvent) {
     match key.code {
         KeyCode::Char('h') if !app.live_state.is_recording => {
             open_history(app);
+        }
+        KeyCode::Char('m') if !app.live_state.is_recording => {
+            next_mic(app);
         }
         // Space toggles record/stop
         KeyCode::Char(' ') | KeyCode::Char('r') if !app.live_state.is_recording => {

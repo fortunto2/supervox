@@ -230,7 +230,11 @@ fn parse_transcript_event(msg: &serde_json::Value) -> Option<TranscriptEvent> {
         "conversation.item.input_audio_transcription.completed" => {
             let item_id = msg["item_id"].as_str().unwrap_or("").to_string();
             let text = msg["transcript"].as_str().unwrap_or("").to_string();
-            Some(TranscriptEvent::Final { item_id, text })
+            Some(TranscriptEvent::Final {
+                item_id,
+                text,
+                speaker: None,
+            })
         }
         "error" => {
             let error_msg = msg["error"]["message"]
@@ -396,7 +400,7 @@ mod tests {
         });
         let event = parse_transcript_event(&msg).unwrap();
         match event {
-            TranscriptEvent::Final { item_id, text } => {
+            TranscriptEvent::Final { item_id, text, .. } => {
                 assert_eq!(item_id, "item_456");
                 assert_eq!(text, "Hello, world!");
             }

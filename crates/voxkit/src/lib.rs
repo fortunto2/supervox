@@ -32,6 +32,9 @@ pub mod whisper_stt;
 #[cfg(feature = "parakeet")]
 pub mod parakeet_stt;
 
+#[cfg(feature = "speaker")]
+pub mod speaker;
+
 #[cfg(feature = "openai-tts")]
 pub mod tts;
 

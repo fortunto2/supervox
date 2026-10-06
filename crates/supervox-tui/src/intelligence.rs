@@ -116,9 +116,30 @@ pub fn start_summary_pipeline(
 }
 
 /// Translate text using LLM.
+/// ISO code → language name. Small models read "Russian" far more reliably than "ru".
+pub fn lang_name(code: &str) -> String {
+    let lower = code.to_ascii_lowercase();
+    let name = match lower.as_str() {
+        "ru" => "Russian",
+        "en" => "English",
+        "tr" => "Turkish",
+        "de" => "German",
+        "fr" => "French",
+        "es" => "Spanish",
+        "uk" => "Ukrainian",
+        "it" => "Italian",
+        "pt" => "Portuguese",
+        "zh" => "Chinese",
+        "ja" => "Japanese",
+        other => other,
+    };
+    name.to_string()
+}
+
 async fn translate(text: &str, to_lang: &str, model: &str) -> Result<String, String> {
     use sgr_agent::Llm;
     use sgr_agent::types::{LlmConfig, Message};
+    let to_lang = lang_name(to_lang);
 
     let llm = Llm::new(&LlmConfig::auto(model));
     let messages = vec![
@@ -143,6 +164,7 @@ async fn summarize(
     use sgr_agent::Llm;
     use sgr_agent::types::{LlmConfig, Message};
 
+    let target_lang = lang_name(target_lang);
     let transcript = chunks.join("\n");
     let prior_ctx = prior
         .map(|s| format!("\nPrevious summary:\n{s}"))
@@ -179,6 +201,11 @@ mod tests {
             whisper_model: "base".into(),
             ducking_threshold: 0.05,
             translate: true,
+            vad_pause_ms: 1200,
+            diarize: false,
+            max_speakers: 3,
+            summary: supervox_agent::types::SummaryMode::Internal,
+            mic_device: None,
         }
     }
 

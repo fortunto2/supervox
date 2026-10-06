@@ -23,6 +23,23 @@ impl AudioSource {
     }
 }
 
+/// Display label: `S1`/`S2`/… when diarization tagged a mic segment, else the source label.
+pub fn speaker_label(source: &AudioSource, speaker: Option<usize>) -> String {
+    match (source, speaker) {
+        (AudioSource::Mic, Some(n)) => format!("S{n}"),
+        _ => source.label().to_string(),
+    }
+}
+
+/// `~/.supervox/models/wespeaker_en_voxceleb_CAM++.onnx`
+#[cfg(feature = "parakeet")]
+pub fn speaker_model_path() -> PathBuf {
+    supervox_agent::storage::default_config_path()
+        .parent()
+        .map(|p| p.join("models").join(voxkit::speaker::DEFAULT_MODEL_FILE))
+        .unwrap_or_default()
+}
+
 /// Events from audio capture + STT pipeline.
 #[derive(Debug)]
 pub enum AudioEvent {
@@ -33,6 +50,8 @@ pub enum AudioEvent {
         source: AudioSource,
         text: String,
         is_final: bool,
+        /// 1-based speaker index from diarization (mic, local STT only).
+        speaker: Option<usize>,
     },
     /// Translation of a final transcript segment.
     #[allow(dead_code)]
@@ -75,8 +94,13 @@ impl AudioPipeline {
         let stt_backend = create_stt_backend(config)?;
 
         // Start mic capture (raw — no VAD, STT handles voice detection)
-        let (mic_rx, mic_capture) =
-            MicCapture::start_raw().map_err(|e| format!("Mic error: {e}"))?;
+        let (mic_rx, mic_capture) = MicCapture::start_raw_on(config.mic_device.as_deref())
+            .map_err(|e| {
+                format!(
+                    "Mic error ({}): {e}",
+                    config.mic_device.as_deref().unwrap_or("default")
+                )
+            })?;
         self.mic_capture = Some(mic_capture);
 
         // Optionally start system audio capture
@@ -188,25 +212,34 @@ pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend
         #[cfg(feature = "parakeet")]
         SttBackend::Parakeet => {
             let model_dir = voxkit::parakeet_stt::default_model_dir();
-            if !voxkit::parakeet_stt::model_exists(&model_dir) {
+            let dir = if voxkit::parakeet_stt::model_exists(&model_dir) {
+                model_dir
+            } else {
                 // Fallback: check life2film models dir
                 let alt_dir = std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default())
                     .join("startups/active/life2film/video-analyzer/models/parakeet-tdt");
-                if voxkit::parakeet_stt::model_exists(&alt_dir) {
-                    return Ok(Box::new(voxkit::parakeet_stt::ParakeetStt::new(
-                        alt_dir,
-                        &config.my_language,
-                    )));
+                if !voxkit::parakeet_stt::model_exists(&alt_dir) {
+                    return Err(format!(
+                        "Parakeet model not found: {}. Download from HuggingFace: istupakov/parakeet-tdt-0.6b-v2-onnx",
+                        model_dir.display()
+                    ));
                 }
-                return Err(format!(
-                    "Parakeet model not found: {}. Download from HuggingFace: istupakov/parakeet-tdt-0.6b-v2-onnx",
-                    model_dir.display()
-                ));
+                alt_dir
+            };
+            let mut stt = voxkit::parakeet_stt::ParakeetStt::new(dir, &config.my_language)
+                .with_pause_ms(config.vad_pause_ms);
+            if config.diarize {
+                let sp = speaker_model_path();
+                if sp.exists() {
+                    stt = stt.with_diarization(sp, config.max_speakers);
+                } else {
+                    tracing::warn!(
+                        "diarize = true but speaker model missing at {} — labels stay You/Them",
+                        sp.display()
+                    );
+                }
             }
-            Ok(Box::new(voxkit::parakeet_stt::ParakeetStt::new(
-                model_dir,
-                &config.my_language,
-            )))
+            Ok(Box::new(stt))
         }
         #[cfg(not(feature = "parakeet"))]
         SttBackend::Parakeet => {
@@ -351,16 +384,19 @@ async fn run_pipeline(
                             source: AudioSource::Mic,
                             text,
                             is_final: false,
+                            speaker: None,
                         });
                     }
-                    Some(TranscriptEvent::Final { text, .. }) => {
+                    Some(TranscriptEvent::Final { text, speaker, .. }) => {
                         if !text.is_empty() {
-                            full_transcript.push_str(&format!("You: {}\n", text));
+                            let label = speaker_label(&AudioSource::Mic, speaker);
+                            full_transcript.push_str(&format!("{label}: {text}\n"));
                         }
                         let _ = event_tx.send(AudioEvent::Transcript {
                             source: AudioSource::Mic,
                             text,
                             is_final: true,
+                            speaker,
                         });
                     }
                     Some(TranscriptEvent::Error(e)) => {
@@ -378,6 +414,7 @@ async fn run_pipeline(
                             source: AudioSource::System,
                             text,
                             is_final: false,
+                            speaker: None,
                         });
                     }
                     Some(TranscriptEvent::Final { text, .. }) => {
@@ -388,6 +425,7 @@ async fn run_pipeline(
                             source: AudioSource::System,
                             text,
                             is_final: true,
+                            speaker: None,
                         });
                     }
                     Some(TranscriptEvent::Error(e)) => {

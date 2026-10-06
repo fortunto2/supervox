@@ -613,6 +613,11 @@ mod tests {
             whisper_model: "base".into(),
             ducking_threshold: 0.05,
             translate: true,
+            vad_pause_ms: 900,
+            diarize: true,
+            max_speakers: 2,
+            summary: crate::types::SummaryMode::External,
+            mic_device: Some("MacBook Pro Microphone".into()),
         };
         save_default_config(&path, &cfg).unwrap();
 
@@ -620,6 +625,10 @@ mod tests {
         assert_eq!(loaded.my_language, "en");
         assert_eq!(loaded.stt_backend, SttBackend::Realtime);
         assert_eq!(loaded.llm_model, "gpt-4o");
+        assert_eq!(loaded.vad_pause_ms, 900);
+        assert_eq!(loaded.max_speakers, 2);
+        assert_eq!(loaded.summary, crate::types::SummaryMode::External);
+        assert_eq!(loaded.mic_device.as_deref(), Some("MacBook Pro Microphone"));
         assert_eq!(loaded.summary_lag_secs, 10);
         assert_eq!(loaded.capture, CaptureMode::Mic);
     }

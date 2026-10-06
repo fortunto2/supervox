@@ -60,6 +60,7 @@ supervox --local live
 | `r` | Start recording |
 | `s` | Stop recording |
 | `h` | Open call history (when idle) |
+| `m` | Next microphone (when idle) |
 | `q` | Quit (when idle) |
 
 Speaker labels are color-coded: **You** (cyan) and **Them** (yellow).
@@ -118,14 +119,46 @@ Config is loaded from `~/.supervox/config.toml` at startup. A default is created
 
 ```toml
 # ~/.supervox/config.toml
-my_language = "ru"              # target language for translation/summary
-stt_backend = "realtime"        # "realtime" (WebSocket) | "openai" (batch)
-llm_model = "gemini-2.5-flash"  # model for translation + summary
-summary_lag_secs = 5            # rolling summary interval
-capture = "mic+system"          # "mic" | "mic+system"
-llm_backend = "auto"            # "auto" | "ollama"
-ollama_model = "llama3.2:3b"    # model when llm_backend = "ollama"
+my_language = "ru"              # summary / translation language (ISO code)
+stt_backend = "parakeet"        # "realtime" (OpenAI WS) | "whisper" | "parakeet" (local, English)
+capture = "mic"                 # "mic" | "mic+system"
+mic_device = "MacBook Pro Microphone"   # omit for the system default; `m` in Live cycles devices
+
+# Local STT segmentation + speakers (parakeet)
+vad_pause_ms = 1200             # trailing silence that closes a phrase
+diarize = true                  # label mic speakers S1..Sn (needs the speaker model, see below)
+max_speakers = 3
+
+# Summary panel
+summary = "external"            # "external" (agent writes summary.md) | "internal" (LLM below) | "off"
+summary_lag_secs = 30
+llm_backend = "ollama"          # "auto" | "ollama"
+ollama_model = "gemma3:4b"
+llm_model = "gemini-2.5-flash"
+translate = false
 ```
+
+### Live stream for agents
+
+While recording, every final transcript line is appended to
+`~/.supervox/live/current.jsonl` (`{"type":"transcript","t":83,"speaker":"S1","text":"…"}`,
+plus `start`/`summary`/`stop` events). With `summary = "external"` the right panel
+shows whatever an outside agent writes to `~/.supervox/live/summary.md`, re-read every
+2 s. This is how Claude Code (or any script) summarizes, researches and critiques a
+talk for you while supervox only listens.
+
+### Speaker labels (diarization)
+
+Local STT can tell 1–3 mic speakers apart with a WeSpeaker CAM++ embedding model
+(29 MB, one embedding per phrase, online cosine clustering):
+
+```bash
+curl -L -o ~/.supervox/models/wespeaker_en_voxceleb_CAM++.onnx \
+  https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/wespeaker_en_voxceleb_CAM++.onnx
+```
+
+Good for "same person kept talking"; it is not identity verification.
+
 
 ### System audio setup (macOS)
 

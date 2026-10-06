@@ -13,6 +13,8 @@ pub struct TranscriptLine {
     pub source: AudioSource,
     pub text: String,
     pub is_translation: bool,
+    /// Diarized speaker index (mic only).
+    pub speaker: Option<usize>,
 }
 
 /// State for live mode.
@@ -28,6 +30,12 @@ pub struct LiveState {
     pub is_ducked: bool,
     pub stt_backend: String,
     pub bookmarks: Vec<Bookmark>,
+    /// Current input device name (`None` = system default).
+    pub mic_device: Option<String>,
+    /// Summary panel title, set from `config.summary`.
+    pub summary_title: String,
+    /// External summaries are Markdown already; internal ones get bullets.
+    pub summary_raw: bool,
 }
 
 impl Default for LiveState {
@@ -42,6 +50,9 @@ impl Default for LiveState {
             system_level: 0.0,
             is_ducked: false,
             stt_backend: "realtime".into(),
+            mic_device: None,
+            summary_title: " Rolling Summary ".into(),
+            summary_raw: false,
             bookmarks: Vec::new(),
         }
     }
@@ -85,12 +96,18 @@ impl LiveState {
     }
 
     /// Push a finalized transcript line.
-    pub fn push_final_transcript(&mut self, source: AudioSource, text: &str) {
+    pub fn push_final_transcript(
+        &mut self,
+        source: AudioSource,
+        text: &str,
+        speaker: Option<usize>,
+    ) {
         if !text.is_empty() {
             self.lines.push(TranscriptLine {
                 source,
                 text: text.to_string(),
                 is_translation: false,
+                speaker,
             });
         }
         self.current_delta = None;
@@ -102,6 +119,7 @@ impl LiveState {
             source,
             text: text.to_string(),
             is_translation: true,
+            speaker: None,
         });
     }
 
@@ -141,8 +159,8 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
         )));
     } else {
         for line in &state.lines {
+            let color = speaker_color(&line.source, line.speaker);
             let (prefix_color, text_style) = if line.is_translation {
-                let color = source_color(&line.source);
                 (
                     color,
                     Style::default()
@@ -150,13 +168,13 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
                         .add_modifier(Modifier::ITALIC),
                 )
             } else {
-                let color = source_color(&line.source);
                 (color, Style::default().fg(Color::White))
             };
+            let label = crate::audio::speaker_label(&line.source, line.speaker);
             let prefix = if line.is_translation {
-                format!("  → {}: ", line.source.label())
+                format!("  → {label}: ")
             } else {
-                format!("{}: ", line.source.label())
+                format!("{label}: ")
             };
             text_lines.push(Line::from(vec![
                 Span::styled(prefix, Style::default().fg(prefix_color)),
@@ -169,7 +187,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
                 Span::styled(
                     format!("{}: ", source.label()),
                     Style::default()
-                        .fg(source_color(source))
+                        .fg(speaker_color(source, None))
                         .add_modifier(Modifier::DIM),
                 ),
                 Span::styled(
@@ -182,7 +200,17 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
         }
     }
 
+    // Auto-scroll: keep the newest lines visible. Rows are estimated from
+    // wrapped width, which is exact for plain text and close enough for emoji.
+    let inner_w = left.width.saturating_sub(2).max(1) as usize;
+    let inner_h = left.height.saturating_sub(2) as usize;
+    let rows: usize = text_lines
+        .iter()
+        .map(|l| l.width().div_ceil(inner_w).max(1))
+        .sum();
+    let scroll = rows.saturating_sub(inner_h) as u16;
     let transcript = Paragraph::new(text_lines)
+        .scroll((scroll, 0))
         .block(
             Block::default()
                 .title(" Transcript ")
@@ -199,6 +227,8 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
     // Right panel: rolling summary
     let summary_text = if state.summary_lines.is_empty() {
         "Summary will appear here".to_string()
+    } else if state.summary_raw {
+        state.summary_lines.join("\n")
     } else {
         state
             .summary_lines
@@ -211,7 +241,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
     let summary = Paragraph::new(summary_text)
         .block(
             Block::default()
-                .title(" Rolling Summary ")
+                .title(state.summary_title.as_str())
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow)),
         )
@@ -239,6 +269,11 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
         " 0:00 ".into()
     };
 
+    let mic_name = state
+        .mic_device
+        .as_deref()
+        .map(|n| n.chars().take(18).collect::<String>())
+        .unwrap_or_else(|| "default".into());
     let mic_label = if state.is_ducked {
         Span::styled(
             format!("mic {mic_bar} \u{1F507}"),
@@ -247,7 +282,10 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
                 .add_modifier(Modifier::DIM),
         )
     } else {
-        Span::styled(format!("mic {mic_bar}"), Style::default().fg(Color::Cyan))
+        Span::styled(
+            format!("mic {mic_bar} {mic_name}"),
+            Style::default().fg(Color::Cyan),
+        )
     };
 
     let mut status_spans = vec![
@@ -275,7 +313,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
 
     status_spans.push(Span::raw(" │ "));
     status_spans.push(Span::styled(
-        " Space=rec/stop Enter=mark ?=help q=quit ",
+        " Space=rec/stop Enter=mark m=mic ?=help q=quit ",
         Style::default().fg(Color::DarkGray),
     ));
 
@@ -287,11 +325,15 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
     );
 }
 
-/// Color for speaker source labels.
-fn source_color(source: &AudioSource) -> Color {
-    match source {
-        AudioSource::Mic => Color::Cyan,
-        AudioSource::System => Color::Yellow,
+/// Color for speaker labels: one per diarized speaker, else per source.
+fn speaker_color(source: &AudioSource, speaker: Option<usize>) -> Color {
+    match (source, speaker) {
+        (AudioSource::System, _) => Color::Yellow,
+        (AudioSource::Mic, Some(1)) => Color::Cyan,
+        (AudioSource::Mic, Some(2)) => Color::Green,
+        (AudioSource::Mic, Some(3)) => Color::Magenta,
+        (AudioSource::Mic, Some(_)) => Color::LightRed,
+        (AudioSource::Mic, None) => Color::Cyan,
     }
 }
 
@@ -337,7 +379,7 @@ mod tests {
         assert_eq!(text, "Hel");
         assert!(state.lines.is_empty());
 
-        state.push_final_transcript(AudioSource::Mic, "Hello world");
+        state.push_final_transcript(AudioSource::Mic, "Hello world", None);
         assert!(state.current_delta.is_none());
         assert_eq!(state.lines.len(), 1);
         assert_eq!(state.lines[0].text, "Hello world");
@@ -348,7 +390,7 @@ mod tests {
     #[test]
     fn push_translation() {
         let mut state = LiveState::default();
-        state.push_final_transcript(AudioSource::System, "Bonjour");
+        state.push_final_transcript(AudioSource::System, "Bonjour", None);
         state.push_translation(AudioSource::System, "Привет");
         assert_eq!(state.lines.len(), 2);
         assert!(!state.lines[0].is_translation);
@@ -359,9 +401,9 @@ mod tests {
     #[test]
     fn transcript_count() {
         let mut state = LiveState::default();
-        state.push_final_transcript(AudioSource::Mic, "Hello");
+        state.push_final_transcript(AudioSource::Mic, "Hello", None);
         state.push_translation(AudioSource::Mic, "Привет");
-        state.push_final_transcript(AudioSource::System, "Bonjour");
+        state.push_final_transcript(AudioSource::System, "Bonjour", None);
         assert_eq!(state.transcript_count(), 2);
     }
 

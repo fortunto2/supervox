@@ -14,7 +14,7 @@ Voice-powered productivity TUI. Live call assistant + post-call analysis + agent
 ```
 supervox/
   crates/
-    voxkit/              — Voice pipeline: STT, VAD, TTS (Rust, 148 tests) ✓ DONE
+    voxkit/              — Voice pipeline: STT, VAD, TTS, speaker embeddings (Rust) ✓ DONE
     supervox-agent/      — 3-mode agent: tools + storage + config ✓ DONE
     supervox-tui/        — ratatui TUI with mode switching ✓ All 3 modes DONE
   schemas/               — JSON schemas: call, analysis, config
@@ -36,6 +36,14 @@ supervox/
 | LLM | sgr-agent genai (Gemini Flash / OpenRouter / Ollama) |
 | Audio | voxkit mic + system_audio (cpal, ScreenCaptureKit) |
 | Storage | JSON + WAV in `~/.supervox/` (calls, analyses, audio, config, actions) |
+
+## Live stream + external summary
+
+`supervox-tui/src/live_log.rs`: while recording, final transcript lines are appended as
+JSONL to `~/.supervox/live/current.jsonl`; with `summary = "external"` a watcher re-reads
+`~/.supervox/live/summary.md` every 2 s into the summary panel. The agent side lives in the
+`supervox-companion` skill (Claude Code). Parakeet segmentation is pause-based
+(`vad_pause_ms`), see `Segmenter` in `voxkit/src/parakeet_stt.rs`.
 
 ## Dependencies (workspace)
 
@@ -221,6 +229,11 @@ llm_backend = "auto"          # "auto" | "ollama"
 ollama_model = "llama3.2:3b"  # Model when llm_backend = "ollama"
 ducking_threshold = 0.05     # System audio level above which mic STT is suppressed (0.0–1.0)
 translate = true             # false to disable translation (when call is in target language)
+vad_pause_ms = 1200           # parakeet: trailing silence that closes a phrase (was a fixed 2 s cut)
+diarize = true                # parakeet: S1..Sn speaker labels via voxkit `speaker` feature
+max_speakers = 3
+summary = "external"          # "external" (agent writes ~/.supervox/live/summary.md) | "internal" | "off"
+mic_device = "MacBook Pro Microphone"   # optional; `m` in Live cycles input devices
 ```
 
 Config loaded at startup via `storage::load_config()`. Default created if missing.
