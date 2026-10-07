@@ -749,6 +749,10 @@ fn next_mic(app: &mut App) {
     };
     app.config.mic_device = next.clone();
     app.live_state.mic_device = next.clone();
+    let path = supervox_agent::storage::default_config_path();
+    if let Err(e) = supervox_agent::storage::save_default_config(&path, &app.config) {
+        tracing::warn!("could not persist mic_device to {}: {e}", path.display());
+    }
     app.status = format!(
         "Mic: {} ({} devices, m = next)",
         next.as_deref().unwrap_or("system default"),

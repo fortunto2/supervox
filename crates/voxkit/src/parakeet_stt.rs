@@ -140,6 +140,7 @@ impl StreamingSttBackend for ParakeetStt {
 
         tokio::task::spawn_blocking(move || {
             let mut seg = Segmenter::new(pause_frames, max_segment_samples);
+            let mut agc = crate::agc::Agc::default();
             let mut item_counter = 0u64;
 
             let mut emit = |segment: Vec<f32>, item_counter: &mut u64| {
@@ -181,7 +182,9 @@ impl StreamingSttBackend for ParakeetStt {
                         let f32_samples: Vec<f32> =
                             samples.iter().map(|&s| s as f32 / 32768.0).collect();
                         // Realtime input arrives at 24 kHz; Parakeet wants 16 kHz.
-                        let resampled = crate::types::resample(&f32_samples, 24000, SAMPLE_RATE);
+                        let mut resampled =
+                            crate::types::resample(&f32_samples, 24000, SAMPLE_RATE);
+                        agc.process(&mut resampled);
                         for segment in seg.push(&resampled) {
                             emit(segment, &mut item_counter);
                         }

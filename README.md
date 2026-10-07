@@ -122,7 +122,7 @@ Config is loaded from `~/.supervox/config.toml` at startup. A default is created
 my_language = "ru"              # summary / translation language (ISO code)
 stt_backend = "parakeet"        # "realtime" (OpenAI WS) | "whisper" | "parakeet" (local, English)
 capture = "mic"                 # "mic" | "mic+system"
-mic_device = "MacBook Pro Microphone"   # omit for the system default; `m` in Live cycles devices
+mic_device = "MacBook Pro Microphone"   # omit for the system default; `m` in Live cycles devices and saves the choice here
 
 # Local STT segmentation + speakers (parakeet)
 vad_pause_ms = 1200             # trailing silence that closes a phrase

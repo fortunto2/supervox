@@ -32,6 +32,9 @@ pub mod whisper_stt;
 #[cfg(feature = "parakeet")]
 pub mod parakeet_stt;
 
+/// Running-peak automatic gain control for far-field speech.
+pub mod agc;
+
 #[cfg(feature = "speaker")]
 pub mod speaker;
 
