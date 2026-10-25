@@ -26,6 +26,8 @@ pub enum SttError {
 /// Speech-to-text backend.
 ///
 /// Implementations: `OpenAiStt` (feature `openai`), local Whisper (feature `whisper`).
+// async_trait adds #[must_use] to a boxed future; clippy 1.99 flags that as double_must_use.
+#[allow(clippy::double_must_use)]
 #[async_trait::async_trait]
 pub trait SttBackend: Send + Sync {
     /// Transcribe an audio chunk.
@@ -94,6 +96,7 @@ pub enum SttStreamError {
 ///
 /// Implementations connect to an STT service and return a channel pair:
 /// send `SttInput` commands, receive `TranscriptEvent` results.
+#[allow(clippy::double_must_use)]
 #[async_trait::async_trait]
 pub trait StreamingSttBackend: Send + Sync {
     /// Connect to the streaming STT service.

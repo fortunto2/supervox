@@ -324,8 +324,23 @@ impl App {
                 ) {
                     Ok(call_id) => {
                         self.live_log.stop(Some(&call_id.to_string()));
+                        let kept = crate::live_log::keep_with_call(
+                            &crate::live_log::live_dir(),
+                            &calls_dir,
+                            &call_id.to_string(),
+                        );
                         if transcript.is_empty() {
                             self.status = "Recording stopped (no speech detected)".into();
+                        } else if self.config.summary
+                            != supervox_agent::types::SummaryMode::Internal
+                        {
+                            // No built-in LLM configured for this mode: save and hand off, never error.
+                            self.status = format!(
+                                "Saved ({:.0}s, +{} live files) in {}; analysis is your agent's",
+                                duration_secs,
+                                kept.len(),
+                                calls_dir.display()
+                            );
                         } else {
                             self.status = format!(
                                 "Call saved ({:.0}s) — switching to Analysis",

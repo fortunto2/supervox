@@ -228,25 +228,6 @@ impl SttBackend for OpenAiStt {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn openai_stt_builder() {
-        let stt = OpenAiStt::new("test-key")
-            .with_language("ru")
-            .with_model("whisper-1")
-            .with_base_url("http://localhost:8080/v1")
-            .with_prompt("SuperVox meeting");
-
-        assert_eq!(stt.language, "ru");
-        assert_eq!(stt.model, "whisper-1");
-        assert_eq!(stt.base_url, "http://localhost:8080/v1");
-        assert_eq!(stt.prompt, Some("SuperVox meeting".to_string()));
-    }
-}
-
 /// gpt-4o-transcribe only supports "json"/"text"; whisper-1 supports "verbose_json".
 fn response_format_for_model(model: &str) -> &'static str {
     if model.starts_with("gpt-") {
@@ -278,4 +259,23 @@ fn encode_wav_bytes(audio: &AudioChunk) -> Result<Vec<u8>, SttError> {
         .finalize()
         .map_err(|e| SttError::Encoding(e.to_string()))?;
     Ok(cursor.into_inner())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn openai_stt_builder() {
+        let stt = OpenAiStt::new("test-key")
+            .with_language("ru")
+            .with_model("whisper-1")
+            .with_base_url("http://localhost:8080/v1")
+            .with_prompt("SuperVox meeting");
+
+        assert_eq!(stt.language, "ru");
+        assert_eq!(stt.model, "whisper-1");
+        assert_eq!(stt.base_url, "http://localhost:8080/v1");
+        assert_eq!(stt.prompt, Some("SuperVox meeting".to_string()));
+    }
 }

@@ -202,8 +202,10 @@ fn read_loop_with_vad(
 
         // Convert raw bytes to f32 samples (little-endian)
         let samples: Vec<f32> = buf
-            .chunks_exact(4)
-            .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|b| f32::from_le_bytes(*b))
             .collect();
 
         let events = vad.feed(&samples);
@@ -239,8 +241,10 @@ fn read_loop_raw(stdout: impl Read, stop_flag: Arc<AtomicBool>, tx: mpsc::Sender
         }
 
         let samples: Vec<f32> = buf
-            .chunks_exact(4)
-            .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|b| f32::from_le_bytes(*b))
             .collect();
 
         let chunk = AudioChunk::new(samples, SYSTEM_AUDIO_SAMPLE_RATE);

@@ -38,8 +38,8 @@ impl LiveLog {
         let dir = live_dir();
         let _ = fs::create_dir_all(&dir);
         self.path = dir.join(STREAM_FILE);
-        // A fresh session: the old summary belongs to the old call.
-        let _ = fs::remove_file(summary_path());
+        // A fresh session: the old stream and summary move to `sessions/`, never deleted.
+        archive_session(&dir);
         self.file = OpenOptions::new()
             .create(true)
             .write(true)
@@ -91,6 +91,46 @@ impl LiveLog {
             let _ = f.flush();
         }
     }
+}
+
+/// Move the previous session's stream and summary into `<dir>/sessions/`, named by the
+/// stream's last write, so a new recording never destroys the last one.
+pub fn archive_session(dir: &Path) -> Option<PathBuf> {
+    let stream = dir.join(STREAM_FILE);
+    let meta = fs::metadata(&stream).ok()?;
+    if meta.len() == 0 {
+        return None;
+    }
+    let stamp = meta
+        .modified()
+        .map(|t| {
+            chrono::DateTime::<chrono::Local>::from(t)
+                .format("%Y%m%d-%H%M%S")
+                .to_string()
+        })
+        .unwrap_or_else(|_| "unknown".into());
+    let out = dir.join("sessions");
+    fs::create_dir_all(&out).ok()?;
+    let dest = out.join(format!("{stamp}.jsonl"));
+    fs::rename(&stream, &dest).ok()?;
+    let _ = fs::rename(
+        dir.join(SUMMARY_FILE),
+        out.join(format!("{stamp}.summary.md")),
+    );
+    Some(dest)
+}
+
+/// Copy the finished session's stream and summary next to the saved call
+/// (`<call_id>.live.jsonl`, `<call_id>.summary.md`), so the call folder holds everything.
+pub fn keep_with_call(dir: &Path, calls_dir: &Path, call_id: &str) -> Vec<PathBuf> {
+    let mut kept = Vec::new();
+    for (name, suffix) in [(STREAM_FILE, "live.jsonl"), (SUMMARY_FILE, "summary.md")] {
+        let dest = calls_dir.join(format!("{call_id}.{suffix}"));
+        if fs::copy(dir.join(name), &dest).is_ok() {
+            kept.push(dest);
+        }
+    }
+    kept
 }
 
 /// Poll `summary.md`; emit its content whenever it changes. Stops when `stop` is set.
@@ -147,6 +187,39 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(lines[0]).unwrap()["speaker"],
             "S1"
+        );
+    }
+
+    #[test]
+    fn a_new_session_archives_the_old_one_instead_of_deleting_it() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join(STREAM_FILE), "{\"type\":\"start\"}\n").unwrap();
+        fs::write(dir.path().join(SUMMARY_FILE), "## Сейчас\n").unwrap();
+        let dest = archive_session(dir.path()).expect("archived");
+        assert!(!dir.path().join(STREAM_FILE).exists());
+        assert!(!dir.path().join(SUMMARY_FILE).exists());
+        assert_eq!(fs::read_to_string(&dest).unwrap(), "{\"type\":\"start\"}\n");
+        let md = dest.with_extension("summary.md");
+        assert_eq!(fs::read_to_string(md).unwrap(), "## Сейчас\n");
+        // nothing to archive: an empty or missing stream is left alone
+        assert!(archive_session(dir.path()).is_none());
+    }
+
+    #[test]
+    fn the_call_folder_gets_the_stream_and_the_summary() {
+        let live = tempfile::tempdir().unwrap();
+        let calls = tempfile::tempdir().unwrap();
+        fs::write(live.path().join(STREAM_FILE), "x\n").unwrap();
+        fs::write(live.path().join(SUMMARY_FILE), "y\n").unwrap();
+        let kept = keep_with_call(live.path(), calls.path(), "abc");
+        assert_eq!(kept.len(), 2);
+        assert_eq!(
+            fs::read_to_string(calls.path().join("abc.live.jsonl")).unwrap(),
+            "x\n"
+        );
+        assert_eq!(
+            fs::read_to_string(calls.path().join("abc.summary.md")).unwrap(),
+            "y\n"
         );
     }
 }

@@ -194,7 +194,7 @@ mod tests {
         let prob = vad.process_chunk(&speech);
         // Note: sine wave may or may not trigger speech, just check it runs
         assert!(
-            prob >= 0.0 && prob <= 1.0,
+            (0.0..=1.0).contains(&prob),
             "Probability out of range: {prob}"
         );
     }

@@ -64,7 +64,7 @@ pub fn list_calls(calls_dir: &Path) -> Result<Vec<Call>, Box<dyn std::error::Err
             }
         }
     }
-    calls.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    calls.sort_by_key(|c| std::cmp::Reverse(c.created_at));
     Ok(calls)
 }
 
@@ -342,7 +342,7 @@ pub fn compute_stats(calls_dir: &Path) -> Result<CallStats, Box<dyn std::error::
         .into_iter()
         .map(|(theme, count)| ThemeCount { theme, count })
         .collect();
-    top_themes.sort_by(|a, b| b.count.cmp(&a.count));
+    top_themes.sort_by_key(|t| std::cmp::Reverse(t.count));
     top_themes.truncate(5);
 
     Ok(CallStats {
@@ -453,7 +453,7 @@ pub fn list_tracked_actions(
     }
 
     // Sort by call date descending (newest first)
-    actions.sort_by(|a, b| b.call_date.cmp(&a.call_date));
+    actions.sort_by_key(|a| std::cmp::Reverse(a.call_date));
     Ok(actions)
 }
 

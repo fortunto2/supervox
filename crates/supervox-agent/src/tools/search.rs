@@ -180,7 +180,7 @@ mod tests {
     #[test]
     fn search_empty_dir() {
         let tmp = tempfile::tempdir().unwrap();
-        let results = search_calls_in_dir(&tmp.path().to_path_buf(), "anything").unwrap();
+        let results = search_calls_in_dir(tmp.path(), "anything").unwrap();
         assert!(results.is_empty());
     }
 

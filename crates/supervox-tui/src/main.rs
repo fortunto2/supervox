@@ -803,7 +803,7 @@ fn compute_stats_from_calls(
         .into_iter()
         .map(|(theme, count)| supervox_agent::types::ThemeCount { theme, count })
         .collect();
-    top_themes.sort_by(|a, b| b.count.cmp(&a.count));
+    top_themes.sort_by_key(|t| std::cmp::Reverse(t.count));
     top_themes.truncate(5);
 
     supervox_agent::types::CallStats {
