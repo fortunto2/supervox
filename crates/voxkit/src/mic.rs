@@ -19,6 +19,9 @@ pub enum MicError {
     /// No input device found.
     #[error("No input device available")]
     NoDevice,
+    /// The requested input device is not connected.
+    #[error("No input device matching \"{wanted}\" (available: {available})")]
+    NotFound { wanted: String, available: String },
     /// Failed to get device config.
     #[error("Device config: {0}")]
     DeviceConfig(String),
@@ -108,11 +111,21 @@ impl MicCapture {
     ) -> Result<(mpsc::Receiver<AudioChunk>, Self), MicError> {
         let host = cpal::default_host();
         let device = match device_name {
-            Some(name) => host
-                .input_devices()
-                .map_err(|e| MicError::DeviceConfig(e.to_string()))?
-                .find(|d| d.name().map(|n| n == name).unwrap_or(false))
-                .ok_or(MicError::NoDevice)?,
+            Some(wanted) => {
+                let devices: Vec<cpal::Device> = host
+                    .input_devices()
+                    .map_err(|e| MicError::DeviceConfig(e.to_string()))?
+                    .collect();
+                let names: Vec<String> = devices
+                    .iter()
+                    .map(|d| d.name().unwrap_or_default())
+                    .collect();
+                let idx = match_device_name(&names, wanted).ok_or_else(|| MicError::NotFound {
+                    wanted: wanted.to_string(),
+                    available: names.join(", "),
+                })?;
+                devices.into_iter().nth(idx).ok_or(MicError::NoDevice)?
+            }
             None => host.default_input_device().ok_or(MicError::NoDevice)?,
         };
 
@@ -295,6 +308,22 @@ pub fn mix_to_mono_i16(data: &[i16], channels: u16) -> Vec<f32> {
         .collect()
 }
 
+/// Index of the input device `wanted` names: an exact name first, otherwise the first
+/// name containing it, ignoring case. So `mic_device = "pocket"` finds a DJI Osmo Pocket 3
+/// in webcam mode or `"dji"` a DJI Mic receiver without knowing the exact CoreAudio name.
+pub fn match_device_name(names: &[String], wanted: &str) -> Option<usize> {
+    if let Some(i) = names.iter().position(|n| n == wanted) {
+        return Some(i);
+    }
+    let needle = wanted.trim().to_lowercase();
+    if needle.is_empty() {
+        return None;
+    }
+    names
+        .iter()
+        .position(|n| n.to_lowercase().contains(&needle))
+}
+
 /// List available input devices by name.
 pub fn list_input_devices() -> Result<Vec<String>, MicError> {
     let host = cpal::default_host();
@@ -351,6 +380,42 @@ mod tests {
         // Just verify it doesn't panic — may return empty on CI
         let result = list_input_devices();
         assert!(result.is_ok());
+    }
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn match_exact_name_wins_over_substring() {
+        let n = names(&["MacBook Pro Microphone Extra", "MacBook Pro Microphone"]);
+        assert_eq!(match_device_name(&n, "MacBook Pro Microphone"), Some(1));
+    }
+
+    #[test]
+    fn match_substring_ignores_case() {
+        let n = names(&["MacBook Pro Microphone", "OsmoPocket3", "DJI MIC 2"]);
+        assert_eq!(match_device_name(&n, "pocket"), Some(1));
+        assert_eq!(match_device_name(&n, "dji mic"), Some(2));
+    }
+
+    #[test]
+    fn match_missing_or_blank_is_none() {
+        let n = names(&["MacBook Pro Microphone"]);
+        assert_eq!(match_device_name(&n, "pocket"), None);
+        assert_eq!(match_device_name(&n, "  "), None);
+        assert_eq!(match_device_name(&[], "pocket"), None);
+    }
+
+    #[test]
+    fn not_found_error_lists_devices() {
+        let e = MicError::NotFound {
+            wanted: "pocket".into(),
+            available: "MacBook Pro Microphone, BlackHole 2ch".into(),
+        };
+        let msg = format!("{e}");
+        assert!(msg.contains("\"pocket\""));
+        assert!(msg.contains("BlackHole 2ch"));
     }
 
     #[test]
