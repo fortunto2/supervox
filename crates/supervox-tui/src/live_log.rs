@@ -30,7 +30,12 @@ pub fn summary_path() -> PathBuf {
 pub struct LiveLog {
     file: Option<File>,
     path: PathBuf,
+    last_beat: Option<std::time::Instant>,
 }
+
+/// How often a recording writes a `heartbeat` line, so a reader can tell
+/// "quiet room" from "recording stopped".
+pub const HEARTBEAT_SECS: u64 = 30;
 
 impl LiveLog {
     /// Truncate the stream and write a `start` event.
@@ -70,6 +75,24 @@ impl LiveLog {
             "ts": chrono::Local::now().to_rfc3339(),
             "text": text,
         }));
+    }
+
+    /// Write a `heartbeat` line if the stream is open and the last one is older than
+    /// [`HEARTBEAT_SECS`]. Cheap to call on every UI tick.
+    pub fn heartbeat_if_due(&mut self) {
+        if self.file.is_none() {
+            return;
+        }
+        let due = self
+            .last_beat
+            .is_none_or(|t| t.elapsed().as_secs() >= HEARTBEAT_SECS);
+        if due {
+            self.last_beat = Some(std::time::Instant::now());
+            self.write(serde_json::json!({
+                "type": "heartbeat",
+                "ts": chrono::Local::now().to_rfc3339(),
+            }));
+        }
     }
 
     pub fn stop(&mut self, call_id: Option<&str>) {
@@ -188,6 +211,20 @@ mod tests {
             serde_json::from_str::<serde_json::Value>(lines[0]).unwrap()["speaker"],
             "S1"
         );
+    }
+
+    #[test]
+    fn heartbeat_writes_once_per_interval_and_never_when_closed() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut log = LiveLog::default();
+        log.heartbeat_if_due(); // closed: nothing to write to, no panic
+        log.path = dir.path().join(STREAM_FILE);
+        log.file = File::create(&log.path).ok();
+        log.heartbeat_if_due();
+        log.heartbeat_if_due(); // within the interval: no second line
+        let body = fs::read_to_string(&log.path).unwrap();
+        assert_eq!(body.lines().count(), 1);
+        assert!(body.contains("\"type\":\"heartbeat\""));
     }
 
     #[test]

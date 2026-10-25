@@ -457,6 +457,10 @@ pub async fn run(mode: Mode) -> Result<()> {
             app.process_audio_event(event);
         }
 
+        if app.live_state.is_recording {
+            app.live_log.heartbeat_if_due();
+        }
+
         // Process app events (analysis, follow-up, agent)
         while let Ok(event) = app.app_event_rx.try_recv() {
             app.process_app_event(event);
