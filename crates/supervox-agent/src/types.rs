@@ -240,6 +240,9 @@ pub struct Config {
     /// Input device name; `None` = system default. Press `m` in Live to cycle.
     #[serde(default)]
     pub mic_device: Option<String>,
+    /// Start recording as soon as Live opens; `false` waits for Space/r.
+    #[serde(default = "default_true")]
+    pub auto_record: bool,
 }
 fn default_vad_pause_ms() -> u32 {
     1200
@@ -351,6 +354,7 @@ impl Default for Config {
             max_speakers: default_max_speakers(),
             summary: SummaryMode::default(),
             mic_device: None,
+            auto_record: default_true(),
         }
     }
 }

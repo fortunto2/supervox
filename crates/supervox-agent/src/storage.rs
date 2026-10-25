@@ -623,6 +623,7 @@ mod tests {
             max_speakers: 2,
             summary: crate::types::SummaryMode::External,
             mic_device: Some("MacBook Pro Microphone".into()),
+            auto_record: false,
         };
         save_default_config(&path, &cfg).unwrap();
 
@@ -634,6 +635,7 @@ mod tests {
         assert_eq!(loaded.max_speakers, 2);
         assert_eq!(loaded.summary, crate::types::SummaryMode::External);
         assert_eq!(loaded.mic_device.as_deref(), Some("MacBook Pro Microphone"));
+        assert!(!loaded.auto_record);
         assert_eq!(loaded.summary_lag_secs, 10);
         assert_eq!(loaded.capture, CaptureMode::Mic);
     }

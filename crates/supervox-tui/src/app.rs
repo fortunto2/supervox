@@ -387,6 +387,9 @@ pub async fn run(mode: Mode) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;
 
     let mut app = App::new(mode, config);
+    if matches!(app.mode, Mode::Live) && app.config.auto_record {
+        start_recording(&mut app);
+    }
 
     while app.running {
         terminal.draw(|f| {
