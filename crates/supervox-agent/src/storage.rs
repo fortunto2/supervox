@@ -231,22 +231,27 @@ pub fn save_analysis(
     call_id: &str,
     analysis: &CallAnalysis,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Find call file to derive the base name
-    for entry in std::fs::read_dir(calls_dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.extension().is_some_and(|e| e == "json") {
-            let name = path.file_stem().unwrap_or_default().to_string_lossy();
-            if name.ends_with(call_id) && !name.contains(".analysis") {
-                let analysis_filename = format!("{name}.analysis.json");
-                let analysis_path = calls_dir.join(analysis_filename);
-                let json = serde_json::to_string_pretty(analysis)?;
-                std::fs::write(analysis_path, json)?;
-                return Ok(());
+    let name = call_stem(calls_dir, call_id)
+        .ok_or_else(|| format!("Call not found for analysis: {call_id}"))?;
+    let json = serde_json::to_string_pretty(analysis)?;
+    std::fs::write(calls_dir.join(format!("{name}.analysis.json")), json)?;
+    Ok(())
+}
+
+/// File stem of a saved call (`<date>-<id>`), the base name for every file that
+/// belongs to it (`.json`, `.wav`, `.analysis.json`, `.live.jsonl`, `.summary.md`).
+pub fn call_stem(calls_dir: &Path, call_id: &str) -> Option<String> {
+    std::fs::read_dir(calls_dir)
+        .ok()?
+        .flatten()
+        .find_map(|entry| {
+            let path = entry.path();
+            if path.extension()? != "json" {
+                return None;
             }
-        }
-    }
-    Err(format!("Call not found for analysis: {call_id}").into())
+            let name = path.file_stem()?.to_string_lossy().into_owned();
+            (name.ends_with(call_id) && !name.contains('.')).then_some(name)
+        })
 }
 
 /// Load persisted analysis for a call. Returns None if no analysis file exists.

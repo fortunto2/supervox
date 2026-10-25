@@ -149,8 +149,16 @@ impl App {
 
     /// Spawn async LLM analysis for the given transcript.
     pub fn spawn_analysis(&self, transcript: String) {
-        let model = self.config.effective_model().to_string();
         let tx = self.app_event_tx.clone();
+        if !self.config.analysis_available() {
+            let _ = tx.send(AppEvent::AnalysisError(
+                "No built-in LLM (set OPENAI_API_KEY or llm_backend = \"ollama\"). \
+                 The call is saved in ~/.supervox/calls; analyse it with your agent."
+                    .into(),
+            ));
+            return;
+        }
+        let model = self.config.effective_model().to_string();
         tokio::spawn(async move {
             match crate::analysis_pipeline::analyze_transcript(&transcript, &model).await {
                 Ok(analysis) => {
@@ -324,17 +332,17 @@ impl App {
                 ) {
                     Ok(call_id) => {
                         self.live_log.stop(Some(&call_id.to_string()));
-                        let kept = crate::live_log::keep_with_call(
-                            &crate::live_log::live_dir(),
-                            &calls_dir,
-                            &call_id.to_string(),
-                        );
+                        let kept = self
+                            .live_log
+                            .keep_with_call(&calls_dir, &call_id.to_string());
                         if transcript.is_empty() {
                             self.status = "Recording stopped (no speech detected)".into();
                         } else if self.config.summary
                             != supervox_agent::types::SummaryMode::Internal
+                            || !self.config.analysis_available()
                         {
-                            // No built-in LLM configured for this mode: save and hand off, never error.
+                            // An outside agent owns the analysis, or there is no LLM to run it:
+                            // save and hand off instead of opening an error screen.
                             self.status = format!(
                                 "Saved ({:.0}s, +{} live files) in {}; analysis is your agent's",
                                 duration_secs,

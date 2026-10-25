@@ -112,7 +112,7 @@ impl MicCapture {
         let host = cpal::default_host();
         let device = match device_name {
             Some(wanted) => {
-                let devices: Vec<cpal::Device> = host
+                let mut devices: Vec<cpal::Device> = host
                     .input_devices()
                     .map_err(|e| MicError::DeviceConfig(e.to_string()))?
                     .collect();
@@ -124,7 +124,7 @@ impl MicCapture {
                     wanted: wanted.to_string(),
                     available: names.join(", "),
                 })?;
-                devices.into_iter().nth(idx).ok_or(MicError::NoDevice)?
+                devices.swap_remove(idx)
             }
             None => host.default_input_device().ok_or(MicError::NoDevice)?,
         };

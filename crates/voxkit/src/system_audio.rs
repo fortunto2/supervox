@@ -201,12 +201,7 @@ fn read_loop_with_vad(
         }
 
         // Convert raw bytes to f32 samples (little-endian)
-        let samples: Vec<f32> = buf
-            .as_chunks::<4>()
-            .0
-            .iter()
-            .map(|b| f32::from_le_bytes(*b))
-            .collect();
+        let samples: Vec<f32> = crate::types::f32_le_samples(&buf);
 
         let events = vad.feed(&samples);
         for event in events {
@@ -240,12 +235,7 @@ fn read_loop_raw(stdout: impl Read, stop_flag: Arc<AtomicBool>, tx: mpsc::Sender
             Err(_) => break,
         }
 
-        let samples: Vec<f32> = buf
-            .as_chunks::<4>()
-            .0
-            .iter()
-            .map(|b| f32::from_le_bytes(*b))
-            .collect();
+        let samples: Vec<f32> = crate::types::f32_le_samples(&buf);
 
         let chunk = AudioChunk::new(samples, SYSTEM_AUDIO_SAMPLE_RATE);
         if tx.blocking_send(chunk).is_err() {

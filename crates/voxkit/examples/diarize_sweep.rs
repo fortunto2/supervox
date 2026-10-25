@@ -11,17 +11,12 @@ use voxkit::speaker::{SpeakerEmbedder, SpeakerTracker};
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let raw = std::fs::read(&args[1]).expect("clip.f32");
-    let samples: Vec<f32> = raw
-        .as_chunks::<4>()
-        .0
-        .iter()
-        .map(|b| f32::from_le_bytes(*b))
-        .collect();
+    let samples = voxkit::types::f32_le_samples(&raw);
     let mut embedder = SpeakerEmbedder::new(Path::new(&args[2])).expect("speaker model");
     let win = 16_000 * 3;
     let mut embs = Vec::new();
     for w in samples.chunks(win).filter(|w| w.len() == win) {
-        let rms = (w.iter().map(|x| x * x).sum::<f32>() / w.len() as f32).sqrt();
+        let rms = voxkit::types::AudioChunk::new(w.to_vec(), 16_000).rms();
         if rms < 0.005 {
             continue;
         }

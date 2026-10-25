@@ -223,6 +223,15 @@ pub fn resample_to_24k_i16(samples: &[f32], src_rate: u32) -> Vec<i16> {
         .collect()
 }
 
+/// Little-endian f32 PCM bytes → samples (a trailing partial sample is dropped).
+pub fn f32_le_samples(buf: &[u8]) -> Vec<f32> {
+    buf.as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| f32::from_le_bytes(*b))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -273,6 +273,19 @@ fn default_ducking_threshold() -> f32 {
 
 impl Config {
     /// Returns the effective LLM model based on backend config and env override.
+    /// Whether the built-in LLM can run: Ollama is local, the cloud model needs
+    /// `OPENAI_API_KEY`. Without it supervox records and saves, and analysis is
+    /// left to an outside agent reading `~/.supervox/calls/`.
+    pub fn analysis_available(&self) -> bool {
+        let backend = std::env::var("SUPERVOX_LLM_BACKEND").unwrap_or_default();
+        let ollama = if backend.is_empty() {
+            self.llm_backend == LlmBackend::Ollama
+        } else {
+            backend == "ollama"
+        };
+        ollama || std::env::var("OPENAI_API_KEY").is_ok_and(|k| !k.is_empty())
+    }
+
     pub fn effective_model(&self) -> &str {
         let backend_str = std::env::var("SUPERVOX_LLM_BACKEND").unwrap_or_default();
         let is_ollama = if backend_str.is_empty() {

@@ -104,6 +104,25 @@ impl LiveLog {
         self.file = None;
     }
 
+    /// Link the finished session's stream and summary next to the saved call as
+    /// `<call stem>.live.jsonl` / `<call stem>.summary.md`. A hard link costs nothing
+    /// and survives the later archive rename; copy only across volumes.
+    pub fn keep_with_call(&self, calls_dir: &Path, call_id: &str) -> Vec<PathBuf> {
+        let Some(dir) = self.path.parent() else {
+            return Vec::new();
+        };
+        let stem = supervox_agent::storage::call_stem(calls_dir, call_id)
+            .unwrap_or_else(|| call_id.to_string());
+        let mut kept = Vec::new();
+        for (name, suffix) in [(STREAM_FILE, "live.jsonl"), (SUMMARY_FILE, "summary.md")] {
+            let (src, dest) = (dir.join(name), calls_dir.join(format!("{stem}.{suffix}")));
+            if fs::hard_link(&src, &dest).is_ok() || fs::copy(&src, &dest).is_ok() {
+                kept.push(dest);
+            }
+        }
+        kept
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -141,19 +160,6 @@ pub fn archive_session(dir: &Path) -> Option<PathBuf> {
         out.join(format!("{stamp}.summary.md")),
     );
     Some(dest)
-}
-
-/// Copy the finished session's stream and summary next to the saved call
-/// (`<call_id>.live.jsonl`, `<call_id>.summary.md`), so the call folder holds everything.
-pub fn keep_with_call(dir: &Path, calls_dir: &Path, call_id: &str) -> Vec<PathBuf> {
-    let mut kept = Vec::new();
-    for (name, suffix) in [(STREAM_FILE, "live.jsonl"), (SUMMARY_FILE, "summary.md")] {
-        let dest = calls_dir.join(format!("{call_id}.{suffix}"));
-        if fs::copy(dir.join(name), &dest).is_ok() {
-            kept.push(dest);
-        }
-    }
-    kept
 }
 
 /// Poll `summary.md`; emit its content whenever it changes. Stops when `stop` is set.
@@ -248,15 +254,16 @@ mod tests {
         let calls = tempfile::tempdir().unwrap();
         fs::write(live.path().join(STREAM_FILE), "x\n").unwrap();
         fs::write(live.path().join(SUMMARY_FILE), "y\n").unwrap();
-        let kept = keep_with_call(live.path(), calls.path(), "abc");
+        fs::write(calls.path().join("2026-10-24-abc.json"), "{}").unwrap();
+        let log = LiveLog {
+            path: live.path().join(STREAM_FILE),
+            ..LiveLog::default()
+        };
+        let kept = log.keep_with_call(calls.path(), "abc");
         assert_eq!(kept.len(), 2);
-        assert_eq!(
-            fs::read_to_string(calls.path().join("abc.live.jsonl")).unwrap(),
-            "x\n"
-        );
-        assert_eq!(
-            fs::read_to_string(calls.path().join("abc.summary.md")).unwrap(),
-            "y\n"
-        );
+        // named after the call's own stem, so the files sort and group with it
+        let read = |n: &str| fs::read_to_string(calls.path().join(n)).unwrap();
+        assert_eq!(read("2026-10-24-abc.live.jsonl"), "x\n");
+        assert_eq!(read("2026-10-24-abc.summary.md"), "y\n");
     }
 }
