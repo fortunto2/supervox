@@ -1,5 +1,5 @@
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEvent};
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::{Color, Style};
 use ratatui::text::Line;
@@ -30,6 +30,7 @@ pub enum Mode {
     Analysis { file: String },
     Agent,
     History { return_to: Box<Mode> },
+    Sessions { return_to: Option<Box<Mode>> },
 }
 
 /// Application state.
@@ -42,6 +43,9 @@ pub struct App {
     pub analysis_state: modes::analysis::AnalysisState,
     pub agent_state: modes::agent::AgentState,
     pub history_state: Option<modes::history::CallHistoryState>,
+    /// The sessions browser; its mode's `return_to` is `None` when started as
+    /// `supervox sessions` (Esc quits then).
+    pub sessions: Option<crate::sessions::browser::Browser>,
     pub show_help: bool,
     /// Timed status message (text, when set). Clears after 5 seconds.
     pub status_error: Option<(String, std::time::Instant)>,
@@ -79,6 +83,7 @@ impl App {
             Mode::Analysis { file } => format!("Analysis mode — {file}"),
             Mode::Agent => "Agent mode — type a question".into(),
             Mode::History { .. } => "Call history".into(),
+            Mode::Sessions { .. } => "Sessions".into(),
         };
 
         let analysis_file = match &mode {
@@ -86,6 +91,8 @@ impl App {
             _ => String::new(),
         };
 
+        let sessions =
+            matches!(mode, Mode::Sessions { .. }).then(crate::sessions::browser::Browser::open);
         let (audio_event_tx, audio_event_rx) = mpsc::unbounded_channel();
         let (app_event_tx, app_event_rx) = mpsc::unbounded_channel();
         let mut live_state = modes::live::LiveState::default();
@@ -120,6 +127,7 @@ impl App {
             analysis_state: modes::analysis::AnalysisState::new(&analysis_file),
             agent_state: modes::agent::AgentState::default(),
             history_state: None,
+            sessions,
             show_help: false,
             status_error: None,
             audio: AudioPipeline::default(),
@@ -148,12 +156,28 @@ impl App {
         app
     }
 
+    /// ` [MODE] status | ?=help q=quit`; over the browser, the recording behind it.
+    fn status_line(&self) -> String {
+        let rec = if self.live_state.is_recording {
+            let secs = self.live_state.elapsed_secs();
+            format!(" ● REC {}:{:02} |", secs / 60, secs % 60)
+        } else {
+            String::new()
+        };
+        let keys = match self.mode {
+            Mode::Sessions { .. } => "?=help Esc=back",
+            _ => "?=help q=quit",
+        };
+        format!("{rec} [{}] {} | {keys}", self.mode_label(), self.status)
+    }
+
     fn mode_label(&self) -> &str {
         match &self.mode {
             Mode::Live => "LIVE",
             Mode::Analysis { .. } => "ANALYSIS",
             Mode::Agent => "AGENT",
             Mode::History { .. } => "HISTORY",
+            Mode::Sessions { .. } => "SESSIONS",
         }
     }
 
@@ -415,7 +439,7 @@ pub async fn run(mode: Mode) -> Result<()> {
 
             match &app.mode {
                 Mode::Live => {
-                    modes::live::render(f, area, &app.live_state);
+                    modes::live::render(f, area, &mut app.live_state);
                     // Show error overlay on status bar area if present
                     if let Some((err, when)) = &app.status_error
                         && when.elapsed().as_secs() < 5
@@ -441,6 +465,11 @@ pub async fn run(mode: Mode) -> Result<()> {
                                 modes::history::render_tag_filter(f, main_area, hs);
                             }
                         }
+                        Mode::Sessions { .. } => {
+                            if let Some(b) = &mut app.sessions {
+                                b.render(f, main_area);
+                            }
+                        }
                         Mode::Live => unreachable!(),
                     }
 
@@ -453,13 +482,13 @@ pub async fn run(mode: Mode) -> Result<()> {
                             )
                         } else {
                             (
-                                format!(" [{}] {} | ?=help q=quit", app.mode_label(), app.status),
+                                app.status_line(),
                                 Style::default().fg(Color::White).bg(Color::DarkGray),
                             )
                         }
                     } else {
                         (
-                            format!(" [{}] {} | ?=help q=quit", app.mode_label(), app.status),
+                            app.status_line(),
                             Style::default().fg(Color::White).bg(Color::DarkGray),
                         )
                     };
@@ -495,72 +524,136 @@ pub async fn run(mode: Mode) -> Result<()> {
             app.process_app_event(event);
         }
 
+        if let Some(b) = &mut app.sessions {
+            b.poll();
+        }
+
         // Poll terminal events
-        if event::poll(Duration::from_millis(50))?
-            && let Event::Key(key) = event::read()?
-        {
-            // Ctrl+C always quits
-            if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c') {
-                app.audio.stop();
-                app.running = false;
-                continue;
-            }
-
-            // Any key dismisses help overlay
-            if app.show_help {
-                app.show_help = false;
-                continue;
-            }
-
-            // `?` toggles help overlay
-            if key.code == KeyCode::Char('?') {
-                app.show_help = true;
-                continue;
-            }
-
-            // Esc in History returns to previous mode; elsewhere quits
-            if key.code == KeyCode::Esc {
-                if let Mode::History { return_to } = &app.mode {
-                    let return_mode = return_to.clone();
-                    app.mode = *return_mode;
-                    app.history_state = None;
-                    app.status = "Back".into();
-                } else if !app.live_state.is_recording {
-                    app.running = false;
-                }
-                continue;
-            }
-
-            // Mode-specific handling
-            match &app.mode {
-                Mode::Live => {
-                    // q quits only when not recording
-                    if key.code == KeyCode::Char('q') && !app.live_state.is_recording {
-                        app.running = false;
-                    } else {
-                        handle_live_key(&mut app, key);
-                    }
-                }
-                Mode::Analysis { .. } => {
-                    if key.code == KeyCode::Char('q') {
-                        app.running = false;
-                    } else {
-                        modes::analysis::handle_key(&mut app, key);
-                    }
-                }
-                Mode::Agent => {
-                    // In agent mode, all keys go to input handler (no 'q' quit)
-                    modes::agent::handle_key(&mut app, key);
-                }
-                Mode::History { .. } => {
-                    handle_history_key(&mut app, key);
-                }
-            }
+        if !event::poll(Duration::from_millis(50))? {
+            continue;
+        }
+        match event::read()? {
+            Event::Key(key) => handle_key(&mut app, key),
+            Event::Mouse(mouse) => handle_mouse(&mut app, mouse),
+            _ => {}
         }
     }
 
     restore_terminal()?;
     Ok(())
+}
+
+/// One key press, routed by mode.
+fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) {
+    // Ctrl+C always quits
+    if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c') {
+        app.audio.stop();
+        app.running = false;
+        return;
+    }
+
+    // Any key dismisses help overlay
+    if app.show_help {
+        app.show_help = false;
+        return;
+    }
+
+    // The browser types `?`, `q` and Esc into its own query and views
+    if matches!(app.mode, Mode::Sessions { .. }) {
+        handle_sessions_key(app, key);
+        return;
+    }
+
+    // `?` toggles help overlay
+    if key.code == KeyCode::Char('?') {
+        app.show_help = true;
+        return;
+    }
+
+    // Esc in History returns to previous mode; elsewhere quits
+    if key.code == KeyCode::Esc {
+        if let Mode::History { return_to } = &app.mode {
+            let return_mode = return_to.clone();
+            app.mode = *return_mode;
+            app.history_state = None;
+            app.status = "Back".into();
+        } else if !app.live_state.is_recording {
+            app.running = false;
+        }
+        return;
+    }
+
+    // Mode-specific handling
+    match &app.mode {
+        Mode::Live => {
+            // q quits only when not recording
+            if key.code == KeyCode::Char('q') && !app.live_state.is_recording {
+                app.running = false;
+            } else {
+                handle_live_key(app, key);
+            }
+        }
+        Mode::Analysis { .. } => {
+            if key.code == KeyCode::Char('q') {
+                app.running = false;
+            } else {
+                modes::analysis::handle_key(app, key);
+            }
+        }
+        Mode::Agent => {
+            // In agent mode, all keys go to input handler (no 'q' quit)
+            modes::agent::handle_key(app, key);
+        }
+        Mode::History { .. } => {
+            handle_history_key(app, key);
+        }
+        Mode::Sessions { .. } => unreachable!("handled above"),
+    }
+}
+
+/// The sessions browser over the current mode; recording (if any) carries on behind it.
+pub fn open_sessions(app: &mut App) {
+    app.sessions = Some(crate::sessions::browser::Browser::open());
+    let return_mode = app.mode.clone();
+    app.mode = Mode::Sessions {
+        return_to: Some(Box::new(return_mode)),
+    };
+    app.status = "Sessions".into();
+}
+
+fn handle_sessions_key(app: &mut App, key: crossterm::event::KeyEvent) {
+    use crate::sessions::browser::BrowserAction;
+    let Some(b) = &mut app.sessions else {
+        return;
+    };
+    match b.handle_key(key) {
+        BrowserAction::None => {}
+        BrowserAction::Help => app.show_help = true,
+        BrowserAction::Back => {
+            app.sessions = None;
+            match &app.mode {
+                Mode::Sessions {
+                    return_to: Some(prev),
+                } => {
+                    app.mode = (**prev).clone();
+                    app.status = "Back".into();
+                }
+                _ => app.running = false,
+            }
+        }
+    }
+}
+
+fn handle_mouse(app: &mut App, mouse: MouseEvent) {
+    match app.mode {
+        Mode::Live => app.live_state.handle_mouse(mouse),
+        Mode::Sessions { .. } => {
+            if let Some(b) = &mut app.sessions {
+                b.handle_mouse(mouse);
+            }
+        }
+        _ => {}
+    }
 }
 
 pub fn open_history(app: &mut App) {
@@ -848,6 +941,9 @@ fn handle_live_key(app: &mut App, key: crossterm::event::KeyEvent) {
         KeyCode::Enter | KeyCode::Char('b') if app.live_state.is_recording => {
             add_bookmark(app);
         }
-        _ => {}
+        KeyCode::Char('/') | KeyCode::Char('o') => open_sessions(app),
+        _ => {
+            app.live_state.handle_scroll_key(key);
+        }
     }
 }

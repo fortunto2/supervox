@@ -7,3 +7,5 @@ pub mod help;
 pub mod intelligence;
 pub mod live_log;
 pub mod modes;
+pub mod scroll;
+pub mod sessions;

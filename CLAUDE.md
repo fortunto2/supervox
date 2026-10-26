@@ -78,6 +78,9 @@ supervox live                        # live call assistant
 supervox analyze <call.json>         # post-call analysis
 supervox analyze <call.json> --json  # output CallAnalysis as JSON
 supervox agent                       # chat with history
+supervox sessions                    # browse every recording: fuzzy by name, or phrase search
+supervox sessions --list --json      # every recording (live sessions + calls) as JSON
+supervox sessions --grep "phrase"    # matching transcript lines with t=m:ss
 supervox calls                       # list past calls
 supervox calls --json                # output calls as JSON
 supervox delete <call-id>            # delete a call (with confirmation)

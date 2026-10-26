@@ -5704,6 +5704,7 @@ dependencies = [
  "crossterm 0.27.0",
  "dotenvy",
  "hound",
+ "neo_frizbee",
  "ratatui",
  "serde",
  "serde_json",

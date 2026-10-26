@@ -12,8 +12,30 @@ const LIVE_KEYS: &[(&str, &str)] = &[
     ("b", "Add bookmark"),
     ("h", "Call history"),
     ("m", "Next microphone (idle)"),
+    ("Tab", "Focus transcript / summary"),
+    ("↑↓ j/k", "Scroll focused pane"),
+    ("PgUp/PgDn", "Scroll a page"),
+    ("Home/g", "Top (stops following)"),
+    ("End/G", "Bottom, follow new lines"),
+    ("Wheel", "Scroll pane under pointer"),
+    ("/ or o", "Sessions browser (recording continues)"),
     ("q", "Quit"),
     ("?", "Toggle help"),
+];
+
+const SESSIONS_KEYS: &[(&str, &str)] = &[
+    ("type", "Filter (fuzzy) or phrase"),
+    ("Tab", "Switch name/date/title ↔ phrase"),
+    ("↑↓ PgUp/PgDn", "Select"),
+    ("Enter", "Read: transcript + summary"),
+    ("Ctrl+U/W", "Clear query / word"),
+    ("Esc", "Back"),
+    ("— reader —", ""),
+    ("Tab ←→", "Focus transcript / summary"),
+    ("↑↓ j/k PgUp/Dn", "Scroll focused pane"),
+    ("Home/End", "Top / bottom"),
+    ("n / N", "Next / previous match"),
+    ("Esc q /", "Back to the list"),
 ];
 
 const ANALYSIS_KEYS: &[(&str, &str)] = &[
@@ -50,6 +72,7 @@ pub fn keys_for_mode(mode: &str) -> &'static [(&'static str, &'static str)] {
         "ANALYSIS" => ANALYSIS_KEYS,
         "AGENT" => AGENT_KEYS,
         "HISTORY" => HISTORY_KEYS,
+        "SESSIONS" => SESSIONS_KEYS,
         _ => &[],
     }
 }
@@ -58,8 +81,16 @@ pub fn keys_for_mode(mode: &str) -> &'static [(&'static str, &'static str)] {
 pub fn render_help(f: &mut Frame, area: Rect, mode: &str) {
     let keys = keys_for_mode(mode);
 
-    let max_key_width = keys.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
-    let max_desc_width = keys.iter().map(|(_, d)| d.len()).max().unwrap_or(0);
+    let max_key_width = keys
+        .iter()
+        .map(|(k, _)| k.chars().count())
+        .max()
+        .unwrap_or(0);
+    let max_desc_width = keys
+        .iter()
+        .map(|(_, d)| d.chars().count())
+        .max()
+        .unwrap_or(0);
     let content_width = (max_key_width + max_desc_width + 5) as u16; // " key  — desc "
     let popup_width = content_width.max(20).min(area.width.saturating_sub(4)) + 4; // borders + padding
     let popup_height = (keys.len() as u16 + 4).min(area.height.saturating_sub(2)); // title + padding + keys + footer
@@ -153,6 +184,16 @@ mod tests {
     fn history_keys_contain_delete() {
         let keys = keys_for_mode("HISTORY");
         assert!(keys.iter().any(|(k, _)| *k == "d"));
+    }
+
+    #[test]
+    fn live_and_sessions_keys_cover_scrolling_and_search() {
+        let live = keys_for_mode("LIVE");
+        for k in ["Tab", "PgUp/PgDn", "End/G", "/ or o"] {
+            assert!(live.iter().any(|(key, _)| *key == k), "{k}");
+        }
+        let sessions = keys_for_mode("SESSIONS");
+        assert!(sessions.iter().any(|(key, _)| *key == "n / N"));
     }
 
     #[test]

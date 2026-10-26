@@ -10,6 +10,8 @@ mod help;
 mod intelligence;
 mod live_log;
 mod modes;
+mod scroll;
+mod sessions;
 
 #[derive(Parser)]
 #[command(name = "supervox", about = "Voice-powered productivity TUI", version)]
@@ -76,6 +78,19 @@ enum Commands {
     },
     /// Agent chat — Q&A over call history
     Agent,
+    /// Browse every recording (live sessions + saved calls): fuzzy by name/date/title,
+    /// or a phrase across transcripts; Enter reads one
+    Sessions {
+        /// Print the list instead of opening the browser
+        #[arg(long)]
+        list: bool,
+        /// Print every line containing this phrase instead of opening the browser
+        #[arg(long, value_name = "PHRASE")]
+        grep: Option<String>,
+        /// Output --list / --grep as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// List past calls
     Calls {
         /// Output as JSON
@@ -205,6 +220,11 @@ async fn main() -> Result<()> {
     }
 
     match cli.command {
+        Some(Commands::Sessions { list, grep, json }) => match grep {
+            Some(phrase) => sessions::cmd_grep(&sessions::discover_all(), &phrase, json)?,
+            None if list || json => sessions::cmd_list(&sessions::discover_all(), json)?,
+            None => app::run(app::Mode::Sessions { return_to: None }).await?,
+        },
         Some(Commands::Calls { json, filter }) => {
             cmd_calls(json, &filter)?;
         }

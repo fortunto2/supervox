@@ -25,7 +25,7 @@ sgr-agent = { version = "0.7.12", path = "../../../../shared/rust-code/crates/sg
 sgr-agent-tui = { version = "0.4.8", path = "../../../../shared/rust-code/crates/sgr-agent-tui" }
 voxkit = { version = "0.7.2", path = "../voxkit", features = ["openai", "mic", "wav", "realtime", "macos-system-audio"] }
 toml = "0.8"
-ratatui = "0.29.0"
+ratatui = { version = "0.29.0", features = ["unstable-rendered-line-info"] }
 crossterm = "0.27"
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive"] }
@@ -39,6 +39,8 @@ uuid = { version = "1", features = ["v7"] }
 arboard = "3"
 hound = "3.5"
 dotenvy = "0.15.7"
+# Fuzzy matcher rust-code uses (SIMD Smith-Waterman), already in the tree via sgr-agent-tui
+neo_frizbee = "0.10"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

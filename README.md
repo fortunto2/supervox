@@ -8,6 +8,7 @@ Voice-powered productivity TUI. Live call assistant + post-call analysis + agent
 - **Analysis** -- post-call summary, action items, follow-up draft
 - **Agent** -- chat with call history, search across past calls
 - **History** -- browse past calls, open any call in Analysis mode
+- **Sessions** -- every recording in one list: fuzzy by name/date/title, or a phrase across all transcripts; read any of them
 
 ## Prerequisites
 
@@ -41,6 +42,9 @@ supervox export <call-id> -o file.md # export to file
 supervox search <query>              # search call transcripts
 supervox search <query> --json       # output matches as JSON
 supervox play <call-id>              # play audio recording in system player
+supervox sessions                    # browse every recording (sessions + calls), fuzzy or phrase search
+supervox sessions --list [--json]    # print them, newest first
+supervox sessions --grep "phrase"    # every line with the phrase, with t=m:ss (--json too)
 
 # Use local Ollama instead of cloud LLM
 supervox --local live
@@ -59,9 +63,22 @@ supervox --local live
 |-----|--------|
 | `r` | Start recording |
 | `s` | Stop recording |
+| `Enter` / `b` | Bookmark (while recording) |
 | `h` | Open call history (when idle) |
 | `m` | Next microphone (when idle) |
+| `Tab` / `Shift+Tab` | Focus the Transcript or the Summary pane (thick border) |
+| `↑/↓`, `j/k` | Scroll the focused pane by a line |
+| `PgUp/PgDn` (`Ctrl+B/F`) | Scroll by a page |
+| `Home` / `g` | Top; the pane stops following new lines |
+| `End` / `G` | Bottom; follow new lines again |
+| Mouse wheel | Scroll the pane under the pointer (and focus it) |
+| `/` or `o` | Sessions browser (recording carries on behind it) |
 | `q` | Quit (when idle) |
+
+The transcript follows the newest line until you scroll up; its title then says
+`42% · End follows`, and new lines wait below until `End` (or scrolling back to the bottom).
+The summary is a document: it starts at the top and keeps its place when the agent rewrites
+`summary.md`; `End` on it follows its tail instead.
 
 Speaker labels are color-coded: **You** (cyan) and **Them** (yellow).
 
@@ -93,6 +110,29 @@ Browse and manage past calls.
 | `d` | Delete call (y/n confirmation) |
 | `Esc` | Back to previous mode |
 | `q` | Quit |
+
+### Sessions browser
+
+`supervox sessions`, or `/` / `o` from Live. Lists every recording: session folders
+(`live/sessions/<stamp>[-slug]/`, including an agent's `stream-part*.jsonl`), the older flat
+`sessions/<ts>.jsonl` + `<ts>.summary.md`, saved calls in `calls/`, and a `current.jsonl` an
+older supervox is still writing (marked `●`). A call hard-linked to a session is listed once.
+Discovery reads only metadata, summary headings and the last 32 KB of each stream (never a
+WAV); transcripts load on a background thread, newest first, so phrase search covers what
+is loaded and the footer counts the rest.
+
+| Key | Action |
+|-----|--------|
+| type | Filter (fuzzy: name, date, summary title) or phrase |
+| `Tab` | Switch between fuzzy and phrase search |
+| `↑/↓`, `PgUp/PgDn`, `Home/End` | Select |
+| `Enter` | Read: transcript and summary side by side |
+| `Ctrl+U` / `Ctrl+W` | Clear the query / a word |
+| `Esc` | Back (or quit, when started as `supervox sessions`) |
+
+In the reader: `Tab` or `←/→` switches pane, `↑/↓ j/k PgUp/PgDn Home/End` and the wheel
+scroll it, `n` / `N` jump to the next / previous match of the phrase (marked yellow, the
+current one on a dark line), `Esc` / `q` / `/` go back to the list.
 
 ### Agent mode
 

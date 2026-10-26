@@ -1,11 +1,17 @@
 use crate::audio::AudioSource;
+use crate::scroll::{Pane, pane_title, position_label, render_pane};
+use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
+use sgr_agent_tui::FocusRing;
 use std::time::Instant;
 use supervox_agent::types::Bookmark;
+
+const TRANSCRIPT: &str = "transcript";
+const SUMMARY: &str = "summary";
 
 /// A single line in the transcript view — either speech or its translation.
 #[derive(Debug, Clone)]
@@ -36,6 +42,12 @@ pub struct LiveState {
     pub summary_title: String,
     /// External summaries are Markdown already; internal ones get bullets.
     pub summary_raw: bool,
+    /// Follows the newest line until scrolled up; End resumes.
+    pub transcript_pane: Pane,
+    /// A document: starts at the top, keeps its place when the agent rewrites it.
+    pub summary_pane: Pane,
+    /// Which pane the scroll keys move; Tab cycles, a click or the wheel picks.
+    pub focus: FocusRing,
 }
 
 impl Default for LiveState {
@@ -54,6 +66,9 @@ impl Default for LiveState {
             summary_title: " Rolling Summary ".into(),
             summary_raw: false,
             bookmarks: Vec::new(),
+            transcript_pane: Pane::following(),
+            summary_pane: Pane::at_top(),
+            focus: FocusRing::new(&[TRANSCRIPT, SUMMARY]),
         }
     }
 }
@@ -72,6 +87,41 @@ impl LiveState {
         self.summary_lines.clear();
         self.current_delta = None;
         self.bookmarks.clear();
+        self.transcript_pane = Pane::following();
+        self.summary_pane = Pane::at_top();
+    }
+
+    fn focused_pane(&mut self) -> &mut Pane {
+        if self.focus.is_focused(SUMMARY) {
+            &mut self.summary_pane
+        } else {
+            &mut self.transcript_pane
+        }
+    }
+
+    /// Tab/Shift-Tab switch panes; arrows, j/k, PgUp/PgDn, Home/End, g/G scroll the
+    /// focused one. True if the key was one of these.
+    pub fn handle_scroll_key(&mut self, key: KeyEvent) -> bool {
+        match key.code {
+            KeyCode::Tab => self.focus.next(),
+            KeyCode::BackTab => self.focus.prev(),
+            _ => return self.focused_pane().view.handle_key(key),
+        }
+        true
+    }
+
+    /// The wheel scrolls the pane under the pointer (and focuses it); a click focuses.
+    pub fn handle_mouse(&mut self, mouse: MouseEvent) {
+        match mouse.kind {
+            MouseEventKind::ScrollUp | MouseEventKind::ScrollDown => {
+                self.focus.click(mouse.column, mouse.row);
+                self.focused_pane().view.handle_wheel(mouse);
+            }
+            MouseEventKind::Down(MouseButton::Left) => {
+                self.focus.click(mouse.column, mouse.row);
+            }
+            _ => {}
+        }
     }
 
     /// Add a bookmark at the current elapsed time.
@@ -126,6 +176,7 @@ impl LiveState {
     /// Set the rolling summary text (replaces previous).
     pub fn set_summary(&mut self, text: &str) {
         self.summary_lines = text.lines().map(|l| l.to_string()).collect();
+        self.summary_pane.replaced();
     }
 
     /// Count of non-translation transcript lines (for pipeline IDs).
@@ -134,120 +185,134 @@ impl LiveState {
     }
 }
 
+/// One transcript line: `S1: text`, translations indented and italic.
+fn transcript_line(line: &TranscriptLine) -> Line<'_> {
+    let color = speaker_color(&line.source, line.speaker);
+    let text_style = if line.is_translation {
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::ITALIC)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    let label = crate::audio::speaker_label(&line.source, line.speaker);
+    let prefix = if line.is_translation {
+        format!("  → {label}: ")
+    } else {
+        format!("{label}: ")
+    };
+    Line::from(vec![
+        Span::styled(prefix, Style::default().fg(color)),
+        Span::styled(line.text.as_str(), text_style),
+    ])
+}
+
+/// The partial (not yet final) transcript, dimmed.
+fn delta_line(source: &AudioSource, text: &str) -> Line<'static> {
+    Line::from(vec![
+        Span::styled(
+            format!("{}: ", source.label()),
+            Style::default()
+                .fg(speaker_color(source, None))
+                .add_modifier(Modifier::DIM),
+        ),
+        Span::styled(
+            text.to_string(),
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::DIM),
+        ),
+    ])
+}
+
+/// A pane border: thick when focused, in the pane's own color either way.
+fn pane_block(title: String, color: Color, focused: bool) -> Block<'static> {
+    Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_type(if focused {
+            BorderType::Thick
+        } else {
+            BorderType::Plain
+        })
+        .border_style(Style::default().fg(color))
+}
+
+fn render_transcript(f: &mut Frame, area: Rect, state: &mut LiveState) {
+    let color = if state.is_recording {
+        Color::Green
+    } else {
+        Color::Cyan
+    };
+    let title = pane_title(&[
+        "Transcript",
+        &position_label(&state.transcript_pane.view, true),
+    ]);
+    let block = pane_block(title, color, state.focus.is_focused(TRANSCRIPT));
+    if state.lines.is_empty() && state.current_delta.is_none() {
+        let msg = if state.is_recording {
+            "Listening..."
+        } else {
+            "Press 'r' to start recording"
+        };
+        let hint = Paragraph::new(Span::styled(msg, Style::default().fg(Color::DarkGray)));
+        f.render_widget(hint.block(block), area);
+        return;
+    }
+    let tail = state
+        .current_delta
+        .as_ref()
+        .map(|(source, text)| delta_line(source, text));
+    render_pane(
+        f,
+        area,
+        block,
+        &mut state.transcript_pane,
+        &state.lines,
+        |_, l| transcript_line(l),
+        tail,
+    );
+}
+
+fn render_summary(f: &mut Frame, area: Rect, state: &mut LiveState) {
+    let title = pane_title(&[
+        &state.summary_title,
+        &position_label(&state.summary_pane.view, false),
+    ]);
+    let block = pane_block(title, Color::Yellow, state.focus.is_focused(SUMMARY));
+    let gray = Style::default().fg(Color::Gray);
+    if state.summary_lines.is_empty() {
+        let hint = Paragraph::new(Span::styled("Summary will appear here", gray));
+        f.render_widget(hint.block(block), area);
+        return;
+    }
+    let raw = state.summary_raw;
+    render_pane(
+        f,
+        area,
+        block,
+        &mut state.summary_pane,
+        &state.summary_lines,
+        |_, l| match raw {
+            true => Line::styled(l.as_str(), gray),
+            false => Line::styled(format!("• {l}"), gray),
+        },
+        None,
+    );
+}
+
 /// Render live mode — left panel (transcript + translation), right panel (summary), bottom status.
-pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
+pub fn render(f: &mut Frame, area: Rect, state: &mut LiveState) {
     let [main_area, status_area] =
         Layout::vertical([Constraint::Min(3), Constraint::Length(1)]).areas(area);
 
     let [left, right] =
         Layout::horizontal([Constraint::Percentage(60), Constraint::Percentage(40)])
             .areas(main_area);
-
-    // Left panel: transcript + translation + delta
-    let mut text_lines: Vec<Line> = Vec::new();
-
-    let has_content = !state.lines.is_empty() || state.current_delta.is_some();
-    if !has_content {
-        let msg = if state.is_recording {
-            "Listening..."
-        } else {
-            "Press 'r' to start recording"
-        };
-        text_lines.push(Line::from(Span::styled(
-            msg,
-            Style::default().fg(Color::DarkGray),
-        )));
-    } else {
-        for line in &state.lines {
-            let color = speaker_color(&line.source, line.speaker);
-            let (prefix_color, text_style) = if line.is_translation {
-                (
-                    color,
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::ITALIC),
-                )
-            } else {
-                (color, Style::default().fg(Color::White))
-            };
-            let label = crate::audio::speaker_label(&line.source, line.speaker);
-            let prefix = if line.is_translation {
-                format!("  → {label}: ")
-            } else {
-                format!("{label}: ")
-            };
-            text_lines.push(Line::from(vec![
-                Span::styled(prefix, Style::default().fg(prefix_color)),
-                Span::styled(line.text.clone(), text_style),
-            ]));
-        }
-        // Show current delta (partial) dimmed
-        if let Some((source, text)) = &state.current_delta {
-            text_lines.push(Line::from(vec![
-                Span::styled(
-                    format!("{}: ", source.label()),
-                    Style::default()
-                        .fg(speaker_color(source, None))
-                        .add_modifier(Modifier::DIM),
-                ),
-                Span::styled(
-                    text.clone(),
-                    Style::default()
-                        .fg(Color::DarkGray)
-                        .add_modifier(Modifier::DIM),
-                ),
-            ]));
-        }
-    }
-
-    // Auto-scroll: keep the newest lines visible. Rows are estimated from
-    // wrapped width, which is exact for plain text and close enough for emoji.
-    let inner_w = left.width.saturating_sub(2).max(1) as usize;
-    let inner_h = left.height.saturating_sub(2) as usize;
-    let rows: usize = text_lines
-        .iter()
-        .map(|l| l.width().div_ceil(inner_w).max(1))
-        .sum();
-    let scroll = rows.saturating_sub(inner_h) as u16;
-    let transcript = Paragraph::new(text_lines)
-        .scroll((scroll, 0))
-        .block(
-            Block::default()
-                .title(" Transcript ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(if state.is_recording {
-                    Color::Green
-                } else {
-                    Color::Cyan
-                })),
-        )
-        .wrap(Wrap { trim: false });
-    f.render_widget(transcript, left);
-
-    // Right panel: rolling summary
-    let summary_text = if state.summary_lines.is_empty() {
-        "Summary will appear here".to_string()
-    } else if state.summary_raw {
-        state.summary_lines.join("\n")
-    } else {
-        state
-            .summary_lines
-            .iter()
-            .map(|s| format!("• {s}"))
-            .collect::<Vec<_>>()
-            .join("\n")
-    };
-
-    let summary = Paragraph::new(summary_text)
-        .block(
-            Block::default()
-                .title(state.summary_title.as_str())
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow)),
-        )
-        .wrap(Wrap { trim: false })
-        .style(Style::default().fg(Color::Gray));
-    f.render_widget(summary, right);
+    state.focus.set_rect(TRANSCRIPT, left);
+    state.focus.set_rect(SUMMARY, right);
+    render_transcript(f, left, state);
+    render_summary(f, right, state);
 
     // Status bar
     let mic_indicator = if state.is_recording {
@@ -313,7 +378,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &LiveState) {
 
     status_spans.push(Span::raw(" │ "));
     status_spans.push(Span::styled(
-        " Space=rec/stop Enter=mark m=mic ?=help q=quit ",
+        " Space=rec/stop Enter=mark Tab/PgUp/PgDn=scroll /=sessions ?=help q=quit ",
         Style::default().fg(Color::DarkGray),
     ));
 
@@ -347,6 +412,139 @@ fn audio_level_bar(level: f32, width: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crossterm::event::KeyModifiers;
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+
+    fn screen(state: &mut LiveState) -> String {
+        let mut term = Terminal::new(TestBackend::new(80, 14)).unwrap();
+        term.draw(|f| render(f, f.area(), state)).unwrap();
+        let buf = term.backend().buffer();
+        (0..buf.area.height)
+            .map(|y| {
+                (0..buf.area.width)
+                    .map(|x| buf[(x, y)].symbol())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    fn press(state: &mut LiveState, code: KeyCode) -> bool {
+        state.handle_scroll_key(KeyEvent::new(code, KeyModifiers::NONE))
+    }
+
+    fn recording(lines: usize) -> LiveState {
+        let mut s = LiveState::default();
+        s.start_recording();
+        for i in 0..lines {
+            s.push_final_transcript(AudioSource::Mic, &format!("L{i:03}"), Some(1));
+        }
+        s
+    }
+
+    #[test]
+    fn a_long_transcript_shows_its_tail_and_stays_put_once_scrolled_up() {
+        let mut s = recording(100);
+        let out = screen(&mut s);
+        assert!(out.contains("L099") && !out.contains("L080"), "{out}");
+        assert!(press(&mut s, KeyCode::PageUp));
+        let out = screen(&mut s);
+        assert!(
+            !out.contains("L099") && out.contains("End follows"),
+            "{out}"
+        );
+        s.push_final_transcript(AudioSource::Mic, "L100", Some(1));
+        assert!(
+            !screen(&mut s).contains("L100"),
+            "scrolled up: new lines wait below"
+        );
+        assert!(press(&mut s, KeyCode::End));
+        let out = screen(&mut s);
+        assert!(
+            out.contains("L100") && !out.contains("End follows"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn the_partial_line_follows_the_tail() {
+        let mut s = recording(40);
+        s.update_delta(AudioSource::Mic, "still talk");
+        let out = screen(&mut s);
+        assert!(out.contains("L039") && out.contains("still talk"), "{out}");
+    }
+
+    #[test]
+    fn a_long_wrapped_line_is_shown_to_its_last_row() {
+        let mut s = recording(30);
+        let long = (0..40)
+            .map(|i| format!("w{i:02}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        s.push_final_transcript(AudioSource::Mic, &long, Some(1));
+        let out = screen(&mut s);
+        assert!(
+            out.contains("w39"),
+            "the last wrapped row is on screen: {out}"
+        );
+    }
+
+    #[test]
+    fn the_summary_scrolls_on_its_own_and_keeps_its_place_on_rewrite() {
+        let mut s = recording(100);
+        s.summary_raw = true;
+        let doc = |v: &str| {
+            (0..60)
+                .map(|i| format!("R{i:02}{v}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        s.set_summary(&doc(""));
+        let out = screen(&mut s);
+        assert!(
+            out.contains("R00") && !out.contains("R59"),
+            "a document starts at the top"
+        );
+        assert!(press(&mut s, KeyCode::Tab));
+        assert!(press(&mut s, KeyCode::Char('j')));
+        assert!(press(&mut s, KeyCode::Char('j')));
+        let out = screen(&mut s);
+        assert!(out.contains("R02") && !out.contains("R01"), "{out}");
+        assert!(out.contains("L099"), "the transcript did not move");
+        s.set_summary(&doc("v2"));
+        let out = screen(&mut s);
+        assert!(out.contains("R02v2") && !out.contains("R01v2"), "{out}");
+        press(&mut s, KeyCode::End);
+        assert!(screen(&mut s).contains("R59v2"));
+    }
+
+    #[test]
+    fn the_wheel_scrolls_the_pane_under_the_pointer() {
+        let mut s = recording(100);
+        screen(&mut s); // lays out the pane rects
+        let wheel = |column| MouseEvent {
+            kind: MouseEventKind::ScrollUp,
+            column,
+            row: 5,
+            modifiers: KeyModifiers::NONE,
+        };
+        s.handle_mouse(wheel(10));
+        assert!(!s.transcript_pane.view.is_following());
+        assert!(s.focus.is_focused(TRANSCRIPT));
+        s.handle_mouse(wheel(70));
+        assert!(s.focus.is_focused(SUMMARY));
+    }
+
+    #[test]
+    fn a_new_recording_follows_again() {
+        let mut s = recording(100);
+        screen(&mut s);
+        press(&mut s, KeyCode::Home);
+        s.start_recording();
+        assert!(s.transcript_pane.view.is_following());
+        assert!(!press(&mut s, KeyCode::Char('x')));
+    }
 
     #[test]
     fn live_state_default() {
