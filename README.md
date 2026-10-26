@@ -147,6 +147,13 @@ shows whatever an outside agent writes to `~/.supervox/live/summary.md`, re-read
 2 s. This is how Claude Code (or any script) summarizes, researches and critiques a
 talk for you while supervox only listens.
 
+The next recording archives the session into one folder,
+`~/.supervox/live/sessions/<YYYYMMDD-HHMMSS of its start>/`: `stream.jsonl`,
+`summary.md` (only if written after the stream started), `summaries/<HHMMSS>.md` (every
+version the panel showed) and `recording.wav` (a symlink to the call's WAV in `calls/`).
+A stream with no speech gets the suffix `-empty`; a folder an agent already made as
+`<stamp>-<slug>/` is reused. Sessions archived before this are flat `sessions/<ts>.jsonl`.
+
 ### Speaker labels (diarization)
 
 Local STT can tell 1–3 mic speakers apart with a WeSpeaker CAM++ embedding model

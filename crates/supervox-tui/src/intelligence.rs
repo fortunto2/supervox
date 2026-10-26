@@ -206,6 +206,7 @@ mod tests {
             max_speakers: 3,
             summary: supervox_agent::types::SummaryMode::Internal,
             mic_device: None,
+            auto_record: false,
         }
     }
 

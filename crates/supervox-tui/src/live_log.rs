@@ -4,6 +4,7 @@
 //! `~/.supervox/live/current.jsonl` while recording. An agent (Claude Code,
 //! a script) tails that file and may write `~/.supervox/live/summary.md`,
 //! which supervox displays in the summary panel when `summary = "external"`.
+//! The next recording archives all of it into one folder, `live/sessions/<start>/`.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
@@ -11,6 +12,9 @@ use std::path::{Path, PathBuf};
 
 pub const STREAM_FILE: &str = "current.jsonl";
 pub const SUMMARY_FILE: &str = "summary.md";
+/// Every version of `summary.md` the watcher saw this session, `<HHMMSS>.md`.
+pub const HISTORY_DIR: &str = "summary-history";
+const STAMP: &str = "%Y%m%d-%H%M%S";
 
 /// `~/.supervox/live`
 pub fn live_dir() -> PathBuf {
@@ -43,7 +47,7 @@ impl LiveLog {
         let dir = live_dir();
         let _ = fs::create_dir_all(&dir);
         self.path = dir.join(STREAM_FILE);
-        // A fresh session: the old stream and summary move to `sessions/`, never deleted.
+        // A fresh session: the old one moves to its folder in `sessions/`, never deleted.
         archive_session(&dir);
         self.file = OpenOptions::new()
             .create(true)
@@ -95,11 +99,13 @@ impl LiveLog {
         }
     }
 
-    pub fn stop(&mut self, call_id: Option<&str>) {
+    /// `wav` is the saved call's recording; the archive links it into the session folder.
+    pub fn stop(&mut self, call_id: Option<&str>, wav: Option<&str>) {
         self.write(serde_json::json!({
             "type": "stop",
             "ts": chrono::Local::now().to_rfc3339(),
             "call_id": call_id,
+            "wav": wav,
         }));
         self.file = None;
     }
@@ -135,30 +141,139 @@ impl LiveLog {
     }
 }
 
-/// Move the previous session's stream and summary into `<dir>/sessions/`, named by the
-/// stream's last write, so a new recording never destroys the last one.
+/// Move the previous session into one folder, `<dir>/sessions/<start stamp>/`:
+/// `stream.jsonl`, `summary.md`, `summaries/` (every version the agent wrote) and
+/// `recording.wav` (a link to the call's WAV, which stays in `calls/`).
+///
+/// `summary.md` goes along only if it was written after the stream started and the
+/// stream has speech; otherwise it is about an earlier talk and is kept as
+/// `sessions/<its own stamp>.summary.md`. A stream with no speech gets `-empty`.
+/// A folder an agent already made for the session (`<stamp>-<slug>/`) is reused.
 pub fn archive_session(dir: &Path) -> Option<PathBuf> {
     let stream = dir.join(STREAM_FILE);
     let meta = fs::metadata(&stream).ok()?;
     if meta.len() == 0 {
         return None;
     }
-    let stamp = meta
-        .modified()
-        .map(|t| {
-            chrono::DateTime::<chrono::Local>::from(t)
-                .format("%Y%m%d-%H%M%S")
-                .to_string()
-        })
-        .unwrap_or_else(|_| "unknown".into());
-    let out = dir.join("sessions");
+    let facts = read_facts(&stream);
+    let start = facts.start.or_else(|| {
+        meta.modified()
+            .ok()
+            .map(chrono::DateTime::<chrono::Local>::from)
+    });
+    let stamp = start
+        .map(|t| t.format(STAMP).to_string())
+        .unwrap_or_else(|| "unknown".into());
+    let sessions = dir.join("sessions");
+    let out = session_folder(&sessions, &stamp, facts.spoke);
     fs::create_dir_all(&out).ok()?;
-    let dest = out.join(format!("{stamp}.jsonl"));
-    fs::rename(&stream, &dest).ok()?;
-    let _ = fs::rename(
-        dir.join(SUMMARY_FILE),
-        out.join(format!("{stamp}.summary.md")),
-    );
+    fs::rename(&stream, out.join("stream.jsonl")).ok()?;
+
+    let summary = dir.join(SUMMARY_FILE);
+    if let Some(written) = modified_local(&summary) {
+        let fresh = facts.spoke && start.is_some_and(|s| written >= s);
+        let dest = if fresh {
+            out.join(SUMMARY_FILE)
+        } else {
+            sessions.join(format!("{}.summary.md", written.format(STAMP)))
+        };
+        let _ = fs::rename(&summary, dest);
+    }
+    move_all(&dir.join(HISTORY_DIR), &out.join("summaries"));
+    if let Some(wav) = facts.wav.as_deref().map(Path::new).filter(|w| w.exists()) {
+        link_wav(wav, &out.join("recording.wav"));
+    }
+    Some(out)
+}
+
+/// What the archive needs from a stream, read from its own lines.
+#[derive(Default)]
+struct StreamFacts {
+    start: Option<chrono::DateTime<chrono::Local>>,
+    spoke: bool,
+    wav: Option<String>,
+}
+
+fn read_facts(stream: &Path) -> StreamFacts {
+    let mut facts = StreamFacts::default();
+    let body = fs::read_to_string(stream).unwrap_or_default();
+    for (i, line) in body.lines().enumerate() {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        match v["type"].as_str() {
+            Some("start") if i == 0 => {
+                facts.start = v["ts"]
+                    .as_str()
+                    .and_then(|ts| chrono::DateTime::parse_from_rfc3339(ts).ok())
+                    .map(|t| t.with_timezone(&chrono::Local));
+            }
+            Some("transcript") => facts.spoke = true,
+            Some("stop") => facts.wav = v["wav"].as_str().map(String::from),
+            _ => {}
+        }
+    }
+    facts
+}
+
+/// `sessions/<stamp>/`, unless an agent already made `<stamp>-<slug>/` for frames and
+/// notes mid-session: then that one, so one recording ends up in one place.
+fn session_folder(sessions: &Path, stamp: &str, spoke: bool) -> PathBuf {
+    let slugged = format!("{stamp}-");
+    fs::read_dir(sessions)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .find(|p| {
+            let name = p.file_name().unwrap_or_default().to_string_lossy();
+            p.is_dir() && (name == stamp || name.starts_with(&slugged))
+        })
+        .unwrap_or_else(|| match spoke {
+            true => sessions.join(stamp),
+            false => sessions.join(format!("{stamp}-empty")),
+        })
+}
+
+fn modified_local(path: &Path) -> Option<chrono::DateTime<chrono::Local>> {
+    fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .map(Into::into)
+}
+
+/// Move every entry of `from` into `to` (merging with what is there), then drop `from`.
+fn move_all(from: &Path, to: &Path) {
+    let entries: Vec<_> = fs::read_dir(from).into_iter().flatten().flatten().collect();
+    if entries.is_empty() {
+        let _ = fs::remove_dir(from);
+        return;
+    }
+    let _ = fs::create_dir_all(to);
+    for e in entries {
+        let _ = fs::rename(e.path(), to.join(e.file_name()));
+    }
+    let _ = fs::remove_dir(from);
+}
+
+#[cfg(unix)]
+fn link_wav(wav: &Path, dest: &Path) {
+    let _ = std::os::unix::fs::symlink(wav, dest);
+}
+
+#[cfg(not(unix))]
+fn link_wav(wav: &Path, dest: &Path) {
+    let _ = fs::write(dest.with_extension("txt"), wav.to_string_lossy().as_bytes());
+}
+
+/// Keep a copy of a summary the watcher just showed as `summary-history/<HHMMSS>.md`
+/// (its write time), so the next overwrite does not lose it. Archived as `summaries/`.
+pub fn snapshot_summary(dir: &Path, text: &str, written: std::time::SystemTime) -> Option<PathBuf> {
+    let out = dir.join(HISTORY_DIR);
+    fs::create_dir_all(&out).ok()?;
+    let name = chrono::DateTime::<chrono::Local>::from(written).format("%H%M%S");
+    let dest = out.join(format!("{name}.md"));
+    fs::write(&dest, text).ok()?;
     Some(dest)
 }
 
@@ -187,6 +302,9 @@ pub fn watch_external_summary(
             if let Ok(text) = fs::read_to_string(&path)
                 && !text.trim().is_empty()
             {
+                if let (Some(dir), Some(written)) = (path.parent(), modified) {
+                    snapshot_summary(dir, &text, written);
+                }
                 let _ = event_tx.send(crate::audio::AudioEvent::Summary(text));
             }
         }
@@ -205,7 +323,7 @@ mod tests {
         log.file = File::create(&log.path).ok();
         log.transcript(12, "S1", "hello");
         log.summary("- point");
-        log.stop(Some("abc"));
+        log.stop(Some("abc"), Some("/calls/20261025-abc.wav"));
         let body = fs::read_to_string(&log.path).unwrap();
         let lines: Vec<&str> = body.lines().collect();
         assert_eq!(lines.len(), 3);
@@ -217,6 +335,8 @@ mod tests {
             serde_json::from_str::<serde_json::Value>(lines[0]).unwrap()["speaker"],
             "S1"
         );
+        let stop: serde_json::Value = serde_json::from_str(lines[2]).unwrap();
+        assert_eq!(stop["wav"], "/calls/20261025-abc.wav");
     }
 
     #[test]
@@ -233,19 +353,154 @@ mod tests {
         assert!(body.contains("\"type\":\"heartbeat\""));
     }
 
+    /// A stream that started at `start`, optionally with speech and a WAV in its stop line.
+    fn write_stream(
+        dir: &Path,
+        start: chrono::DateTime<chrono::Local>,
+        speech: bool,
+        wav: Option<&Path>,
+    ) {
+        let mut log = LiveLog {
+            path: dir.join(STREAM_FILE),
+            ..LiveLog::default()
+        };
+        log.file = File::create(&log.path).ok();
+        log.write(serde_json::json!({"type": "start", "ts": start.to_rfc3339()}));
+        if speech {
+            log.transcript(3, "S1", "hello");
+        }
+        log.stop(Some("abc"), wav.and_then(Path::to_str));
+    }
+
+    fn set_mtime(path: &Path, t: chrono::DateTime<chrono::Local>) {
+        let f = File::options().write(true).open(path).unwrap();
+        f.set_modified(t.into()).unwrap();
+    }
+
+    fn stamp(t: chrono::DateTime<chrono::Local>) -> String {
+        t.format("%Y%m%d-%H%M%S").to_string()
+    }
+
     #[test]
-    fn a_new_session_archives_the_old_one_instead_of_deleting_it() {
+    fn a_session_is_archived_into_one_folder_named_by_its_start() {
         let dir = tempfile::tempdir().unwrap();
-        fs::write(dir.path().join(STREAM_FILE), "{\"type\":\"start\"}\n").unwrap();
+        let start = chrono::Local::now() - chrono::Duration::minutes(5);
+        write_stream(dir.path(), start, true, None);
         fs::write(dir.path().join(SUMMARY_FILE), "## Сейчас\n").unwrap();
-        let dest = archive_session(dir.path()).expect("archived");
+        let out = archive_session(dir.path()).expect("archived");
+        assert_eq!(out, dir.path().join("sessions").join(stamp(start)));
         assert!(!dir.path().join(STREAM_FILE).exists());
         assert!(!dir.path().join(SUMMARY_FILE).exists());
-        assert_eq!(fs::read_to_string(&dest).unwrap(), "{\"type\":\"start\"}\n");
-        let md = dest.with_extension("summary.md");
-        assert_eq!(fs::read_to_string(md).unwrap(), "## Сейчас\n");
+        assert!(
+            fs::read_to_string(out.join("stream.jsonl"))
+                .unwrap()
+                .contains("hello")
+        );
+        assert_eq!(
+            fs::read_to_string(out.join(SUMMARY_FILE)).unwrap(),
+            "## Сейчас\n"
+        );
         // nothing to archive: an empty or missing stream is left alone
         assert!(archive_session(dir.path()).is_none());
+    }
+
+    #[test]
+    fn a_summary_older_than_the_stream_is_not_glued_to_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let start = chrono::Local::now() - chrono::Duration::minutes(5);
+        write_stream(dir.path(), start, true, None);
+        let summary = dir.path().join(SUMMARY_FILE);
+        fs::write(&summary, "earlier talk\n").unwrap();
+        let written = start - chrono::Duration::hours(2);
+        set_mtime(&summary, written);
+        let out = archive_session(dir.path()).expect("archived");
+        assert!(!out.join(SUMMARY_FILE).exists());
+        // kept under its own time, out of the way of the next session's agent
+        assert!(!summary.exists());
+        let orphan = dir
+            .path()
+            .join("sessions")
+            .join(format!("{}.summary.md", stamp(written)));
+        assert_eq!(fs::read_to_string(orphan).unwrap(), "earlier talk\n");
+    }
+
+    #[test]
+    fn a_stream_without_speech_is_marked_empty_and_takes_no_summary() {
+        let dir = tempfile::tempdir().unwrap();
+        let start = chrono::Local::now() - chrono::Duration::minutes(5);
+        write_stream(dir.path(), start, false, None);
+        fs::write(dir.path().join(SUMMARY_FILE), "about something else\n").unwrap();
+        let out = archive_session(dir.path()).expect("archived");
+        assert_eq!(
+            out.file_name().unwrap().to_string_lossy(),
+            format!("{}-empty", stamp(start))
+        );
+        assert!(out.join("stream.jsonl").exists());
+        assert!(!out.join(SUMMARY_FILE).exists());
+    }
+
+    #[test]
+    fn every_summary_version_and_the_wav_land_in_the_session_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let wav = dir.path().join("20261025-abc.wav");
+        fs::write(&wav, b"RIFF").unwrap();
+        let start = chrono::Local::now() - chrono::Duration::minutes(5);
+        write_stream(dir.path(), start, true, Some(&wav));
+        let first = start + chrono::Duration::seconds(60);
+        let second = start + chrono::Duration::seconds(120);
+        let a = snapshot_summary(dir.path(), "v1\n", first.into()).expect("snapshot");
+        assert_eq!(
+            a,
+            dir.path()
+                .join("summary-history")
+                .join(format!("{}.md", first.format("%H%M%S")))
+        );
+        snapshot_summary(dir.path(), "v2\n", second.into()).expect("snapshot");
+        let out = archive_session(dir.path()).expect("archived");
+        let read = |n: String| fs::read_to_string(out.join("summaries").join(n)).unwrap();
+        assert_eq!(read(format!("{}.md", first.format("%H%M%S"))), "v1\n");
+        assert_eq!(read(format!("{}.md", second.format("%H%M%S"))), "v2\n");
+        assert!(!dir.path().join("summary-history").exists());
+        // the WAV stays with the call; the folder only points at it
+        assert!(wav.exists());
+        assert_eq!(fs::read(out.join("recording.wav")).unwrap(), b"RIFF");
+    }
+
+    #[test]
+    fn a_folder_an_agent_already_made_for_the_session_is_reused() {
+        let dir = tempfile::tempdir().unwrap();
+        let start = chrono::Local::now() - chrono::Duration::minutes(5);
+        write_stream(dir.path(), start, true, None);
+        let named = dir
+            .path()
+            .join("sessions")
+            .join(format!("{}-dell-nvidia", stamp(start)));
+        fs::create_dir_all(named.join("summaries")).unwrap();
+        fs::write(named.join("judges.md"), "notes\n").unwrap();
+        fs::write(named.join("summaries").join("010101.md"), "agent's\n").unwrap();
+        fs::write(named.join("stream.jsonl"), "partial copy\n").unwrap();
+        snapshot_summary(
+            dir.path(),
+            "v1\n",
+            (start + chrono::Duration::seconds(60)).into(),
+        );
+        let out = archive_session(dir.path()).expect("archived");
+        assert_eq!(out, named);
+        assert_eq!(
+            fs::read_dir(dir.path().join("sessions")).unwrap().count(),
+            1
+        );
+        assert_eq!(
+            fs::read_to_string(named.join("judges.md")).unwrap(),
+            "notes\n"
+        );
+        assert_eq!(fs::read_dir(named.join("summaries")).unwrap().count(), 2);
+        // the full stream replaces an agent's mid-session copy of it
+        assert!(
+            fs::read_to_string(named.join("stream.jsonl"))
+                .unwrap()
+                .contains("hello")
+        );
     }
 
     #[test]

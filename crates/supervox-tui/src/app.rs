@@ -331,7 +331,13 @@ impl App {
                     &bookmarks,
                 ) {
                     Ok(call_id) => {
-                        self.live_log.stop(Some(&call_id.to_string()));
+                        // The call's WAV (empty id: nothing saved), linked from the session folder
+                        let wav = (!call_id.is_empty())
+                            .then(|| supervox_agent::storage::load_call(&calls_dir, &call_id).ok())
+                            .flatten()
+                            .and_then(|c| c.audio_path);
+                        self.live_log
+                            .stop(Some(&call_id.to_string()), wav.as_deref());
                         let kept = self
                             .live_log
                             .keep_with_call(&calls_dir, &call_id.to_string());
@@ -368,7 +374,7 @@ impl App {
                         }
                     }
                     Err(e) => {
-                        self.live_log.stop(None);
+                        self.live_log.stop(None, None);
                         self.status = format!("Save error: {e}");
                     }
                 }
