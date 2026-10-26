@@ -62,6 +62,17 @@ pub struct App {
 }
 
 impl App {
+    /// External summary: the panel title names the session folder the agent's summary lands in.
+    fn show_summary_home(&mut self) {
+        if self.config.summary != supervox_agent::types::SummaryMode::External {
+            return;
+        }
+        self.live_state.summary_title = match self.live_log.session_name() {
+            Some(name) => format!(" Summary ← sessions/{name}/summary.md "),
+            None => " Summary ← agent ".into(),
+        };
+    }
+
     pub fn new(mode: Mode, config: Config) -> Self {
         let status = match &mode {
             Mode::Live => "Live mode — press Space to start recording".into(),
@@ -92,9 +103,8 @@ impl App {
                     format!(" Rolling Summary ({}) ", config.effective_model()),
                     false,
                 ),
-                SummaryMode::External => {
-                    (" Summary ← ~/.supervox/live/summary.md ".to_string(), true)
-                }
+                // The session folder is named once a recording starts (show_summary_home)
+                SummaryMode::External => (" Summary ← agent ".to_string(), true),
                 SummaryMode::Off => (" Summary (off) ".to_string(), true),
             };
             live_state.summary_title = title;
@@ -338,6 +348,7 @@ impl App {
                             .and_then(|c| c.audio_path);
                         self.live_log
                             .stop(Some(&call_id.to_string()), wav.as_deref());
+                        self.show_summary_home();
                         let kept = self
                             .live_log
                             .keep_with_call(&calls_dir, &call_id.to_string());
@@ -375,6 +386,7 @@ impl App {
                     }
                     Err(e) => {
                         self.live_log.stop(None, None);
+                        self.show_summary_home();
                         self.status = format!("Save error: {e}");
                     }
                 }
@@ -734,12 +746,17 @@ fn start_recording(app: &mut App) {
                     app.summary_tx = Some(sum_tx);
                 }
                 supervox_agent::types::SummaryMode::External => {
-                    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-                    crate::live_log::watch_external_summary(
-                        app.audio_event_tx.clone(),
-                        stop.clone(),
-                    );
-                    app.summary_watch_stop = Some(stop);
+                    app.show_summary_home();
+                    if let Some(session) = app.live_log.session() {
+                        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                        crate::live_log::watch_external_summary(
+                            app.audio_event_tx.clone(),
+                            stop.clone(),
+                            app.live_log.live().to_path_buf(),
+                            session.to_path_buf(),
+                        );
+                        app.summary_watch_stop = Some(stop);
+                    }
                 }
                 supervox_agent::types::SummaryMode::Off => {}
             }

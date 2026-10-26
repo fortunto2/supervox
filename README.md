@@ -147,12 +147,16 @@ shows whatever an outside agent writes to `~/.supervox/live/summary.md`, re-read
 2 s. This is how Claude Code (or any script) summarizes, researches and critiques a
 talk for you while supervox only listens.
 
-The next recording archives the session into one folder,
+Each recording lives in one folder from its first second,
 `~/.supervox/live/sessions/<YYYYMMDD-HHMMSS of its start>/`: `stream.jsonl`,
-`summary.md` (only if written after the stream started), `summaries/<HHMMSS>.md` (every
-version the panel showed) and `recording.wav` (a symlink to the call's WAV in `calls/`).
-A stream with no speech gets the suffix `-empty`; a folder an agent already made as
-`<stamp>-<slug>/` is reused. Sessions archived before this are flat `sessions/<ts>.jsonl`.
+`summary.md`, `summaries/<HHMMSS>.md` (every version the panel showed) and, after stop,
+`recording.wav` (a symlink to the call's WAV in `calls/`). `live/current.jsonl` and
+`live/summary.md` are symlinks into that folder, so agents keep the fixed names. An editor
+that saves by rename replaces the `summary.md` link with a plain file; supervox never writes
+to that path, it copies each new version into the folder and relinks on the next start.
+A recording with no speech is removed on stop, or renamed `<stamp>-empty/` if an agent left
+files in it. An older supervox's flat `current.jsonl` is archived the old way on the next
+start; earlier still, sessions were flat `sessions/<ts>.jsonl`.
 
 ### Speaker labels (diarization)
 

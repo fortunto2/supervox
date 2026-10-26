@@ -39,11 +39,14 @@ supervox/
 
 ## Live stream + external summary
 
-`supervox-tui/src/live_log.rs`: while recording, final transcript lines are appended as
-JSONL to `~/.supervox/live/current.jsonl`; with `summary = "external"` a watcher re-reads
-`~/.supervox/live/summary.md` every 2 s into the summary panel (each version is also kept in
-`live/summary-history/`). The next `LiveLog::start` archives everything into one folder,
-`live/sessions/<start stamp>/` (`archive_session`). The agent side lives in the
+`supervox-tui/src/live_log.rs`: `LiveLog::start` makes `live/sessions/<start stamp>/` and
+appends final transcript lines as JSONL to its `stream.jsonl`; `live/current.jsonl` and
+`live/summary.md` are relative symlinks into it. With `summary = "external"` a watcher
+(`sync_summary`) re-reads `live/summary.md` every 2 s into the panel and copies each version
+into the folder (`summary.md` + `summaries/<HHMMSS>.md`), which covers a tool that saved by
+rename and turned the link into a plain file; it never writes to the agent's path. `stop`
+links `recording.wav` and removes a session without speech (`-empty` if an agent left files).
+A regular `current.jsonl` from an older binary goes through `archive_session`. The agent side lives in the
 `supervox-companion` skill (Claude Code). Parakeet segmentation is pause-based
 (`vad_pause_ms`), see `Segmenter` in `voxkit/src/parakeet_stt.rs`. Input is first run through
 `voxkit::agc::Agc` (running-peak AGC, +26 dB max) so far-field conference speech clears the VAD floor.
