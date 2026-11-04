@@ -286,7 +286,14 @@ async fn main() -> Result<()> {
                 unsafe { std::env::set_var(voxkit::system_audio::AUDIO_URL_ENV, url) };
                 // Parakeet is English-only; the glasses are usually someone speaking
                 // my_language, so default the network source to whisper unless overridden.
-                if std::env::var("SUPERVOX_STT_BACKEND").is_err() {
+                let lang = supervox_agent::storage::load_config(
+                    &supervox_agent::storage::default_config_path(),
+                )
+                .map(|c| c.my_language)
+                .unwrap_or_default();
+                if std::env::var("SUPERVOX_STT_BACKEND").is_err()
+                    && !supervox_tui::audio::parakeet_speaks(&lang)
+                {
                     unsafe { std::env::set_var("SUPERVOX_STT_BACKEND", "whisper") };
                 }
             }

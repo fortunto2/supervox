@@ -11,7 +11,7 @@ const LIVE_KEYS: &[(&str, &str)] = &[
     ("Enter", "Add bookmark"),
     ("b", "Add bookmark"),
     ("h", "Call history"),
-    ("m", "Next microphone (idle)"),
+    ("m", "Choose source: mic, glasses, stream"),
     ("Tab", "Focus transcript / summary"),
     ("↑↓ j/k", "Scroll focused pane"),
     ("PgUp/PgDn", "Scroll a page"),

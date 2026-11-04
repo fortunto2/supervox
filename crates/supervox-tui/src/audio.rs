@@ -183,6 +183,16 @@ pub fn effective_stt_backend(config: &Config) -> SttBackend {
     }
 }
 
+/// `~/.supervox/models/parakeet-tdt-v3` — multilingual Parakeet (istupakov/parakeet-tdt-0.6b-v3-onnx).
+pub fn multilingual_parakeet_dir() -> PathBuf {
+    voxkit::parakeet_stt::default_model_dir().with_file_name("parakeet-tdt-v3")
+}
+
+/// True when local Parakeet can transcribe `lang` (v2 = English; v3 present = multilingual).
+pub fn parakeet_speaks(lang: &str) -> bool {
+    lang.starts_with("en") || voxkit::parakeet_stt::model_exists(&multilingual_parakeet_dir())
+}
+
 /// Create an STT backend based on config.
 pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend>, String> {
     match effective_stt_backend(config) {
@@ -213,7 +223,16 @@ pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend
         }
         #[cfg(feature = "parakeet")]
         SttBackend::Parakeet => {
-            let model_dir = voxkit::parakeet_stt::default_model_dir();
+            // v2 is English-only; v3 (25 languages, Russian among them) lives next to it and
+            // is preferred whenever my_language is not English.
+            let v3 = multilingual_parakeet_dir();
+            let model_dir = if !config.my_language.starts_with("en")
+                && voxkit::parakeet_stt::model_exists(&v3)
+            {
+                v3
+            } else {
+                voxkit::parakeet_stt::default_model_dir()
+            };
             let dir = if voxkit::parakeet_stt::model_exists(&model_dir) {
                 model_dir
             } else {

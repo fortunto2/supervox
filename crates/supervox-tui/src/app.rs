@@ -903,7 +903,17 @@ fn apply_source(app: &mut App, choice: Option<crate::source_picker::Choice>) {
             let glasses = m.as_deref().is_some_and(is_glasses);
             app.config.mic_device = m.clone();
             app.live_state.mic_device = m;
-            if glasses && std::env::var("SUPERVOX_STT_BACKEND").is_err() {
+            // A mic pick drops a stream picked earlier in this run.
+            // SAFETY: UI thread, the pipeline is stopped while the list is open.
+            unsafe { std::env::remove_var(voxkit::system_audio::AUDIO_URL_ENV) };
+            let path = supervox_agent::storage::default_config_path();
+            if let Err(e) = supervox_agent::storage::save_default_config(&path, &app.config) {
+                tracing::warn!("could not persist mic_device to {}: {e}", path.display());
+            }
+            if glasses
+                && std::env::var("SUPERVOX_STT_BACKEND").is_err()
+                && !crate::audio::parakeet_speaks(&app.config.my_language)
+            {
                 // SAFETY: set on the UI thread before the audio pipeline starts reading it.
                 unsafe { std::env::set_var("SUPERVOX_STT_BACKEND", "whisper") };
             }
@@ -911,7 +921,9 @@ fn apply_source(app: &mut App, choice: Option<crate::source_picker::Choice>) {
         Some(Choice::Stream(url)) => {
             // SAFETY: as above — before start_recording spawns the capture threads.
             unsafe { std::env::set_var(voxkit::system_audio::AUDIO_URL_ENV, &url) };
-            if std::env::var("SUPERVOX_STT_BACKEND").is_err() {
+            if std::env::var("SUPERVOX_STT_BACKEND").is_err()
+                && !crate::audio::parakeet_speaks(&app.config.my_language)
+            {
                 unsafe { std::env::set_var("SUPERVOX_STT_BACKEND", "whisper") };
             }
         }
@@ -920,39 +932,6 @@ fn apply_source(app: &mut App, choice: Option<crate::source_picker::Choice>) {
     if app.config.auto_record {
         start_recording(app);
     }
-}
-
-fn next_mic(app: &mut App) {
-    let devices = match voxkit::mic::list_input_devices() {
-        Ok(d) if !d.is_empty() => d,
-        Ok(_) => {
-            app.status = "No input devices found".into();
-            return;
-        }
-        Err(e) => {
-            app.status = format!("Mic list error: {e}");
-            return;
-        }
-    };
-    // None (system default) → first → … → last → None
-    let next = match &app.config.mic_device {
-        None => devices.first().cloned(),
-        Some(cur) => devices
-            .iter()
-            .position(|d| d == cur)
-            .and_then(|i| devices.get(i + 1).cloned()),
-    };
-    app.config.mic_device = next.clone();
-    app.live_state.mic_device = next.clone();
-    let path = supervox_agent::storage::default_config_path();
-    if let Err(e) = supervox_agent::storage::save_default_config(&path, &app.config) {
-        tracing::warn!("could not persist mic_device to {}: {e}", path.display());
-    }
-    app.status = format!(
-        "Mic: {} ({} devices, m = next)",
-        next.as_deref().unwrap_or("system default"),
-        devices.len()
-    );
 }
 
 /// Add bookmark at current recording position.
@@ -976,8 +955,14 @@ fn handle_live_key(app: &mut App, key: crossterm::event::KeyEvent) {
         KeyCode::Char('h') if !app.live_state.is_recording => {
             open_history(app);
         }
-        KeyCode::Char('m') if !app.live_state.is_recording => {
-            next_mic(app);
+        // `m` opens the source list (stops a running recording first; picking starts a new one)
+        KeyCode::Char('m') => {
+            if app.live_state.is_recording {
+                stop_recording(app);
+            }
+            app.source_picker = Some(crate::source_picker::SourcePicker::discover(
+                app.config.mic_device.as_deref(),
+            ));
         }
         // Space toggles record/stop
         KeyCode::Char(' ') | KeyCode::Char('r') if !app.live_state.is_recording => {
