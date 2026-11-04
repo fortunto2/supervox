@@ -145,6 +145,9 @@ impl WhisperStt {
         audio: &AudioChunk,
         language: &str,
     ) -> Result<Transcript, SttError> {
+        // whisper.cpp / GGML print to stderr by default, which tears the TUI apart;
+        // route them into the (silent) logging hooks instead. Idempotent.
+        whisper_rs::install_logging_hooks();
         let ctx = WhisperContext::new_with_params(
             model_path.to_str().unwrap_or(""),
             WhisperContextParameters::default(),
@@ -222,6 +225,9 @@ impl StreamingSttBackend for WhisperStt {
         let language = self.language.clone();
 
         // Load Whisper model
+        // whisper.cpp / GGML print to stderr by default, which tears the TUI apart;
+        // route them into the (silent) logging hooks instead. Idempotent.
+        whisper_rs::install_logging_hooks();
         let ctx = WhisperContext::new_with_params(
             model_path.to_str().unwrap_or(""),
             WhisperContextParameters::default(),
