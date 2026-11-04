@@ -105,22 +105,23 @@ impl AudioPipeline {
         self.mic_capture = Some(mic_capture);
 
         // Optionally start system audio capture
-        let system_rx = if config.capture.includes_system() {
-            match SystemAudioCapture::start_raw() {
-                Ok((rx, capture)) => {
-                    self.system_capture = Some(capture);
-                    Some(rx)
+        let system_rx =
+            if config.capture.includes_system() || voxkit::system_audio::uses_network_source() {
+                match SystemAudioCapture::start_raw() {
+                    Ok((rx, capture)) => {
+                        self.system_capture = Some(capture);
+                        Some(rx)
+                    }
+                    Err(e) => {
+                        tracing::warn!("System audio unavailable, mic-only: {e}");
+                        let _ = event_tx
+                            .send(AudioEvent::Error(format!("System audio unavailable: {e}")));
+                        None
+                    }
                 }
-                Err(e) => {
-                    tracing::warn!("System audio unavailable, mic-only: {e}");
-                    let _ =
-                        event_tx.send(AudioEvent::Error(format!("System audio unavailable: {e}")));
-                    None
-                }
-            }
-        } else {
-            None
-        };
+            } else {
+                None
+            };
 
         let (stop_tx, stop_rx) = mpsc::channel::<()>(1);
         self.stop_tx = Some(stop_tx);

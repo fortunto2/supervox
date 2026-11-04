@@ -283,6 +283,11 @@ async fn main() -> Result<()> {
             if let Some(Commands::Live { input: Some(url) }) = &live {
                 // SAFETY: set once at startup, before any audio thread reads it.
                 unsafe { std::env::set_var(voxkit::system_audio::AUDIO_URL_ENV, url) };
+                // Parakeet is English-only; the glasses are usually someone speaking
+                // my_language, so default the network source to whisper unless overridden.
+                if std::env::var("SUPERVOX_STT_BACKEND").is_err() {
+                    unsafe { std::env::set_var("SUPERVOX_STT_BACKEND", "whisper") };
+                }
             }
             let config = supervox_agent::storage::load_config(
                 &supervox_agent::storage::default_config_path(),
