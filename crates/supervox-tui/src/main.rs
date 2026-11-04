@@ -67,7 +67,12 @@ impl FilterArgs {
 #[derive(Subcommand)]
 enum Commands {
     /// Live call assistant — real-time subtitles + translation + rolling summary
-    Live,
+    Live {
+        /// Network audio instead of system audio as the second source, e.g. the glasses
+        /// stream `rtmp://127.0.0.1:1935/live/glasses` (pulled with ffmpeg, reattaches on drop)
+        #[arg(long, value_name = "URL")]
+        input: Option<String>,
+    },
     /// Post-call analysis — summary, action items, follow-up draft
     Analyze {
         /// Path to call JSON file
@@ -274,7 +279,11 @@ async fn main() -> Result<()> {
             Some(ActionCommands::Undo { id }) => cmd_action_undo(&id)?,
             None => cmd_actions(all, json, &filter)?,
         },
-        Some(Commands::Live) | None => {
+        live @ (Some(Commands::Live { .. }) | None) => {
+            if let Some(Commands::Live { input: Some(url) }) = &live {
+                // SAFETY: set once at startup, before any audio thread reads it.
+                unsafe { std::env::set_var(voxkit::system_audio::AUDIO_URL_ENV, url) };
+            }
             let config = supervox_agent::storage::load_config(
                 &supervox_agent::storage::default_config_path(),
             )

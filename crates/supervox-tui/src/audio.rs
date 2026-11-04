@@ -18,6 +18,7 @@ impl AudioSource {
     pub fn label(&self) -> &str {
         match self {
             AudioSource::Mic => "You",
+            AudioSource::System if voxkit::system_audio::uses_network_source() => "Glasses",
             AudioSource::System => "Them",
         }
     }

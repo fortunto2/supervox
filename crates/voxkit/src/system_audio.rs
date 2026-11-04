@@ -72,11 +72,7 @@ impl SystemAudioCapture {
     pub fn start(
         vad_config: VadConfig,
     ) -> Result<(mpsc::Receiver<AudioChunk>, Self), SystemAudioError> {
-        let binary = find_binary()?;
-        let mut child = Command::new(&binary)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+        let mut child = spawn_source()?;
 
         let stdout = child
             .stdout
@@ -118,11 +114,7 @@ impl SystemAudioCapture {
     ///
     /// Every audio buffer is sent as an `AudioChunk` without speech detection.
     pub fn start_raw() -> Result<(mpsc::Receiver<AudioChunk>, Self), SystemAudioError> {
-        let binary = find_binary()?;
-        let mut child = Command::new(&binary)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+        let mut child = spawn_source()?;
 
         let stdout = child
             .stdout
@@ -245,6 +237,41 @@ fn read_loop_raw(stdout: impl Read, stop_flag: Arc<AtomicBool>, tx: mpsc::Sender
 }
 
 /// Find the system-audio-tap binary.
+/// Env var naming a network audio source (e.g. `rtmp://127.0.0.1:1935/live/glasses`) to use
+/// in place of macOS system audio. `supervox live --input <url>` sets it.
+pub const AUDIO_URL_ENV: &str = "SUPERVOX_AUDIO_URL";
+
+/// The "other side" source: `system-audio-tap`, or ffmpeg pulling `SUPERVOX_AUDIO_URL` and
+/// emitting the same format (mono f32le at 48 kHz). The ffmpeg loop reattaches every 2 s, so
+/// a stream that stops and starts again (glasses Go Live / Stop) keeps flowing into one session.
+fn spawn_source() -> Result<Child, SystemAudioError> {
+    if let Ok(url) = std::env::var(AUDIO_URL_ENV)
+        && !url.trim().is_empty()
+    {
+        let script = format!(
+            "while :; do ffmpeg -hide_banner -loglevel error -i '{}' -vn -ac 1 -ar {} -f f32le -; sleep 2; done",
+            url.replace('\'', ""),
+            SYSTEM_AUDIO_SAMPLE_RATE
+        );
+        return Ok(Command::new("sh")
+            .arg("-c")
+            .arg(script)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?);
+    }
+    let binary = find_binary()?;
+    Ok(Command::new(&binary)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?)
+}
+
+/// True when the "other side" comes from a network stream instead of system audio.
+pub fn uses_network_source() -> bool {
+    std::env::var(AUDIO_URL_ENV).is_ok_and(|u| !u.trim().is_empty())
+}
+
 fn find_binary() -> Result<String, SystemAudioError> {
     // Check fixed candidates
     for candidate in BINARY_CANDIDATES {
