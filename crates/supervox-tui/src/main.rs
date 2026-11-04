@@ -12,6 +12,7 @@ mod live_log;
 mod modes;
 mod scroll;
 mod sessions;
+mod source_picker;
 
 #[derive(Parser)]
 #[command(name = "supervox", about = "Voice-powered productivity TUI", version)]

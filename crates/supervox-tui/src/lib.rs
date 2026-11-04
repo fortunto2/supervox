@@ -9,3 +9,4 @@ pub mod live_log;
 pub mod modes;
 pub mod scroll;
 pub mod sessions;
+pub mod source_picker;

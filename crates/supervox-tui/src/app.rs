@@ -63,6 +63,8 @@ pub struct App {
     pub live_log: crate::live_log::LiveLog,
     /// Stop flag for the external summary file watcher.
     pub summary_watch_stop: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    /// The "what are we listening to?" list shown when Live opens.
+    pub source_picker: Option<crate::source_picker::SourcePicker>,
 }
 
 impl App {
@@ -137,6 +139,7 @@ impl App {
             summary_tx: None,
             live_log: crate::live_log::LiveLog::default(),
             summary_watch_stop: None,
+            source_picker: None,
             app_event_rx,
             app_event_tx,
         };
@@ -429,7 +432,14 @@ pub async fn run(mode: Mode) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;
 
     let mut app = App::new(mode, config);
-    if matches!(app.mode, Mode::Live) && app.config.auto_record {
+    let pick_source = matches!(app.mode, Mode::Live)
+        && !voxkit::system_audio::uses_network_source()
+        && std::env::var("SUPERVOX_NO_PICKER").is_err();
+    if pick_source {
+        app.source_picker = Some(crate::source_picker::SourcePicker::discover(
+            app.config.mic_device.as_deref(),
+        ));
+    } else if matches!(app.mode, Mode::Live) && app.config.auto_record {
         start_recording(&mut app);
     }
 
@@ -440,6 +450,9 @@ pub async fn run(mode: Mode) -> Result<()> {
             match &app.mode {
                 Mode::Live => {
                     modes::live::render(f, area, &mut app.live_state);
+                    if let Some(picker) = &mut app.source_picker {
+                        picker.render(f, area);
+                    }
                     // Show error overlay on status bar area if present
                     if let Some((err, when)) = &app.status_error
                         && when.elapsed().as_secs() < 5
@@ -549,6 +562,15 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) {
     if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c') {
         app.audio.stop();
         app.running = false;
+        return;
+    }
+
+    // The source list owns the keyboard until a source is picked or it is dismissed
+    if let Some(picker) = &mut app.source_picker {
+        if let Some(result) = picker.handle_key(key) {
+            app.source_picker = None;
+            apply_source(app, result);
+        }
         return;
     }
 
@@ -873,6 +895,33 @@ fn stop_recording(app: &mut App) {
 }
 
 /// Cycle to the next input device (idle only). Takes effect on the next recording.
+/// Apply the picked source, then start recording when `auto_record` is on.
+fn apply_source(app: &mut App, choice: Option<crate::source_picker::Choice>) {
+    use crate::source_picker::{Choice, is_glasses};
+    match choice {
+        Some(Choice::Mic(m)) => {
+            let glasses = m.as_deref().is_some_and(is_glasses);
+            app.config.mic_device = m.clone();
+            app.live_state.mic_device = m;
+            if glasses && std::env::var("SUPERVOX_STT_BACKEND").is_err() {
+                // SAFETY: set on the UI thread before the audio pipeline starts reading it.
+                unsafe { std::env::set_var("SUPERVOX_STT_BACKEND", "whisper") };
+            }
+        }
+        Some(Choice::Stream(url)) => {
+            // SAFETY: as above — before start_recording spawns the capture threads.
+            unsafe { std::env::set_var(voxkit::system_audio::AUDIO_URL_ENV, &url) };
+            if std::env::var("SUPERVOX_STT_BACKEND").is_err() {
+                unsafe { std::env::set_var("SUPERVOX_STT_BACKEND", "whisper") };
+            }
+        }
+        None => {}
+    }
+    if app.config.auto_record {
+        start_recording(app);
+    }
+}
+
 fn next_mic(app: &mut App) {
     let devices = match voxkit::mic::list_input_devices() {
         Ok(d) if !d.is_empty() => d,
