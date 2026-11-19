@@ -476,7 +476,7 @@ const FRAME_SAMPLES: usize = (SAMPLE_RATE / 1000 * FRAME_MS) as usize;
 /// Default end-of-utterance pause.
 pub const DEFAULT_PAUSE_MS: u32 = 1200;
 /// Default forced-cut length.
-pub const DEFAULT_MAX_SEGMENT_SECS: f32 = 15.0;
+pub const DEFAULT_MAX_SEGMENT_SECS: f32 = 7.0; // a noisy room never goes silent: 15 s made text arrive 15 s late
 /// Pre-roll kept before the first speech frame (so onsets are not clipped).
 const PRE_ROLL_FRAMES: usize = 15; // 300 ms
 /// Silence kept after the last speech frame inside an emitted segment.
