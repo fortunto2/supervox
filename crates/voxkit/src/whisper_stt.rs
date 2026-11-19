@@ -265,6 +265,7 @@ impl StreamingSttBackend for WhisperStt {
                                         item_id,
                                         text,
                                         speaker: None,
+                                        span: None,
                                     });
                                 }
                                 Err(SttError::Empty) => {} // silence, skip
@@ -290,6 +291,7 @@ impl StreamingSttBackend for WhisperStt {
                                     item_id,
                                     text,
                                     speaker: None,
+                                    span: None,
                                 });
                             }
                         }

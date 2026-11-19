@@ -34,3 +34,6 @@ Thumbs.db
 *.mp3
 *.m4a
 !tests/fixtures/*.wav
+
+# Diarization benchmark scratch (FluidAudio checkout, wavs, outputs)
+_work/

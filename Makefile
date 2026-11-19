@@ -1,4 +1,4 @@
-.PHONY: test clippy fmt check run install release hooks
+.PHONY: test clippy fmt check run install release hooks diarizer
 
 ## Run all tests
 test:
@@ -42,3 +42,14 @@ hooks:
 ## Help
 help:
 	@grep -E '^##' Makefile | sed 's/## //'
+
+## Build the offline diarizer sidecar (FluidAudio CLI, Neural Engine) into ~/.supervox/bin.
+## Needed for `diarizer = "fluid"` (default); without it the live CAM++ labels stay.
+FLUIDAUDIO_REV ?= 16780f04d2ece24f67d0fc00efccd0296491c1a8
+diarizer:
+	test -d _work/fa || git clone https://github.com/FluidInference/FluidAudio.git _work/fa
+	git -C _work/fa checkout $(FLUIDAUDIO_REV)
+	cd _work/fa && swift build -c release --product fluidaudiocli
+	mkdir -p ~/.supervox/bin
+	cp _work/fa/.build/out/Products/Release/fluidaudiocli ~/.supervox/bin/fluidaudiocli
+	@echo "Sidecar installed. First run compiles the CoreML models (~25 s), then 15 s per 48 min of audio."

@@ -10,6 +10,8 @@ mod help;
 mod intelligence;
 mod live_log;
 mod modes;
+#[cfg(feature = "parakeet")]
+mod rediarize;
 mod scroll;
 mod sessions;
 mod source_picker;
@@ -96,6 +98,16 @@ enum Commands {
         /// Output --list / --grep as JSON
         #[arg(long)]
         json: bool,
+    },
+    /// Re-label a session's speakers from its recording with the offline diarizer (FluidAudio
+    /// sidecar: `fluidaudiocli` in `~/.supervox/bin` or $SUPERVOX_DIARIZER_BIN). Rewrites
+    /// stream.jsonl (original kept as stream.jsonl.orig) for lines that carry an audio span
+    Rediarize {
+        /// Session folder or its name under ~/.supervox/live/sessions; default: the newest
+        session: Option<String>,
+        /// Recording to diarize; default: the session's own, found by start time
+        #[arg(long)]
+        wav: Option<String>,
     },
     /// List past calls
     Calls {
@@ -231,6 +243,19 @@ async fn main() -> Result<()> {
             None if list || json => sessions::cmd_list(&sessions::discover_all(), json)?,
             None => app::run(app::Mode::Sessions { return_to: None }).await?,
         },
+        #[cfg(feature = "parakeet")]
+        Some(Commands::Rediarize { session, wav }) => {
+            let agent = supervox_agent::storage::load_config(
+                &supervox_agent::storage::default_config_path(),
+            )
+            .map(|c| c.agent_name)
+            .unwrap_or_default();
+            rediarize::cmd(session.as_deref(), wav.as_deref(), &agent)?;
+        }
+        #[cfg(not(feature = "parakeet"))]
+        Some(Commands::Rediarize { .. }) => {
+            anyhow::bail!("built without the parakeet feature (no speaker model)")
+        }
         Some(Commands::Calls { json, filter }) => {
             cmd_calls(json, &filter)?;
         }

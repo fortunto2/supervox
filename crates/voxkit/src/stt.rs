@@ -59,6 +59,9 @@ pub enum TranscriptEvent {
         text: String,
         /// 1-based speaker index when diarization is on (local backends only).
         speaker: Option<usize>,
+        /// Where the speech sat in the audio fed in, seconds `(start, end)` (local backends
+        /// that cut their own segments); the clock the saved recording shares.
+        span: Option<(f32, f32)>,
     },
     /// Provider error.
     Error(String),
@@ -159,6 +162,7 @@ mod tests {
         };
         let final_ = TranscriptEvent::Final {
             speaker: None,
+            span: None,
             item_id: "x".into(),
             text: "hello".into(),
         };

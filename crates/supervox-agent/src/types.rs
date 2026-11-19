@@ -155,6 +155,19 @@ pub enum TurnDetect {
     Vad,
 }
 
+/// Who labels the speakers of a recording once it stops. Live labels always come from the
+/// CAM++ clusterer; this picks the pass that rewrites them after stop.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Diarizer {
+    /// FluidAudio offline (pyannote segmentation + WeSpeaker + VBx on the Neural Engine),
+    /// run on the saved WAV after stop; the CAM++ live labels stay if the sidecar is missing.
+    #[default]
+    Fluid,
+    /// Keep the live CAM++ labels as they are.
+    Campp,
+}
+
 /// Speech-to-text backend.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -266,6 +279,10 @@ pub struct Config {
     /// Label for the agent's own speech in the transcript.
     #[serde(default = "default_agent_name")]
     pub agent_name: String,
+    /// `fluid` (default): after stop, re-label the session with FluidAudio on the Neural Engine
+    /// (needs the sidecar, see `supervox rediarize --help`); `campp`: keep the live labels.
+    #[serde(default)]
+    pub diarizer: Diarizer,
     #[serde(default)]
     pub summary: SummaryMode,
     /// Input device name; `None` = system default. Press `m` in Live to cycle.
@@ -401,6 +418,7 @@ impl Default for Config {
             max_speakers: default_max_speakers(),
             voiceprint_threshold: default_voiceprint_threshold(),
             agent_name: default_agent_name(),
+            diarizer: Diarizer::default(),
             summary: SummaryMode::default(),
             mic_device: None,
             auto_record: default_true(),
@@ -420,6 +438,9 @@ mod tests {
         assert_eq!(c.turn_early_ms, 300);
         assert!(!c.asr_coreml);
         assert_eq!(c.languages, ["ru", "en"]);
+        let c: Config = toml::from_str("diarizer = \"campp\"").unwrap();
+        assert_eq!(c.diarizer, Diarizer::Campp);
+        assert_eq!(Config::default().diarizer, Diarizer::Fluid);
         let c: Config = toml::from_str("turn_detect = \"vad\"").unwrap();
         assert_eq!(c.turn_detect, TurnDetect::Vad);
     }

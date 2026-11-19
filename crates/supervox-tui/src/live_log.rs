@@ -93,14 +93,33 @@ impl LiveLog {
         }));
     }
 
+    #[cfg(test)]
     pub fn transcript(&mut self, t_secs: u64, speaker: &str, text: &str) {
-        self.write(serde_json::json!({
+        self.transcript_span(t_secs, speaker, text, None);
+    }
+
+    /// A transcript line; `span` is where its speech sat in the recording, seconds `(start, end)`.
+    /// `t` is when the line arrived, which falls behind the audio whenever recognition does
+    /// (measured 19.11: 100-170 s late on a loaded Mac), so only `a`/`b` can be matched to the WAV.
+    pub fn transcript_span(
+        &mut self,
+        t_secs: u64,
+        speaker: &str,
+        text: &str,
+        span: Option<(f32, f32)>,
+    ) {
+        let mut line = serde_json::json!({
             "type": "transcript",
             "t": t_secs,
             "ts": chrono::Local::now().to_rfc3339(),
             "speaker": speaker,
             "text": text,
-        }));
+        });
+        if let (Some((a, b)), Some(o)) = (span, line.as_object_mut()) {
+            o.insert("a".into(), serde_json::json!((a * 100.0).round() / 100.0));
+            o.insert("b".into(), serde_json::json!((b * 100.0).round() / 100.0));
+        }
+        self.write(line);
     }
 
     pub fn summary(&mut self, text: &str) {

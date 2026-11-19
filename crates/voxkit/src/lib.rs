@@ -42,6 +42,10 @@ pub mod agc;
 #[cfg(feature = "speaker")]
 pub mod speaker;
 
+/// Post-stop re-diarization: sidecar turns -> transcript labels, voiceprint naming.
+#[cfg(feature = "speaker")]
+pub mod rediarize;
+
 #[cfg(feature = "openai-tts")]
 pub mod tts;
 

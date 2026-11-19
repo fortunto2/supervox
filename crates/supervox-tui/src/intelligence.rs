@@ -210,6 +210,7 @@ mod tests {
             max_speakers: 3,
             voiceprint_threshold: 0.1,
             agent_name: "Алина".into(),
+            diarizer: Default::default(),
             summary: supervox_agent::types::SummaryMode::Internal,
             mic_device: None,
             auto_record: false,

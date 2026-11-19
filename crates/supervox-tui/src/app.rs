@@ -69,6 +69,40 @@ pub struct App {
 
 impl App {
     /// External summary: the panel title names the session folder the agent's summary lands in.
+    /// After stop: re-label the session's speakers from the saved WAV on a background thread
+    /// (nice'd sidecar on the Neural Engine). `diarizer = "campp"`, no sidecar or no WAV: the
+    /// live labels stay. The result is in `stream.jsonl`/`diarization.json`, not on screen.
+    fn spawn_rediarize(&self, wav: Option<&str>) {
+        #[cfg(feature = "parakeet")]
+        {
+            use supervox_agent::types::Diarizer;
+            let bin = crate::rediarize::sidecar_path();
+            let (Some(session), Some(wav)) = (self.live_log.session(), wav) else {
+                return;
+            };
+            if self.config.diarizer != Diarizer::Fluid || !self.config.diarize || !bin.exists() {
+                return;
+            }
+            let (session, wav, agent) = (
+                session.to_path_buf(),
+                std::path::PathBuf::from(wav),
+                self.config.agent_name.clone(),
+            );
+            std::thread::spawn(
+                move || match crate::rediarize::run(&session, &wav, &bin, &agent) {
+                    Ok((st, n)) => tracing::info!(
+                        "rediarize: {n} speakers, {} lines relabelled, {} without a span",
+                        st.relabelled,
+                        st.no_span
+                    ),
+                    Err(e) => tracing::warn!("rediarize failed, live labels kept: {e}"),
+                },
+            );
+        }
+        #[cfg(not(feature = "parakeet"))]
+        let _ = wav;
+    }
+
     fn show_summary_home(&mut self) {
         if self.config.summary != supervox_agent::types::SummaryMode::External {
             return;
@@ -308,6 +342,7 @@ impl App {
                 text,
                 is_final,
                 speaker,
+                span,
             } => {
                 if is_final {
                     self.live_state
@@ -315,8 +350,12 @@ impl App {
                     // Feed into translation + summary pipelines
                     if !text.is_empty() {
                         let label = crate::audio::speaker_label(&source, speaker);
-                        self.live_log
-                            .transcript(self.live_state.elapsed_secs(), &label, &text);
+                        self.live_log.transcript_span(
+                            self.live_state.elapsed_secs(),
+                            &label,
+                            &text,
+                            span,
+                        );
                         if let Some(tx) = &self.translate_tx {
                             let _ = tx.send((
                                 format!(
@@ -375,6 +414,7 @@ impl App {
                             .and_then(|c| c.audio_path);
                         self.live_log
                             .stop(Some(&call_id.to_string()), wav.as_deref());
+                        self.spawn_rediarize(wav.as_deref());
                         self.show_summary_home();
                         let kept = self
                             .live_log

@@ -627,6 +627,7 @@ mod tests {
             max_speakers: 2,
             voiceprint_threshold: 0.1,
             agent_name: "Алина".into(),
+            diarizer: Default::default(),
             summary: crate::types::SummaryMode::External,
             mic_device: Some("MacBook Pro Microphone".into()),
             auto_record: false,

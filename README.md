@@ -167,6 +167,7 @@ mic_device = "MacBook Pro Microphone"   # omit for the system default; `m` in Li
 # Local STT segmentation + speakers (parakeet)
 vad_pause_ms = 1200             # trailing silence that closes a phrase
 diarize = true                  # label mic speakers S1..Sn (needs the speaker model, see below)
+diarizer = "fluid"              # after stop: offline FluidAudio pass rewrites the labels; "campp" keeps live ones
 max_speakers = 3
 
 # Summary panel
@@ -209,6 +210,14 @@ curl -L -o ~/.supervox/models/wespeaker_en_voxceleb_CAM++.onnx \
 ```
 
 Good for "same person kept talking"; it is not identity verification.
+
+**After stop** (`diarizer = "fluid"`, the default) the whole recording is re-diarized offline by
+FluidAudio (pyannote segmentation + WeSpeaker + VBx on the Neural Engine: 15 s for 48 min, ~700 MB,
+no GPU) and the session's `stream.jsonl` is rewritten: any number of speakers, and the one matching
+`~/.supervox/voices/<Name>.wav` is named. The live labels are kept as `stream.jsonl.orig`. Set up
+once with `make diarizer`; by hand: `supervox rediarize [session] [--wav file]`. `diarizer = "campp"`
+or a missing sidecar leaves the live labels. Measured 19.11 on a 48-minute room recording:
+tools/diar-bench/README.txt.
 
 
 ### System audio setup (macOS)

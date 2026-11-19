@@ -231,7 +231,10 @@ impl StreamingSttBackend for ParakeetStt {
 
             let mut agent =
                 crate::agent_voice::AgentVoice::new(&crate::agent_voice::default_path());
-            let mut emit = |segment: Vec<f32>, item_counter: &mut u64, silence_frames: usize| {
+            let mut emit = |segment: Vec<f32>,
+                            span: (f32, f32),
+                            item_counter: &mut u64,
+                            silence_frames: usize| {
                 let pause_secs = silence_frames as f64 * FRAME_MS as f64 / 1000.0;
                 *item_counter += 1;
                 let item_id = format!("parakeet_{item_counter}");
@@ -249,6 +252,7 @@ impl StreamingSttBackend for ParakeetStt {
                             item_id,
                             text,
                             speaker: Some(crate::agent_voice::AGENT_SPEAKER),
+                            span: Some(span),
                         });
                         return;
                     }
@@ -285,6 +289,7 @@ impl StreamingSttBackend for ParakeetStt {
                             item_id,
                             text: result.text,
                             speaker,
+                            span: Some(span),
                         });
                     }
                     Ok(_) => {}
@@ -320,14 +325,17 @@ impl StreamingSttBackend for ParakeetStt {
                         };
                         #[cfg(not(feature = "smart-turn"))]
                         let mut check = |_: &[f32]| true;
-                        for segment in seg.push_with(&resampled, &mut check) {
-                            emit(segment, &mut item_counter, seg.closed_after);
+                        let closed = seg.push_with(&resampled, &mut check);
+                        let spans = seg.take_spans();
+                        for (segment, span) in closed.into_iter().zip(spans) {
+                            emit(segment, span, &mut item_counter, seg.closed_after);
                         }
                     }
                     SttInput::UpdatePrompt(_) => {}
                     SttInput::Close => {
                         if let Some(segment) = seg.flush() {
-                            emit(segment, &mut item_counter, 0);
+                            let span = seg.take_spans().pop().unwrap_or_default();
+                            emit(segment, span, &mut item_counter, 0);
                         }
                         break;
                     }
@@ -497,6 +505,10 @@ struct Segmenter {
     /// Trailing silence (frames) of the segment closed last.
     closed_after: usize,
     max_samples: usize,
+    /// Absolute index (16 kHz samples since the first one pushed) of `buf[0]`.
+    buf_start: usize,
+    /// Where each segment closed since the last `take_spans` sat in the audio, seconds `(start, end)`.
+    closed_spans: Vec<(f32, f32)>,
     buf: Vec<f32>,
     partial: Vec<f32>,
     has_speech: bool,
@@ -510,6 +522,8 @@ impl Segmenter {
             early_frames: 0,
             closed_after: 0,
             max_samples,
+            buf_start: 0,
+            closed_spans: Vec::new(),
             buf: Vec::new(),
             partial: Vec::new(),
             has_speech: false,
@@ -555,7 +569,9 @@ impl Segmenter {
                 // Pure silence so far: keep only the pre-roll.
                 let keep = PRE_ROLL_FRAMES * FRAME_SAMPLES;
                 if self.buf.len() > keep {
-                    self.buf.drain(..self.buf.len() - keep);
+                    let n = self.buf.len() - keep;
+                    self.buf.drain(..n);
+                    self.buf_start += n;
                 }
                 continue;
             }
@@ -570,15 +586,19 @@ impl Segmenter {
                     * FRAME_SAMPLES;
                 let cut = self.buf.len().saturating_sub(drop_tail);
                 let segment: Vec<f32> = self.buf.drain(..cut).collect();
+                self.mark_span(segment.len());
                 let keep = PRE_ROLL_FRAMES * FRAME_SAMPLES;
                 if self.buf.len() > keep {
-                    self.buf.drain(..self.buf.len() - keep);
+                    let n = self.buf.len() - keep;
+                    self.buf.drain(..n);
+                    self.buf_start += n;
                 }
                 self.has_speech = false;
                 self.trailing_silence = 0;
                 out.push(segment);
             } else if self.buf.len() >= self.max_samples {
                 self.closed_after = 0;
+                self.mark_span(self.buf.len());
                 out.push(std::mem::take(&mut self.buf));
                 self.has_speech = false;
                 self.trailing_silence = 0;
@@ -596,7 +616,24 @@ impl Segmenter {
         }
         self.has_speech = false;
         self.trailing_silence = 0;
+        self.mark_span(self.buf.len());
         Some(std::mem::take(&mut self.buf))
+    }
+
+    /// Spans of the segments returned since the last call, in the same order.
+    fn take_spans(&mut self) -> Vec<(f32, f32)> {
+        std::mem::take(&mut self.closed_spans)
+    }
+
+    /// Record that the `len` samples taken from the front of `buf` are the segment just
+    /// closed, and move `buf_start` past them.
+    fn mark_span(&mut self, len: usize) {
+        let rate = SAMPLE_RATE as f32;
+        self.closed_spans.push((
+            self.buf_start as f32 / rate,
+            (self.buf_start + len) as f32 / rate,
+        ));
+        self.buf_start += len;
     }
 }
 
@@ -643,6 +680,39 @@ mod segmenter_tests {
             secs > 3.0 && secs < 3.7,
             "speech + ~300 ms tail, got {secs}"
         );
+    }
+
+    #[test]
+    fn spans_follow_the_audio_clock_not_the_wall_clock() {
+        // 2 s silence, 3 s speech, 2 s silence, 2 s speech, 2 s silence: two utterances at
+        // 2-5 s and 7-9 s of audio, however the input is chopped into blocks.
+        let mut audio = silence(2.0);
+        audio.extend(tone(3.0));
+        audio.extend(silence(2.0));
+        audio.extend(tone(2.0));
+        audio.extend(silence(2.0));
+        let mut seg = Segmenter::new(60, 15 * SAMPLE_RATE as usize);
+        let mut out = Vec::new();
+        for block in audio.chunks(3_000) {
+            out.extend(seg.push(block));
+        }
+        let spans = seg.take_spans();
+        assert_eq!(out.len(), 2);
+        assert_eq!(spans.len(), 2);
+        let (a, b) = (spans[0], spans[1]);
+        assert!((1.5..2.1).contains(&a.0), "pre-roll before 2 s: {a:?}");
+        assert!(
+            (4.9..5.5).contains(&a.1),
+            "ends at the speech end plus tail: {a:?}"
+        );
+        assert!((6.5..7.1).contains(&b.0), "{b:?}");
+        assert!((8.9..9.5).contains(&b.1), "{b:?}");
+        let len_s = out[0].len() as f32 / SAMPLE_RATE as f32;
+        assert!(
+            (a.1 - a.0 - len_s).abs() < 0.01,
+            "span length = audio length"
+        );
+        assert!(seg.take_spans().is_empty(), "taken once");
     }
 
     #[test]

@@ -594,6 +594,23 @@ mod tests {
     }
 
     #[test]
+    fn a_short_session_still_names_his_voice_by_raw_similarity() {
+        // 19.11: five segments of Rustam alone were all labelled S1. Cluster naming waits for
+        // CENTER_AFTER embeddings to trust the session mean, so with fewer only the raw
+        // cosine to the voiceprint can name a segment.
+        let mut t = SpeakerTracker::new(4, 0.2)
+            .far_field()
+            .with_voiceprints(vec![print("Ann", 0.0, 1.0)], 0.5);
+        for _ in 0..3 {
+            assert_eq!(t.assign_display(&[0.5, 0.5, 0.5, 0.05, 1.0]), NAMED_BASE);
+        }
+        assert!(
+            t.assign_display(&[0.5, 0.5, 0.5, 1.0, 0.05]) < NAMED_BASE,
+            "a different voice stays anonymous"
+        );
+    }
+
+    #[test]
     fn one_name_per_cluster_best_match_wins() {
         // Two prints near the same voice: only the closer one gets the cluster.
         let mut t = SpeakerTracker::new(4, 0.2)

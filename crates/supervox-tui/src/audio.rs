@@ -55,6 +55,8 @@ pub enum AudioEvent {
     Level { source: AudioSource, level: f32 },
     /// Transcript segment from STT (delta or final).
     Transcript {
+        /// Seconds into the recording `(start, end)` the speech sat at, when the backend cuts its own segments.
+        span: Option<(f32, f32)>,
         source: AudioSource,
         text: String,
         is_final: bool,
@@ -432,18 +434,20 @@ async fn run_pipeline(
                 match event {
                     Some(TranscriptEvent::Delta { text, .. }) => {
                         let _ = event_tx.send(AudioEvent::Transcript {
+                            span: None,
                             source: AudioSource::Mic,
                             text,
                             is_final: false,
                             speaker: None,
                         });
                     }
-                    Some(TranscriptEvent::Final { text, speaker, .. }) => {
+                    Some(TranscriptEvent::Final { text, speaker, span, .. }) => {
                         if !text.is_empty() {
                             let label = speaker_label(&AudioSource::Mic, speaker);
                             full_transcript.push_str(&format!("{label}: {text}\n"));
                         }
                         let _ = event_tx.send(AudioEvent::Transcript {
+                            span,
                             source: AudioSource::Mic,
                             text,
                             is_final: true,
@@ -462,6 +466,7 @@ async fn run_pipeline(
                 match event {
                     Some(TranscriptEvent::Delta { text, .. }) => {
                         let _ = event_tx.send(AudioEvent::Transcript {
+                            span: None,
                             source: AudioSource::System,
                             text,
                             is_final: false,
@@ -473,6 +478,7 @@ async fn run_pipeline(
                             full_transcript.push_str(&format!("Them: {}\n", text));
                         }
                         let _ = event_tx.send(AudioEvent::Transcript {
+                            span: None,
                             source: AudioSource::System,
                             text,
                             is_final: true,
