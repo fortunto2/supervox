@@ -20,6 +20,16 @@ pub struct ParakeetStt {
     pause_ms: u32,
     /// Hard cap on one segment, so a speaker who never pauses still gets subtitles.
     max_segment_secs: f32,
+    /// Smart-turn model + early check pause (ms): close a segment at the short pause when
+    /// the speaker has finished, else wait for the full `pause_ms`.
+    #[cfg(feature = "smart-turn")]
+    smart_turn: Option<(PathBuf, u32)>,
+    /// Allowed languages (ISO codes). Parakeet v3 answers unclear speech with text in some
+    /// other language; a segment whose letters fall outside these scripts is dropped.
+    languages: Vec<String>,
+    /// Run the ONNX encoder through CoreML (Apple GPU) instead of CPU.
+    #[cfg(feature = "coreml")]
+    coreml: bool,
     /// Speaker diarization: (embedding model path, max speakers).
     #[cfg(feature = "speaker")]
     diarize: Option<(PathBuf, usize)>,
@@ -35,6 +45,11 @@ impl ParakeetStt {
             language: language.to_string(),
             pause_ms: DEFAULT_PAUSE_MS,
             max_segment_secs: DEFAULT_MAX_SEGMENT_SECS,
+            #[cfg(feature = "smart-turn")]
+            smart_turn: None,
+            languages: vec!["ru".into(), "en".into()],
+            #[cfg(feature = "coreml")]
+            coreml: false,
             #[cfg(feature = "speaker")]
             diarize: None,
         }
@@ -52,11 +67,39 @@ impl ParakeetStt {
         self
     }
 
+    /// End segments on semantic end-of-phrase: after `early_ms` of silence ask smart-turn.
+    #[cfg(feature = "smart-turn")]
+    pub fn with_smart_turn(mut self, model: PathBuf, early_ms: u32) -> Self {
+        self.smart_turn = Some((model, early_ms.max(100)));
+        self
+    }
+
+    /// Restrict output to these languages (empty = no filter).
+    pub fn with_languages(mut self, languages: Vec<String>) -> Self {
+        self.languages = languages;
+        self
+    }
+
+    /// Use CoreML (Apple GPU) for the ASR encoder.
+    #[cfg(feature = "coreml")]
+    pub fn with_coreml(mut self, on: bool) -> Self {
+        self.coreml = on;
+        self
+    }
+
     /// Label each segment with a speaker index (1..=max_speakers).
     #[cfg(feature = "speaker")]
     pub fn with_diarization(mut self, model_path: PathBuf, max_speakers: usize) -> Self {
         self.diarize = Some((model_path, max_speakers));
         self
+    }
+
+    fn early_frames(&self) -> usize {
+        #[cfg(feature = "smart-turn")]
+        if let Some((_, ms)) = &self.smart_turn {
+            return (*ms / FRAME_MS).max(1) as usize;
+        }
+        0
     }
 
     /// Batch-transcribe an AudioChunk (one-shot).
@@ -118,9 +161,34 @@ impl StreamingSttBackend for ParakeetStt {
         let max_segment_samples = (self.max_segment_secs * SAMPLE_RATE as f32) as usize;
 
         // Load Parakeet model
-        let mut engine =
-            parakeet_rs::ParakeetTDT::from_pretrained(model_dir.to_str().unwrap_or(""), None)
-                .map_err(|e| SttStreamError::Connection(format!("Load Parakeet model: {e}")))?;
+        #[cfg(feature = "coreml")]
+        let use_coreml = self.coreml;
+        #[cfg(not(feature = "coreml"))]
+        let use_coreml = false;
+        let mut engine = load_engine(&model_dir, use_coreml)
+            .map_err(|e| SttStreamError::Connection(format!("Load Parakeet model: {e}")))?;
+
+        let languages = self.languages.clone();
+        let early_frames = self.early_frames();
+        #[cfg(feature = "smart-turn")]
+        let mut turn_model = match &self.smart_turn {
+            Some((path, _)) => match crate::smart_turn::SmartTurn::new(path) {
+                Ok(m) => Some(m),
+                Err(e) => {
+                    tracing::warn!("smart-turn off, fixed pause only: {e}");
+                    None
+                }
+            },
+            None => None,
+        };
+        #[cfg(feature = "smart-turn")]
+        let early_frames = if turn_model.is_some() {
+            early_frames
+        } else {
+            0
+        };
+        #[cfg(not(feature = "smart-turn"))]
+        let early_frames = 0usize;
 
         #[cfg(feature = "speaker")]
         let mut diarizer = match &self.diarize {
@@ -139,15 +207,15 @@ impl StreamingSttBackend for ParakeetStt {
         let (transcript_tx, transcript_rx) = mpsc::channel::<TranscriptEvent>(64);
 
         tokio::task::spawn_blocking(move || {
-            let mut seg = Segmenter::new(pause_frames, max_segment_samples);
+            let mut seg =
+                Segmenter::new(pause_frames, max_segment_samples).with_early_check(early_frames);
             let mut agc = crate::agc::Agc::default();
             let mut item_counter = 0u64;
 
             let mut agent =
                 crate::agent_voice::AgentVoice::new(&crate::agent_voice::default_path());
-            let pause_secs = pause_frames as f64 * FRAME_MS as f64 / 1000.0;
-
-            let mut emit = |segment: Vec<f32>, item_counter: &mut u64| {
+            let mut emit = |segment: Vec<f32>, item_counter: &mut u64, silence_frames: usize| {
+                let pause_secs = silence_frames as f64 * FRAME_MS as f64 / 1000.0;
                 *item_counter += 1;
                 let item_id = format!("parakeet_{item_counter}");
                 // Loudspeaker audio of the agent's own voice: exact text from its
@@ -184,8 +252,18 @@ impl StreamingSttBackend for ParakeetStt {
                         speaker = tracker.last();
                     }
                 }
-                match engine.transcribe_samples(segment, SAMPLE_RATE, 1, None) {
+                let (seg_secs, t0) = (
+                    segment.len() as f32 / SAMPLE_RATE as f32,
+                    std::time::Instant::now(),
+                );
+                let res = engine.transcribe_samples(segment, SAMPLE_RATE, 1, None);
+                log_asr(seg_secs, t0.elapsed().as_millis(), pause_secs);
+                match res {
                     Ok(result) if !result.text.trim().is_empty() => {
+                        if !text_in_languages(&result.text, &languages) {
+                            tracing::debug!("dropped out-of-language text: {}", result.text);
+                            return;
+                        }
                         let _ = transcript_tx.blocking_send(TranscriptEvent::Final {
                             item_id,
                             text: result.text,
@@ -209,14 +287,30 @@ impl StreamingSttBackend for ParakeetStt {
                         let mut resampled =
                             crate::types::resample(&f32_samples, 24000, SAMPLE_RATE);
                         agc.process(&mut resampled);
-                        for segment in seg.push(&resampled) {
-                            emit(segment, &mut item_counter);
+                        #[cfg(feature = "smart-turn")]
+                        let mut check = |buf: &[f32]| match turn_model.as_mut() {
+                            Some(m) => match m.probability(buf) {
+                                Ok(p) => {
+                                    tracing::debug!("smart-turn p={p:.2}");
+                                    p >= SMART_TURN_THRESHOLD
+                                }
+                                Err(e) => {
+                                    tracing::warn!("smart-turn failed: {e}");
+                                    true
+                                }
+                            },
+                            None => true,
+                        };
+                        #[cfg(not(feature = "smart-turn"))]
+                        let mut check = |_: &[f32]| true;
+                        for segment in seg.push_with(&resampled, &mut check) {
+                            emit(segment, &mut item_counter, seg.closed_after);
                         }
                     }
                     SttInput::UpdatePrompt(_) => {}
                     SttInput::Close => {
                         if let Some(segment) = seg.flush() {
-                            emit(segment, &mut item_counter);
+                            emit(segment, &mut item_counter, 0);
                         }
                         break;
                     }
@@ -226,6 +320,134 @@ impl StreamingSttBackend for ParakeetStt {
         });
 
         Ok((input_tx, transcript_rx))
+    }
+}
+
+/// True when the text's letters belong to the allowed languages' scripts.
+///
+/// `ru`/`uk`/`bg`/`be`/`sr` allow Cyrillic, `en` allows plain ASCII Latin, any other code
+/// allows all Latin. More than 5% of letters outside that set rejects the text (a lone
+/// foreign name does not). Plain-ASCII Portuguese passes: script is all this can see.
+pub fn text_in_languages(text: &str, languages: &[String]) -> bool {
+    if languages.is_empty() {
+        return true;
+    }
+    let has = |codes: &[&str]| languages.iter().any(|l| codes.contains(&l.as_str()));
+    let cyr = has(&["ru", "uk", "bg", "be", "sr"]);
+    let ascii = has(&["en"]);
+    let latin = languages
+        .iter()
+        .any(|l| !["ru", "uk", "bg", "be", "sr", "en"].contains(&l.as_str()));
+    let (mut total, mut bad) = (0usize, 0usize);
+    for c in text.chars().filter(|c| c.is_alphabetic()) {
+        total += 1;
+        let ok = match c as u32 {
+            0x400..=0x52F => cyr,
+            _ if c.is_ascii() => ascii || latin,
+            0x80..=0x24F | 0x1E00..=0x1EFF => latin,
+            _ => false,
+        };
+        bad += usize::from(!ok);
+    }
+    total == 0 || bad as f32 / total as f32 <= 0.05
+}
+
+/// Smart-turn probability that ends a turn at the early pause.
+const SMART_TURN_THRESHOLD: f32 = 0.5;
+
+fn load_engine(dir: &Path, coreml: bool) -> Result<parakeet_rs::ParakeetTDT, parakeet_rs::Error> {
+    let dir = dir.to_str().unwrap_or("");
+    #[cfg(feature = "coreml")]
+    if coreml {
+        let cfg = parakeet_rs::ExecutionConfig::new()
+            .with_execution_provider(parakeet_rs::ExecutionProvider::CoreML);
+        return parakeet_rs::ParakeetTDT::from_pretrained(dir, Some(cfg));
+    }
+    let _ = coreml;
+    parakeet_rs::ParakeetTDT::from_pretrained(dir, None)
+}
+
+/// Offline run of the live pipeline over a recording (benchmark): segments with the same
+/// segmenter, transcribes each, returns `(secs, wait_ms, asr_ms, text)` per segment.
+/// `wait_ms` is the silence the cut waited for after the last speech frame.
+#[doc(hidden)]
+pub fn bench_file(
+    dir: &Path,
+    samples: &[f32],
+    rate: u32,
+    smart: bool,
+    coreml: bool,
+) -> Vec<(f32, u32, u128, String)> {
+    let mut engine = load_engine(dir, coreml).expect("load model");
+    let mut x = if rate == SAMPLE_RATE {
+        samples.to_vec()
+    } else {
+        crate::types::resample(samples, rate, SAMPLE_RATE)
+    };
+    crate::agc::Agc::default().process(&mut x);
+    let pause_frames = (DEFAULT_PAUSE_MS / FRAME_MS) as usize;
+    #[cfg(feature = "smart-turn")]
+    let mut model =
+        crate::smart_turn::SmartTurn::new(&crate::smart_turn::default_model_path()).ok();
+    #[cfg(feature = "smart-turn")]
+    let early = if smart && model.is_some() { 15 } else { 0 };
+    #[cfg(not(feature = "smart-turn"))]
+    let early = {
+        let _ = smart;
+        0
+    };
+    let mut seg = Segmenter::new(pause_frames, 15 * SAMPLE_RATE as usize).with_early_check(early);
+    let mut closed = Vec::new();
+    for block in x.chunks(FRAME_SAMPLES * 5) {
+        #[cfg(feature = "smart-turn")]
+        let mut check = |b: &[f32]| {
+            model
+                .as_mut()
+                .is_none_or(|m| m.probability(b).unwrap_or(1.0) >= SMART_TURN_THRESHOLD)
+        };
+        #[cfg(not(feature = "smart-turn"))]
+        let mut check = |_: &[f32]| true;
+        for s in seg.push_with(block, &mut check) {
+            closed.push((s, seg.closed_after));
+        }
+    }
+    closed.extend(seg.flush().map(|s| (s, 0)));
+    closed
+        .into_iter()
+        .map(|(s, silence)| {
+            let secs = s.len() as f32 / SAMPLE_RATE as f32;
+            let t0 = std::time::Instant::now();
+            let text = engine
+                .transcribe_samples(s, SAMPLE_RATE, 1, None)
+                .map(|r| r.text)
+                .unwrap_or_default();
+            (
+                secs,
+                silence as u32 * FRAME_MS,
+                t0.elapsed().as_millis(),
+                text,
+            )
+        })
+        .collect()
+}
+
+/// One line per transcribed segment: `~/.supervox/live/asr.log` (`asr_ms`, segment length,
+/// silence waited before the cut).
+fn log_asr(seg_secs: f32, asr_ms: u128, silence_secs: f64) {
+    use std::io::Write;
+    let path = std::env::var_os("HOME")
+        .map(|h| PathBuf::from(h).join(".supervox/live/asr.log"))
+        .unwrap_or_default();
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(path)
+    {
+        let _ = writeln!(
+            f,
+            "asr_ms={asr_ms} secs={seg_secs:.1} wait_ms={:.0}",
+            silence_secs * 1000.0
+        );
     }
 }
 
@@ -253,6 +475,10 @@ const SPEAKER_THRESHOLD: f32 = 0.2;
 /// exceeds `max_samples`.
 struct Segmenter {
     pause_frames: usize,
+    /// Short pause (frames) at which the end-of-turn check runs; 0 = never (fixed pause only).
+    early_frames: usize,
+    /// Trailing silence (frames) of the segment closed last.
+    closed_after: usize,
     max_samples: usize,
     buf: Vec<f32>,
     partial: Vec<f32>,
@@ -264,6 +490,8 @@ impl Segmenter {
     fn new(pause_frames: usize, max_samples: usize) -> Self {
         Self {
             pause_frames,
+            early_frames: 0,
+            closed_after: 0,
             max_samples,
             buf: Vec::new(),
             partial: Vec::new(),
@@ -272,8 +500,25 @@ impl Segmenter {
         }
     }
 
-    /// Feed 16 kHz samples; returns zero or more finished utterances.
+    /// Close early: after `early_frames` of silence ask `turn` (given the speech so far)
+    /// whether the speaker is done; if not, wait for the full `pause_frames`.
+    fn with_early_check(mut self, early_frames: usize) -> Self {
+        self.early_frames = early_frames.min(self.pause_frames);
+        self
+    }
+
+    /// Fixed-pause push (no end-of-turn check).
+    #[cfg(test)]
     fn push(&mut self, samples: &[f32]) -> Vec<Vec<f32>> {
+        self.push_with(samples, &mut |_| true)
+    }
+
+    /// Feed 16 kHz samples; returns zero or more finished utterances.
+    fn push_with(
+        &mut self,
+        samples: &[f32],
+        turn: &mut dyn FnMut(&[f32]) -> bool,
+    ) -> Vec<Vec<f32>> {
         let mut out = Vec::new();
         self.partial.extend_from_slice(samples);
         let mut offset = 0;
@@ -297,7 +542,12 @@ impl Segmenter {
                 }
                 continue;
             }
-            if self.trailing_silence >= self.pause_frames {
+            let early = self.early_frames > 0
+                && self.early_frames < self.pause_frames
+                && self.trailing_silence == self.early_frames
+                && turn(&self.buf);
+            if early || self.trailing_silence >= self.pause_frames {
+                self.closed_after = self.trailing_silence;
                 // Utterance ended: emit speech + a short tail, keep the rest as pre-roll.
                 let drop_tail = (self.trailing_silence - TAIL_FRAMES.min(self.trailing_silence))
                     * FRAME_SAMPLES;
@@ -311,6 +561,7 @@ impl Segmenter {
                 self.trailing_silence = 0;
                 out.push(segment);
             } else if self.buf.len() >= self.max_samples {
+                self.closed_after = 0;
                 out.push(std::mem::take(&mut self.buf));
                 self.has_speech = false;
                 self.trailing_silence = 0;
@@ -390,6 +641,67 @@ mod segmenter_tests {
         let mut seg = Segmenter::new(60, 4 * SAMPLE_RATE as usize);
         let out = seg.push(&tone(9.0));
         assert_eq!(out.len(), 2, "two forced cuts in 9 s at a 4 s cap");
+    }
+
+    #[test]
+    fn finished_turn_closes_at_the_early_pause() {
+        let mut seg = Segmenter::new(60, 15 * SAMPLE_RATE as usize).with_early_check(15);
+        let mut asked = 0;
+        let mut yes = |_: &[f32]| {
+            asked += 1;
+            true
+        };
+        let mut out = seg.push_with(&tone(2.0), &mut yes);
+        assert!(out.is_empty());
+        out.extend(seg.push_with(&silence(0.5), &mut yes));
+        assert_eq!(out.len(), 1, "closed 300 ms into the pause");
+        assert_eq!(seg.closed_after, 15);
+        assert_eq!(asked, 1);
+    }
+
+    #[test]
+    fn unfinished_turn_waits_for_the_full_pause_and_is_asked_once() {
+        let mut seg = Segmenter::new(60, 15 * SAMPLE_RATE as usize).with_early_check(15);
+        let mut asked = 0;
+        let mut no = |_: &[f32]| {
+            asked += 1;
+            false
+        };
+        let mut out = seg.push_with(&tone(2.0), &mut no);
+        out.extend(seg.push_with(&silence(0.8), &mut no));
+        assert!(out.is_empty(), "held through 800 ms");
+        out.extend(seg.push_with(&silence(0.6), &mut no));
+        assert_eq!(out.len(), 1, "fixed pause is the fallback");
+        assert_eq!(seg.closed_after, 60);
+        assert_eq!(asked, 1);
+    }
+
+    #[test]
+    fn speech_after_the_early_pause_resets_the_check() {
+        let mut seg = Segmenter::new(60, 15 * SAMPLE_RATE as usize).with_early_check(15);
+        let mut asked = 0;
+        let mut no = |_: &[f32]| {
+            asked += 1;
+            false
+        };
+        let mut out = seg.push_with(&tone(1.0), &mut no);
+        out.extend(seg.push_with(&silence(0.4), &mut no));
+        out.extend(seg.push_with(&tone(1.0), &mut no));
+        out.extend(seg.push_with(&silence(0.4), &mut no));
+        assert!(out.is_empty());
+        assert_eq!(asked, 2, "asked at each pause, one segment so far");
+    }
+
+    #[test]
+    fn language_filter_drops_foreign_gibberish() {
+        let ru_en = vec!["ru".to_string(), "en".to_string()];
+        assert!(text_in_languages("Слушай, что у нас по продажам?", &ru_en));
+        assert!(text_in_languages("Open the pull request, Рустам", &ru_en));
+        assert!(!text_in_languages("Você não brau. Um bravo", &ru_en));
+        assert!(text_in_languages("Você não", &["pt".to_string()]));
+        assert!(!text_in_languages("Привет", &["en".to_string()]));
+        assert!(text_in_languages("anything é", &[]));
+        assert!(text_in_languages("123 ...", &ru_en));
     }
 
     #[test]

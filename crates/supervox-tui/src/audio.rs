@@ -226,12 +226,10 @@ pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend
         }
         #[cfg(feature = "parakeet")]
         SttBackend::Parakeet => {
-            // v2 is English-only; v3 (25 languages, Russian among them) lives next to it and
-            // is preferred whenever my_language is not English.
+            // v2 is English-only; v3 (25 languages, Russian among them) lives next to it and is
+            // the default whenever it is installed: a room mixes languages whatever my_language says.
             let v3 = multilingual_parakeet_dir();
-            let model_dir = if !config.my_language.starts_with("en")
-                && voxkit::parakeet_stt::model_exists(&v3)
-            {
+            let model_dir = if voxkit::parakeet_stt::model_exists(&v3) {
                 v3
             } else {
                 voxkit::parakeet_stt::default_model_dir()
@@ -251,7 +249,27 @@ pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend
                 alt_dir
             };
             let mut stt = voxkit::parakeet_stt::ParakeetStt::new(dir, &config.my_language)
-                .with_pause_ms(config.vad_pause_ms);
+                .with_pause_ms(config.vad_pause_ms)
+                .with_languages(config.languages.clone());
+            if config.turn_detect == supervox_agent::types::TurnDetect::Smart {
+                let m = voxkit::smart_turn::default_model_path();
+                if m.exists() {
+                    stt = stt.with_smart_turn(m, config.turn_early_ms);
+                } else {
+                    tracing::warn!(
+                        "turn_detect = smart but model missing at {} — fixed pause",
+                        m.display()
+                    );
+                }
+            }
+            #[cfg(feature = "coreml")]
+            {
+                stt = stt.with_coreml(config.asr_coreml);
+            }
+            #[cfg(not(feature = "coreml"))]
+            if config.asr_coreml {
+                tracing::warn!("asr_coreml = true but built without the coreml feature");
+            }
             if config.diarize {
                 let sp = speaker_model_path();
                 if sp.exists() {

@@ -13,7 +13,8 @@ exclude = [".solo/", ".githooks/", "docs/", "CLAUDE.md"]
 [features]
 default = ["whisper", "parakeet"]
 whisper = ["voxkit/whisper"]
-parakeet = ["voxkit/parakeet", "voxkit/speaker"]
+parakeet = ["voxkit/parakeet", "voxkit/speaker", "voxkit/smart-turn"]
+coreml = ["parakeet", "voxkit/coreml"]
 
 [[bin]]
 name = "supervox"

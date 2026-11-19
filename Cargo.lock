@@ -6664,6 +6664,7 @@ dependencies = [
  "ndarray 0.16.1",
  "ort",
  "parakeet-rs",
+ "realfft",
  "reqwest 0.12.28",
  "rodio",
  "serde",

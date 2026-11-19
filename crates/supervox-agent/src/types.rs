@@ -144,6 +144,17 @@ pub struct TrackedAction {
     pub state: ActionState,
 }
 
+/// End-of-segment detection for local STT.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TurnDetect {
+    /// Semantic end-of-phrase (smart-turn), falling back to the fixed pause.
+    #[default]
+    Smart,
+    /// Fixed trailing-silence pause only (`vad_pause_ms`).
+    Vad,
+}
+
 /// Speech-to-text backend.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -230,6 +241,19 @@ pub struct Config {
     /// Trailing silence (ms) that closes an utterance in local STT (parakeet).
     #[serde(default = "default_vad_pause_ms")]
     pub vad_pause_ms: u32,
+    /// How a local-STT segment ends: `smart` closes at a short pause when smart-turn says the
+    /// phrase is finished (waits up to `vad_pause_ms` otherwise); `vad` waits `vad_pause_ms` always.
+    #[serde(default)]
+    pub turn_detect: TurnDetect,
+    /// Short pause (ms) at which smart-turn is asked.
+    #[serde(default = "default_turn_early_ms")]
+    pub turn_early_ms: u32,
+    /// Languages local STT may output (ISO codes); text in other scripts is dropped.
+    #[serde(default = "default_languages")]
+    pub languages: Vec<String>,
+    /// Run the Parakeet encoder on the Apple GPU through CoreML (needs a build with `coreml`).
+    #[serde(default)]
+    pub asr_coreml: bool,
     /// Tell mic speakers apart (S1..Sn) — local STT only, needs the speaker model.
     #[serde(default = "default_true")]
     pub diarize: bool,
@@ -246,6 +270,12 @@ pub struct Config {
 }
 fn default_vad_pause_ms() -> u32 {
     1200
+}
+fn default_languages() -> Vec<String> {
+    vec!["ru".into(), "en".into()]
+}
+fn default_turn_early_ms() -> u32 {
+    300
 }
 fn default_max_speakers() -> usize {
     3
@@ -350,6 +380,10 @@ impl Default for Config {
             ducking_threshold: default_ducking_threshold(),
             translate: default_true(),
             vad_pause_ms: default_vad_pause_ms(),
+            turn_detect: TurnDetect::default(),
+            turn_early_ms: default_turn_early_ms(),
+            languages: default_languages(),
+            asr_coreml: false,
             diarize: default_true(),
             max_speakers: default_max_speakers(),
             summary: SummaryMode::default(),
@@ -363,6 +397,17 @@ impl Default for Config {
 mod tests {
     use super::*;
     use chrono::Utc;
+
+    #[test]
+    fn old_config_gets_smart_turn_defaults() {
+        let c: Config = toml::from_str("vad_pause_ms = 900").unwrap();
+        assert_eq!(c.turn_detect, TurnDetect::Smart);
+        assert_eq!(c.turn_early_ms, 300);
+        assert!(!c.asr_coreml);
+        assert_eq!(c.languages, ["ru", "en"]);
+        let c: Config = toml::from_str("turn_detect = \"vad\"").unwrap();
+        assert_eq!(c.turn_detect, TurnDetect::Vad);
+    }
 
     #[test]
     fn call_serialization_roundtrip() {
