@@ -116,6 +116,9 @@ pub fn voice_name(id: usize) -> Option<String> {
     VOICE_NAMES.read().ok()?.get(i).cloned()
 }
 
+/// Raw-cosine match of one segment to a voiceprint that names it regardless of cluster.
+pub const RAW_VOICEPRINT_THRESHOLD: f32 = 0.65; // 19.11 room: his segments 0.76-0.82, other speakers median 0.02-0.08
+
 /// Longest stretch used for a voiceprint, seconds.
 pub const VOICEPRINT_MAX_SECS: usize = 30;
 const VOICEPRINT_CHUNK_SECS: usize = 10;
@@ -398,6 +401,25 @@ impl SpeakerTracker {
     /// [`assign`](Self::assign), then the id to show (named or anonymous).
     pub fn assign_display(&mut self, embedding: &[f32]) -> usize {
         let c = self.assign(embedding);
+        // One person often lands in several clusters (S1/S2/S3 for one voice, 19.11): a segment
+        // whose RAW embedding is close to a voiceprint takes that name whatever its cluster.
+        // Raw cosine, as in the talk skill's owner check (own clips 0.60-0.89, others <= 0.48).
+        let e = normalize(Array1::from_vec(embedding.to_vec()));
+        let best = self
+            .voiceprints
+            .iter()
+            .enumerate()
+            .map(|(v, vp)| (v, e.dot(&normalize(vp.emb.clone()))))
+            .max_by(|a, b| a.1.total_cmp(&b.1));
+        if let Some((v, sim)) = best {
+            tracing::debug!(
+                "voiceprint raw sim {sim:.3} -> {}",
+                self.voiceprints[v].name
+            );
+            if sim >= RAW_VOICEPRINT_THRESHOLD {
+                return NAMED_BASE + v;
+            }
+        }
         self.display_id(c)
     }
 
