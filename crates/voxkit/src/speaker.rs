@@ -74,14 +74,25 @@ impl SpeakerEmbedder {
 pub struct SpeakerTracker {
     max_speakers: usize,
     threshold: f32,
+    /// Raw (uncentered, unit-length) member means.
     centroids: Vec<Array1<f32>>,
     counts: Vec<usize>,
     last: Option<usize>,
+    /// Running sum and count of every embedding seen: the session's common
+    /// component (room, mic, AGC), removed before comparing in far-field mode.
+    sum: Option<Array1<f32>>,
+    seen: usize,
+    center_after: usize,
 }
+
+/// Embeddings seen before the session mean is trusted for centering.
+pub const CENTER_AFTER: usize = 6;
+/// Raw cosine threshold used during that warm-up (raw far-field voices sit at 0.8-0.9).
+pub const WARMUP_THRESHOLD: f32 = 0.85;
 
 impl SpeakerTracker {
     /// `threshold` is the cosine similarity above which a segment joins an
-    /// existing speaker. 0.5 is a sane default for CAM++ on far-field audio.
+    /// existing speaker (after centering in `far_field` mode).
     pub fn new(max_speakers: usize, threshold: f32) -> Self {
         Self {
             max_speakers: max_speakers.max(1),
@@ -89,23 +100,54 @@ impl SpeakerTracker {
             centroids: Vec::new(),
             counts: Vec::new(),
             last: None,
+            sum: None,
+            seen: 0,
+            center_after: usize::MAX,
         }
+    }
+
+    /// Far-field mode: after `CENTER_AFTER` embeddings, compare voices with the
+    /// session mean subtracted. Raw CAM++ vectors from one room all share a big
+    /// common component (measured: distinct voices at cos 0.82-0.92, so any
+    /// threshold up to 0.8 gave one speaker); centered, they spread to -0.6..0.4.
+    pub fn far_field(mut self) -> Self {
+        self.center_after = CENTER_AFTER;
+        self
     }
 
     /// Speaker index (1-based) for this embedding. Updates the centroid.
     pub fn assign(&mut self, embedding: &[f32]) -> usize {
         let e = normalize(Array1::from_vec(embedding.to_vec()));
+        match &mut self.sum {
+            Some(s) => *s += &e,
+            None => self.sum = Some(e.clone()),
+        }
+        self.seen += 1;
+        let centered = self.seen > self.center_after;
+        let (threshold, mean) = if centered {
+            let m = self.sum.as_ref().map(|s| s / self.seen as f32);
+            (self.threshold, m)
+        } else if self.center_after == usize::MAX {
+            (self.threshold, None)
+        } else {
+            (WARMUP_THRESHOLD, None)
+        };
+        let ec = match &mean {
+            Some(m) => normalize(&e - m),
+            None => e.clone(),
+        };
         let mut best: Option<(usize, f32)> = None;
         for (i, c) in self.centroids.iter().enumerate() {
-            let sim = e.dot(c);
+            let sim = match &mean {
+                Some(m) => ec.dot(&normalize(c - m)),
+                None => e.dot(c),
+            };
             if best.is_none_or(|(_, b)| sim > b) {
                 best = Some((i, sim));
             }
         }
         let idx = match best {
-            Some((i, sim))
-                if sim >= self.threshold || self.centroids.len() >= self.max_speakers =>
-            {
+            Some((i, sim)) if sim >= threshold || self.centroids.len() >= self.max_speakers => {
                 let n = self.counts[i] as f32;
                 self.centroids[i] = normalize((&self.centroids[i] * n + &e) / (n + 1.0));
                 self.counts[i] += 1;
@@ -163,6 +205,31 @@ mod tests {
         let id = t.assign(&[0.0, 0.0, 1.0]);
         assert!(id == 1 || id == 2);
         assert_eq!(t.speaker_count(), 2);
+    }
+
+    #[test]
+    fn far_field_separates_voices_sharing_a_big_common_component() {
+        // Every vector carries a huge shared offset (raw cos ~0.99), voices differ in two small dims.
+        let v = |a: f32, b: f32| [10.0, 10.0, 10.0, a, b];
+        let mut t = SpeakerTracker::new(4, 0.2).far_field();
+        let seq = [
+            (1.0, 0.0),
+            (0.0, 1.0),
+            (1.0, 0.1),
+            (0.1, 1.0),
+            (1.0, 0.0),
+            (0.0, 1.0),
+        ];
+        for (a, b) in seq {
+            t.assign(&v(a, b));
+        }
+        let a1 = t.assign(&v(1.0, 0.05));
+        let b1 = t.assign(&v(0.05, 1.0));
+        assert_ne!(a1, b1);
+        // Plain tracker collapses them (the bug).
+        let mut plain = SpeakerTracker::new(4, 0.5);
+        plain.assign(&v(1.0, 0.0));
+        assert_eq!(plain.assign(&v(0.0, 1.0)), 1);
     }
 
     #[test]

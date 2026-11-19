@@ -27,6 +27,9 @@ impl AudioSource {
 /// Display label: `S1`/`S2`/… when diarization tagged a mic segment, else the source label.
 pub fn speaker_label(source: &AudioSource, speaker: Option<usize>) -> String {
     match (source, speaker) {
+        (AudioSource::Mic, Some(voxkit::agent_voice::AGENT_SPEAKER)) => {
+            voxkit::agent_voice::AGENT_LABEL.to_string()
+        }
         (AudioSource::Mic, Some(n)) => format!("S{n}"),
         _ => source.label().to_string(),
     }

@@ -129,7 +129,7 @@ impl StreamingSttBackend for ParakeetStt {
                     .map_err(|e| SttStreamError::Connection(format!("Load speaker model: {e}")))?;
                 Some((
                     embedder,
-                    crate::speaker::SpeakerTracker::new(*max, SPEAKER_THRESHOLD),
+                    crate::speaker::SpeakerTracker::new(*max, SPEAKER_THRESHOLD).far_field(),
                 ))
             }
             None => None,
@@ -143,9 +143,33 @@ impl StreamingSttBackend for ParakeetStt {
             let mut agc = crate::agc::Agc::default();
             let mut item_counter = 0u64;
 
+            let mut agent =
+                crate::agent_voice::AgentVoice::new(&crate::agent_voice::default_path());
+            let pause_secs = pause_frames as f64 * FRAME_MS as f64 / 1000.0;
+
             let mut emit = |segment: Vec<f32>, item_counter: &mut u64| {
                 *item_counter += 1;
                 let item_id = format!("parakeet_{item_counter}");
+                // Loudspeaker audio of the agent's own voice: exact text from its
+                // speaking log, never embedded (it collapses far-field clustering).
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs_f64())
+                    .unwrap_or(0.0);
+                let seg_end = now - pause_secs;
+                let seg_start = seg_end - segment.len() as f64 / SAMPLE_RATE as f64;
+                match agent.classify(seg_start, seg_end) {
+                    crate::agent_voice::Verdict::Agent(text) => {
+                        let _ = transcript_tx.blocking_send(TranscriptEvent::Final {
+                            item_id,
+                            text,
+                            speaker: Some(crate::agent_voice::AGENT_SPEAKER),
+                        });
+                        return;
+                    }
+                    crate::agent_voice::Verdict::Duplicate => return,
+                    crate::agent_voice::Verdict::Human => {}
+                }
                 #[allow(unused_mut)]
                 let mut speaker: Option<usize> = None;
                 #[cfg(feature = "speaker")]
@@ -218,9 +242,9 @@ pub const DEFAULT_MAX_SEGMENT_SECS: f32 = 15.0;
 const PRE_ROLL_FRAMES: usize = 15; // 300 ms
 /// Silence kept after the last speech frame inside an emitted segment.
 const TAIL_FRAMES: usize = 15; // 300 ms
-/// Cosine threshold for joining an existing speaker cluster.
+/// Cosine threshold (on mean-centered embeddings) for joining an existing speaker cluster.
 #[cfg(feature = "speaker")]
-const SPEAKER_THRESHOLD: f32 = 0.5;
+const SPEAKER_THRESHOLD: f32 = 0.2;
 
 /// Energy-based utterance segmenter: cuts on a pause, not on a timer.
 ///

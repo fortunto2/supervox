@@ -62,6 +62,9 @@ fn main() {
         0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9,
     ] {
         let mut tr = SpeakerTracker::new(8, t);
+        if std::env::var("FAR").is_ok() {
+            tr = tr.far_field();
+        }
         let mut hist = [0usize; 9];
         for e in &embs {
             hist[tr.assign(e).min(8)] += 1;

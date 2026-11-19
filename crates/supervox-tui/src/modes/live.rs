@@ -394,6 +394,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut LiveState) {
 fn speaker_color(source: &AudioSource, speaker: Option<usize>) -> Color {
     match (source, speaker) {
         (AudioSource::System, _) => Color::Yellow,
+        (AudioSource::Mic, Some(0)) => Color::Yellow,
         (AudioSource::Mic, Some(1)) => Color::Cyan,
         (AudioSource::Mic, Some(2)) => Color::Green,
         (AudioSource::Mic, Some(3)) => Color::Magenta,
