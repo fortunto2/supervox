@@ -259,6 +259,13 @@ pub struct Config {
     pub diarize: bool,
     #[serde(default = "default_max_speakers")]
     pub max_speakers: usize,
+    /// Cosine similarity (session-centered) at which a cluster takes the name of a
+    /// voiceprint in `~/.supervox/voices/<Name>.wav`.
+    #[serde(default = "default_voiceprint_threshold")]
+    pub voiceprint_threshold: f32,
+    /// Label for the agent's own speech in the transcript.
+    #[serde(default = "default_agent_name")]
+    pub agent_name: String,
     #[serde(default)]
     pub summary: SummaryMode,
     /// Input device name; `None` = system default. Press `m` in Live to cycle.
@@ -276,6 +283,12 @@ fn default_languages() -> Vec<String> {
 }
 fn default_turn_early_ms() -> u32 {
     300
+}
+fn default_voiceprint_threshold() -> f32 {
+    0.1
+}
+fn default_agent_name() -> String {
+    "Алина".into()
 }
 fn default_max_speakers() -> usize {
     3
@@ -386,6 +399,8 @@ impl Default for Config {
             asr_coreml: false,
             diarize: default_true(),
             max_speakers: default_max_speakers(),
+            voiceprint_threshold: default_voiceprint_threshold(),
+            agent_name: default_agent_name(),
             summary: SummaryMode::default(),
             mic_device: None,
             auto_record: default_true(),

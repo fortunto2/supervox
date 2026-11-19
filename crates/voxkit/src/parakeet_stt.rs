@@ -33,6 +33,9 @@ pub struct ParakeetStt {
     /// Speaker diarization: (embedding model path, max speakers).
     #[cfg(feature = "speaker")]
     diarize: Option<(PathBuf, usize)>,
+    /// Voiceprint directory and match threshold; named speakers instead of S<n>.
+    #[cfg(feature = "speaker")]
+    voiceprints: Option<(PathBuf, f32)>,
 }
 
 impl ParakeetStt {
@@ -52,6 +55,8 @@ impl ParakeetStt {
             coreml: false,
             #[cfg(feature = "speaker")]
             diarize: None,
+            #[cfg(feature = "speaker")]
+            voiceprints: None,
         }
     }
 
@@ -91,6 +96,13 @@ impl ParakeetStt {
     #[cfg(feature = "speaker")]
     pub fn with_diarization(mut self, model_path: PathBuf, max_speakers: usize) -> Self {
         self.diarize = Some((model_path, max_speakers));
+        self
+    }
+
+    /// Name clusters that match a `<Name>.wav` voiceprint in `dir` (cosine >= `threshold`).
+    #[cfg(feature = "speaker")]
+    pub fn with_voiceprints(mut self, dir: PathBuf, threshold: f32) -> Self {
+        self.voiceprints = Some((dir, threshold));
         self
     }
 
@@ -193,12 +205,17 @@ impl StreamingSttBackend for ParakeetStt {
         #[cfg(feature = "speaker")]
         let mut diarizer = match &self.diarize {
             Some((path, max)) => {
-                let embedder = crate::speaker::SpeakerEmbedder::new(path)
+                let mut embedder = crate::speaker::SpeakerEmbedder::new(path)
                     .map_err(|e| SttStreamError::Connection(format!("Load speaker model: {e}")))?;
-                Some((
-                    embedder,
-                    crate::speaker::SpeakerTracker::new(*max, SPEAKER_THRESHOLD).far_field(),
-                ))
+                let mut tracker =
+                    crate::speaker::SpeakerTracker::new(*max, SPEAKER_THRESHOLD).far_field();
+                if let Some((dir, threshold)) = &self.voiceprints {
+                    let vps = crate::speaker::load_voiceprints(dir, &mut embedder);
+                    tracing::info!("{} voiceprint(s) loaded from {}", vps.len(), dir.display());
+                    crate::speaker::set_voice_names(vps.iter().map(|v| v.name.clone()).collect());
+                    tracker = tracker.with_voiceprints(vps, *threshold);
+                }
+                Some((embedder, tracker))
             }
             None => None,
         };
@@ -244,12 +261,12 @@ impl StreamingSttBackend for ParakeetStt {
                 if let Some((embedder, tracker)) = diarizer.as_mut() {
                     if segment.len() as f32 / SAMPLE_RATE as f32 >= crate::speaker::MIN_EMBED_SECS {
                         match embedder.embed(&segment) {
-                            Ok(e) => speaker = Some(tracker.assign(&e)),
+                            Ok(e) => speaker = Some(tracker.assign_display(&e)),
                             Err(e) => tracing::warn!("speaker embedding failed: {e}"),
                         }
                     }
                     if speaker.is_none() {
-                        speaker = tracker.last();
+                        speaker = tracker.last_display();
                     }
                 }
                 let (seg_secs, t0) = (

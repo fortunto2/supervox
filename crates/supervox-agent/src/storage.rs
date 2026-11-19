@@ -625,6 +625,8 @@ mod tests {
             languages: vec!["ru".into(), "en".into()],
             diarize: true,
             max_speakers: 2,
+            voiceprint_threshold: 0.1,
+            agent_name: "Алина".into(),
             summary: crate::types::SummaryMode::External,
             mic_device: Some("MacBook Pro Microphone".into()),
             auto_record: false,

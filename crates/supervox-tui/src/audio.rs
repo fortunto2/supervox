@@ -28,7 +28,11 @@ impl AudioSource {
 pub fn speaker_label(source: &AudioSource, speaker: Option<usize>) -> String {
     match (source, speaker) {
         (AudioSource::Mic, Some(voxkit::agent_voice::AGENT_SPEAKER)) => {
-            voxkit::agent_voice::AGENT_LABEL.to_string()
+            voxkit::agent_voice::label()
+        }
+        #[cfg(feature = "parakeet")]
+        (AudioSource::Mic, Some(n)) if voxkit::speaker::voice_name(n).is_some() => {
+            voxkit::speaker::voice_name(n).unwrap_or_default()
         }
         (AudioSource::Mic, Some(n)) => format!("S{n}"),
         _ => source.label().to_string(),
@@ -270,10 +274,15 @@ pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend
             if config.asr_coreml {
                 tracing::warn!("asr_coreml = true but built without the coreml feature");
             }
+            voxkit::agent_voice::set_label(&config.agent_name);
             if config.diarize {
                 let sp = speaker_model_path();
                 if sp.exists() {
                     stt = stt.with_diarization(sp, config.max_speakers);
+                    stt = stt.with_voiceprints(
+                        voxkit::speaker::voices_dir(),
+                        config.voiceprint_threshold,
+                    );
                 } else {
                     tracing::warn!(
                         "diarize = true but speaker model missing at {} — labels stay You/Them",

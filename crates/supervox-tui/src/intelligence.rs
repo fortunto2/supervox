@@ -208,6 +208,8 @@ mod tests {
             languages: vec!["ru".into(), "en".into()],
             diarize: false,
             max_speakers: 3,
+            voiceprint_threshold: 0.1,
+            agent_name: "Алина".into(),
             summary: supervox_agent::types::SummaryMode::Internal,
             mic_device: None,
             auto_record: false,

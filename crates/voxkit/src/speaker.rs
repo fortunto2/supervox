@@ -5,7 +5,8 @@
 //! a hard cap on the number of speakers. Good for "who of the 2–3 people on
 //! stage is talking"; it is not a replacement for offline pyannote.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::RwLock;
 
 use ndarray::Array1;
 use ort::session::Session;
@@ -83,6 +84,229 @@ pub struct SpeakerTracker {
     sum: Option<Array1<f32>>,
     seen: usize,
     center_after: usize,
+    voiceprints: Vec<VoicePrint>,
+    voice_threshold: f32,
+    /// Per cluster: index of the voiceprint it was matched to.
+    named: Vec<Option<usize>>,
+}
+
+/// A known person: the mean raw embedding of their recorded voice (unit length).
+#[derive(Debug, Clone)]
+pub struct VoicePrint {
+    pub name: String,
+    pub emb: Array1<f32>,
+}
+
+/// Speaker ids at or above this are voiceprint names (`NAMED_BASE + index`),
+/// below it are anonymous clusters (`S<n>`).
+pub const NAMED_BASE: usize = 1000;
+
+static VOICE_NAMES: RwLock<Vec<String>> = RwLock::new(Vec::new());
+
+/// Publish the voiceprint names so the UI can turn a speaker id into a label.
+pub fn set_voice_names(names: Vec<String>) {
+    if let Ok(mut g) = VOICE_NAMES.write() {
+        *g = names;
+    }
+}
+
+/// Name behind a speaker id, if it is a named one.
+pub fn voice_name(id: usize) -> Option<String> {
+    let i = id.checked_sub(NAMED_BASE)?;
+    VOICE_NAMES.read().ok()?.get(i).cloned()
+}
+
+/// Longest stretch used for a voiceprint, seconds.
+pub const VOICEPRINT_MAX_SECS: usize = 30;
+const VOICEPRINT_CHUNK_SECS: usize = 10;
+
+/// `~/.supervox/voices`
+pub fn voices_dir() -> PathBuf {
+    std::env::var_os("HOME")
+        .map(|h| PathBuf::from(h).join(".supervox/voices"))
+        .unwrap_or_default()
+}
+
+/// The most speech-like `VOICEPRINT_MAX_SECS` of a 16 kHz clip: the window
+/// with the highest mean energy (hop 1 s). A shorter clip is returned whole.
+pub fn best_window(samples: &[f32]) -> &[f32] {
+    let win = VOICEPRINT_MAX_SECS * 16_000;
+    if samples.len() <= win {
+        return samples;
+    }
+    let sec = 16_000;
+    let energy: Vec<f64> = samples
+        .chunks(sec)
+        .map(|c| c.iter().map(|x| (*x as f64).powi(2)).sum::<f64>())
+        .collect();
+    let n = VOICEPRINT_MAX_SECS;
+    let mut sum: f64 = energy.iter().take(n).sum();
+    let (mut best, mut best_at) = (sum, 0usize);
+    for start in 1..=energy.len().saturating_sub(n) {
+        sum += energy[start + n - 1] - energy[start - 1];
+        if sum > best {
+            (best, best_at) = (sum, start);
+        }
+    }
+    let from = best_at * sec;
+    &samples[from..(from + win).min(samples.len())]
+}
+
+/// Mean (raw, unit-length) embedding of a clip: 10 s chunks, averaged.
+pub fn embed_voiceprint(
+    embedder: &mut SpeakerEmbedder,
+    samples: &[f32],
+) -> Result<Array1<f32>, SpeakerError> {
+    let clip = best_window(samples);
+    let chunk = VOICEPRINT_CHUNK_SECS * 16_000;
+    let mut acc: Option<Array1<f32>> = None;
+    for c in clip.chunks(chunk) {
+        // A tail under MIN_EMBED_SECS carries too little voice, unless it is all there is.
+        if c.len() < (MIN_EMBED_SECS * 16_000.0) as usize && acc.is_some() {
+            continue;
+        }
+        let e = normalize(Array1::from_vec(embedder.embed(c)?));
+        acc = Some(match acc {
+            Some(a) => a + e,
+            None => e,
+        });
+    }
+    acc.map(normalize).ok_or(SpeakerError::NoOutput)
+}
+
+/// Parse a NumPy `.npy` file holding one little-endian f32 vector (format 1.x/2.x).
+pub fn parse_npy_f32(bytes: &[u8]) -> Option<Vec<f32>> {
+    if bytes.len() < 10 || &bytes[..6] != b"\x93NUMPY" {
+        return None;
+    }
+    let (hlen, start) = if bytes[6] == 1 {
+        (u16::from_le_bytes([bytes[8], bytes[9]]) as usize, 10)
+    } else {
+        if bytes.len() < 12 {
+            return None;
+        }
+        (
+            u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]) as usize,
+            12,
+        )
+    };
+    let header = std::str::from_utf8(bytes.get(start..start + hlen)?).ok()?;
+    if !header.contains("<f4") || header.contains("True") {
+        return None;
+    }
+    let data = bytes.get(start + hlen..)?;
+    if data.is_empty() || data.len() % 4 != 0 {
+        return None;
+    }
+    Some(
+        data.as_chunks::<4>()
+            .0
+            .iter()
+            .map(|b| f32::from_le_bytes(*b))
+            .collect(),
+    )
+}
+
+fn emb_cache_path(wav: &Path) -> PathBuf {
+    wav.with_extension("emb")
+}
+
+fn read_emb_cache(path: &Path, wav_mtime: std::time::SystemTime) -> Option<Array1<f32>> {
+    if std::fs::metadata(path).ok()?.modified().ok()? < wav_mtime {
+        return None;
+    }
+    let bytes = std::fs::read(path).ok()?;
+    if bytes.is_empty() || bytes.len() % 4 != 0 {
+        return None;
+    }
+    let v: Vec<f32> = bytes
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| f32::from_le_bytes(*b))
+        .collect();
+    Some(normalize(Array1::from_vec(v)))
+}
+
+/// Load `<dir>/<Name>.wav` voiceprints, embedding each with `embedder` and
+/// caching the result as `<Name>.emb` (rebuilt when the wav is newer).
+/// A file that cannot be read is skipped with a warning.
+pub fn load_voiceprints(dir: &Path, embedder: &mut SpeakerEmbedder) -> Vec<VoicePrint> {
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut wavs: Vec<PathBuf> = rd
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|x| x.eq_ignore_ascii_case("wav")))
+        .collect();
+    wavs.sort();
+    let mut out = Vec::new();
+    for wav in wavs {
+        let Some(name) = wav.file_stem().and_then(|s| s.to_str()).map(str::to_owned) else {
+            continue;
+        };
+        let mtime = std::fs::metadata(&wav).and_then(|m| m.modified());
+        let cache = emb_cache_path(&wav);
+        if let Some(e) = mtime.ok().and_then(|t| read_emb_cache(&cache, t)) {
+            out.push(VoicePrint { name, emb: e });
+            continue;
+        }
+        let emb = crate::types::read_wav_file(&wav)
+            .map_err(|e| e.to_string())
+            .and_then(|c| {
+                let s = crate::types::resample(&c.samples, c.sample_rate, 16_000);
+                embed_voiceprint(embedder, &s).map_err(|e| e.to_string())
+            });
+        match emb {
+            Ok(e) => {
+                let bytes: Vec<u8> = e.iter().flat_map(|x| x.to_le_bytes()).collect();
+                if let Err(err) = std::fs::write(&cache, bytes) {
+                    tracing::warn!("voiceprint cache {}: {err}", cache.display());
+                }
+                out.push(VoicePrint { name, emb: e });
+            }
+            Err(e) => tracing::warn!("voiceprint {} skipped: {e}", wav.display()),
+        }
+    }
+    load_npy_voiceprints(dir, embedder, &mut out);
+    out
+}
+
+/// `<Name>.npy` ready-made embeddings, used when no `<Name>.wav` exists and the
+/// length matches this model (another model's vectors are not comparable).
+fn load_npy_voiceprints(dir: &Path, embedder: &mut SpeakerEmbedder, out: &mut Vec<VoicePrint>) {
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut npys: Vec<PathBuf> = rd
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|x| x.eq_ignore_ascii_case("npy")))
+        .collect();
+    npys.sort();
+    let noise: Vec<f32> = (0..32_000)
+        .map(|i| ((i * 7919) % 13) as f32 / 65.0 - 0.1)
+        .collect();
+    let dim = embedder.embed(&noise).map(|e| e.len()).unwrap_or(0);
+    for p in npys {
+        let Some(name) = p.file_stem().and_then(|s| s.to_str()).map(str::to_owned) else {
+            continue;
+        };
+        if out.iter().any(|v| v.name == name) {
+            continue;
+        }
+        match std::fs::read(&p).ok().and_then(|b| parse_npy_f32(&b)) {
+            Some(v) if v.len() == dim => out.push(VoicePrint {
+                name,
+                emb: normalize(Array1::from_vec(v)),
+            }),
+            Some(v) => tracing::warn!(
+                "voiceprint {} skipped: {}-d, this model makes {dim}-d (other model)",
+                p.display(),
+                v.len()
+            ),
+            None => tracing::warn!("voiceprint {} skipped: not an f32 vector", p.display()),
+        }
+    }
 }
 
 /// Embeddings seen before the session mean is trusted for centering.
@@ -103,7 +327,83 @@ impl SpeakerTracker {
             sum: None,
             seen: 0,
             center_after: usize::MAX,
+            voiceprints: Vec::new(),
+            voice_threshold: 1.0,
+            named: Vec::new(),
         }
+    }
+
+    /// Name clusters whose centroid matches a voiceprint at `threshold` or above.
+    pub fn with_voiceprints(mut self, voiceprints: Vec<VoicePrint>, threshold: f32) -> Self {
+        self.voiceprints = voiceprints;
+        self.voice_threshold = threshold;
+        self
+    }
+
+    /// Similarity of a voiceprint to a cluster centroid, both with the session
+    /// mean removed (the voiceprint was recorded elsewhere, so its own channel
+    /// is not the room's; subtracting the room mean from both is what makes the
+    /// distinct voices spread, as in clustering). `None` before the mean is trusted.
+    pub fn voiceprint_similarity(&self, cluster: usize, vp: &VoicePrint) -> Option<f32> {
+        let m = self.session_mean()?;
+        let c = self.centroids.get(cluster)?;
+        Some(normalize(c - &m).dot(&normalize(&vp.emb - &m)))
+    }
+
+    fn session_mean(&self) -> Option<Array1<f32>> {
+        if self.seen <= self.center_after {
+            return None;
+        }
+        self.sum.as_ref().map(|s| s / self.seen as f32)
+    }
+
+    /// One name per cluster, best match wins (greedy over all pairs above the threshold).
+    fn resolve_names(&mut self) {
+        let mut pairs = Vec::new();
+        for c in 0..self.centroids.len() {
+            for (v, vp) in self.voiceprints.iter().enumerate() {
+                if let Some(sim) = self.voiceprint_similarity(c, vp)
+                    && sim >= self.voice_threshold
+                {
+                    pairs.push((sim, c, v));
+                }
+            }
+        }
+        pairs.sort_by(|a, b| b.0.total_cmp(&a.0));
+        let mut named = vec![None; self.centroids.len()];
+        let mut used = vec![false; self.voiceprints.len()];
+        for (_, c, v) in pairs {
+            if named[c].is_none() && !used[v] {
+                named[c] = Some(v);
+                used[v] = true;
+            }
+        }
+        self.named = named;
+    }
+
+    /// Voiceprint name matched to a 1-based cluster, if any.
+    pub fn cluster_name(&self, cluster: usize) -> Option<&str> {
+        let v = (*self.named.get(cluster.checked_sub(1)?)?)?;
+        Some(&self.voiceprints[v].name)
+    }
+
+    /// Speaker id to show: `NAMED_BASE + voiceprint index` for a matched cluster, else the cluster.
+    pub fn display_id(&self, cluster: usize) -> usize {
+        match cluster.checked_sub(1).and_then(|i| self.named.get(i)) {
+            Some(Some(v)) => NAMED_BASE + v,
+            _ => cluster,
+        }
+    }
+
+    /// [`assign`](Self::assign), then the id to show (named or anonymous).
+    pub fn assign_display(&mut self, embedding: &[f32]) -> usize {
+        let c = self.assign(embedding);
+        self.display_id(c)
+    }
+
+    /// [`last`](Self::last) as a display id.
+    pub fn last_display(&self) -> Option<usize> {
+        self.last.map(|c| self.display_id(c))
     }
 
     /// Far-field mode: after `CENTER_AFTER` embeddings, compare voices with the
@@ -160,6 +460,9 @@ impl SpeakerTracker {
             }
         };
         self.last = Some(idx + 1);
+        if !self.voiceprints.is_empty() {
+            self.resolve_names();
+        }
         idx + 1
     }
 
@@ -230,6 +533,89 @@ mod tests {
         let mut plain = SpeakerTracker::new(4, 0.5);
         plain.assign(&v(1.0, 0.0));
         assert_eq!(plain.assign(&v(0.0, 1.0)), 1);
+    }
+
+    fn feed_two_voices(t: &mut SpeakerTracker) {
+        let v = |a: f32, b: f32| [0.5, 0.5, 0.5, a, b];
+        for (a, b) in [
+            (1.0, 0.0),
+            (0.0, 1.0),
+            (1.0, 0.1),
+            (0.1, 1.0),
+            (1.0, 0.0),
+            (0.0, 1.0),
+        ] {
+            t.assign(&v(a, b));
+        }
+        t.assign(&v(1.0, 0.05));
+        t.assign(&v(0.05, 1.0));
+    }
+
+    fn print(name: &str, a: f32, b: f32) -> VoicePrint {
+        VoicePrint {
+            name: name.into(),
+            emb: normalize(Array1::from_vec(vec![0.5, 0.5, 0.5, a, b])),
+        }
+    }
+
+    #[test]
+    fn voiceprint_names_the_matching_cluster_and_the_other_stays_anonymous() {
+        let mut t = SpeakerTracker::new(4, 0.2)
+            .far_field()
+            .with_voiceprints(vec![print("Ann", 0.0, 1.0)], 0.5);
+        feed_two_voices(&mut t);
+        let b = t.assign_display(&[0.5, 0.5, 0.5, 0.05, 1.0]);
+        let a = t.assign_display(&[0.5, 0.5, 0.5, 1.0, 0.05]);
+        assert_eq!(b, NAMED_BASE);
+        assert!(a < NAMED_BASE, "the other voice stays S<n>: {a}");
+        assert_eq!(t.cluster_name(2), Some("Ann"));
+    }
+
+    #[test]
+    fn one_name_per_cluster_best_match_wins() {
+        // Two prints near the same voice: only the closer one gets the cluster.
+        let mut t = SpeakerTracker::new(4, 0.2)
+            .far_field()
+            .with_voiceprints(vec![print("Far", 0.4, 1.0), print("Near", 0.0, 1.0)], 0.3);
+        feed_two_voices(&mut t);
+        let named: Vec<_> = (1..=2).filter_map(|c| t.cluster_name(c)).collect();
+        assert_eq!(named, vec!["Near"]);
+    }
+
+    #[test]
+    fn below_threshold_stays_anonymous() {
+        let mut t = SpeakerTracker::new(4, 0.2)
+            .far_field()
+            .with_voiceprints(vec![print("Ann", -1.0, -1.0)], 0.9);
+        feed_two_voices(&mut t);
+        assert!((1..=2).all(|c| t.cluster_name(c).is_none()));
+    }
+
+    #[test]
+    fn best_window_picks_the_loud_30_seconds() {
+        let mut x = vec![0.0f32; 16_000 * 20];
+        x.extend(vec![0.5f32; 16_000 * 30]);
+        x.extend(vec![0.0f32; 16_000 * 20]);
+        let w = best_window(&x);
+        assert_eq!(w.len(), 16_000 * 30);
+        assert!(w.iter().all(|s| *s == 0.5));
+        assert_eq!(best_window(&x[..16_000 * 10]).len(), 16_000 * 10);
+    }
+
+    #[test]
+    fn npy_f32_vector_parses_and_other_dtypes_do_not() {
+        let mut b = b"\x93NUMPY\x01\x00".to_vec();
+        let hdr = "{'descr': '<f4', 'fortran_order': False, 'shape': (2,), }".to_string();
+        let pad = 64 - (10 + hdr.len() + 1) % 64;
+        let hdr = format!("{hdr}{}\n", " ".repeat(pad));
+        b.extend((hdr.len() as u16).to_le_bytes());
+        b.extend(hdr.as_bytes());
+        b.extend(1.5f32.to_le_bytes());
+        b.extend((-2.0f32).to_le_bytes());
+        assert_eq!(parse_npy_f32(&b), Some(vec![1.5, -2.0]));
+        let f8 = String::from_utf8_lossy(&b).replace("<f4", "<f8");
+        assert_eq!(parse_npy_f32(f8.as_bytes()), None);
+        assert_eq!(parse_npy_f32(b"nope"), None);
     }
 
     #[test]

@@ -9,8 +9,25 @@ use std::path::{Path, PathBuf};
 
 /// Speaker id reserved for the agent (diarized humans are 1-based).
 pub const AGENT_SPEAKER: usize = 0;
+/// Label shown for [`AGENT_SPEAKER`] unless [`set_label`] chose another.
+pub const DEFAULT_LABEL: &str = "Алина";
+
+static LABEL: std::sync::RwLock<String> = std::sync::RwLock::new(String::new());
+
+/// Name shown for the agent's own speech (config `agent_name`); blank keeps the default.
+pub fn set_label(name: &str) {
+    if let Ok(mut g) = LABEL.write() {
+        *g = name.trim().to_string();
+    }
+}
+
 /// Label shown for [`AGENT_SPEAKER`].
-pub const AGENT_LABEL: &str = "AGENT";
+pub fn label() -> String {
+    match LABEL.read() {
+        Ok(g) if !g.is_empty() => g.clone(),
+        _ => DEFAULT_LABEL.to_string(),
+    }
+}
 
 /// Share of a segment that must overlap spoken pieces to count as the agent.
 const MIN_OVERLAP: f64 = 0.3;

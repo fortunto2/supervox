@@ -25,7 +25,7 @@ whisper = ["silero", "dep:whisper-rs", "dep:reqwest"]
 parakeet = ["dep:parakeet-rs", "dep:directories"]
 smart-turn = ["dep:ort", "dep:realfft"]
 coreml = ["parakeet", "parakeet-rs/coreml"]
-speaker = ["dep:ort", "dep:knf-rs", "dep:ndarray"]
+speaker = ["dep:ort", "dep:knf-rs", "dep:ndarray", "wav"]
 
 [dependencies]
 tokio = { version = "1", features = ["sync", "macros"] }
