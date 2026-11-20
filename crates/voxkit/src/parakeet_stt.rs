@@ -160,23 +160,26 @@ impl StreamingSttBackend for ParakeetStt {
         let pause_frames = (self.pause_ms / FRAME_MS).max(1) as usize;
         let max_segment_samples = (self.max_segment_secs * SAMPLE_RATE as f32) as usize;
 
-        // Load Parakeet model
-        let mut engine = load_engine(&model_dir)
-            .map_err(|e| SttStreamError::Connection(format!("Load Parakeet model: {e}")))?;
+        // The four loads are independent and each takes 100-500 ms: run them side by side on
+        // blocking threads, never on the async worker that serves the UI.
+        let loads = ModelLoads {
+            model_dir: model_dir.clone(),
+            #[cfg(feature = "smart-turn")]
+            smart_turn: self.smart_turn.as_ref().map(|(p, _)| p.clone()),
+            #[cfg(feature = "speaker")]
+            diarize: self.diarize.clone(),
+            #[cfg(feature = "speaker")]
+            voiceprints: self.voiceprints.clone(),
+        };
+        let loaded = tokio::task::spawn_blocking(move || loads.load())
+            .await
+            .map_err(|e| SttStreamError::Connection(format!("model loading panicked: {e}")))??;
+        let mut engine = loaded.engine;
 
         let languages = self.languages.clone();
         let early_frames = self.early_frames();
         #[cfg(feature = "smart-turn")]
-        let mut turn_model = match &self.smart_turn {
-            Some((path, _)) => match crate::smart_turn::SmartTurn::new(path) {
-                Ok(m) => Some(m),
-                Err(e) => {
-                    tracing::warn!("smart-turn off, fixed pause only: {e}");
-                    None
-                }
-            },
-            None => None,
-        };
+        let mut turn_model = loaded.turn_model;
         #[cfg(feature = "smart-turn")]
         let early_frames = if turn_model.is_some() {
             early_frames
@@ -187,21 +190,7 @@ impl StreamingSttBackend for ParakeetStt {
         let early_frames = 0usize;
 
         #[cfg(feature = "speaker")]
-        let mut diarizer = match &self.diarize {
-            Some((path, max)) => {
-                let mut embedder = crate::speaker::SpeakerEmbedder::new(path)
-                    .map_err(|e| SttStreamError::Connection(format!("Load speaker model: {e}")))?;
-                let mut tracker =
-                    crate::speaker::SpeakerTracker::new(*max, SPEAKER_THRESHOLD).far_field();
-                if let Some((dir, threshold)) = &self.voiceprints {
-                    let vps = crate::speaker::load_voiceprints(dir, &mut embedder);
-                    tracing::info!("{} voiceprint(s) loaded from {}", vps.len(), dir.display());
-                    tracker = tracker.with_voiceprints(vps, *threshold);
-                }
-                Some((embedder, tracker))
-            }
-            None => None,
-        };
+        let mut diarizer = loaded.diarizer;
 
         let (input_tx, mut input_rx) = mpsc::channel::<SttInput>(64);
         let (transcript_tx, transcript_rx) = mpsc::channel::<TranscriptEvent>(64);
@@ -354,6 +343,76 @@ impl StreamingSttBackend for ParakeetStt {
         });
 
         Ok((input_tx, transcript_rx))
+    }
+}
+
+/// What `connect()` loads, so the loads can run in parallel.
+struct ModelLoads {
+    model_dir: PathBuf,
+    #[cfg(feature = "smart-turn")]
+    smart_turn: Option<PathBuf>,
+    #[cfg(feature = "speaker")]
+    diarize: Option<(PathBuf, usize)>,
+    #[cfg(feature = "speaker")]
+    voiceprints: Option<(PathBuf, f32)>,
+}
+
+struct Loaded {
+    engine: parakeet_rs::ParakeetTDT,
+    #[cfg(feature = "smart-turn")]
+    turn_model: Option<crate::smart_turn::SmartTurn>,
+    #[cfg(feature = "speaker")]
+    diarizer: Option<(
+        crate::speaker::SpeakerEmbedder,
+        crate::speaker::SpeakerTracker,
+    )>,
+}
+
+impl ModelLoads {
+    /// Parakeet, smart-turn and the speaker embedder (then its voiceprints) on their own threads.
+    fn load(self) -> Result<Loaded, SttStreamError> {
+        std::thread::scope(|sc| {
+            let engine = sc.spawn(|| {
+                load_engine(&self.model_dir)
+                    .map_err(|e| SttStreamError::Connection(format!("Load Parakeet model: {e}")))
+            });
+            #[cfg(feature = "smart-turn")]
+            let turn = sc.spawn(|| {
+                self.smart_turn.as_ref().and_then(|path| {
+                    match crate::smart_turn::SmartTurn::new(path) {
+                        Ok(m) => Some(m),
+                        Err(e) => {
+                            tracing::warn!("smart-turn off, fixed pause only: {e}");
+                            None
+                        }
+                    }
+                })
+            });
+            #[cfg(feature = "speaker")]
+            let diarizer = sc.spawn(|| {
+                let Some((path, max)) = &self.diarize else {
+                    return Ok(None);
+                };
+                let mut embedder = crate::speaker::SpeakerEmbedder::new(path)
+                    .map_err(|e| SttStreamError::Connection(format!("Load speaker model: {e}")))?;
+                let mut tracker =
+                    crate::speaker::SpeakerTracker::new(*max, SPEAKER_THRESHOLD).far_field();
+                if let Some((dir, threshold)) = &self.voiceprints {
+                    let vps = crate::speaker::load_voiceprints(dir, &mut embedder);
+                    tracing::info!("{} voiceprint(s) loaded from {}", vps.len(), dir.display());
+                    tracker = tracker.with_voiceprints(vps, *threshold);
+                }
+                Ok(Some((embedder, tracker)))
+            });
+            let panicked = |what: &str| SttStreamError::Connection(format!("{what} load panicked"));
+            Ok(Loaded {
+                engine: engine.join().map_err(|_| panicked("Parakeet"))??,
+                #[cfg(feature = "smart-turn")]
+                turn_model: turn.join().map_err(|_| panicked("smart-turn"))?,
+                #[cfg(feature = "speaker")]
+                diarizer: diarizer.join().map_err(|_| panicked("speaker"))??,
+            })
+        })
     }
 }
 
