@@ -85,21 +85,22 @@ pub fn speaker_order(turns: &[Turn]) -> Vec<String> {
     out
 }
 
-/// A speaker's longest turns, concatenated up to [`POOL_SECS`], from 16 kHz `samples`.
-pub fn pool_audio(turns: &[Turn], speaker: &str, samples: &[f32]) -> Vec<f32> {
+/// The stretches (seconds in the recording) of a speaker's longest turns whose total reaches
+/// [`POOL_SECS`]: the only audio needed to name that speaker.
+pub fn pool_ranges(turns: &[Turn], speaker: &str) -> Vec<(f32, f32)> {
     let mut mine: Vec<&Turn> = turns
         .iter()
         .filter(|t| t.speaker == speaker && t.end - t.start >= MIN_TURN_SECS)
         .collect();
     mine.sort_by(|a, b| (b.end - b.start).total_cmp(&(a.end - a.start)));
     let mut out = Vec::new();
+    let mut total = 0.0;
     for t in mine {
-        if out.len() as f32 / 16_000.0 >= POOL_SECS {
+        if total >= POOL_SECS {
             break;
         }
-        let lo = ((t.start * 16_000.0) as usize).min(samples.len());
-        let hi = ((t.end * 16_000.0) as usize).min(samples.len());
-        out.extend_from_slice(&samples[lo..hi]);
+        total += t.end - t.start;
+        out.push((t.start, t.end));
     }
     out
 }
@@ -135,17 +136,21 @@ pub fn match_voiceprints(
     named
 }
 
-/// Embed each speaker's pooled audio and match it to the voiceprints.
+/// Embed each speaker's pooled audio and match it to the voiceprints. `read(start, end)`
+/// returns 16 kHz mono samples of that stretch of the recording (empty past its end).
 pub fn name_speakers(
     turns: &[Turn],
-    samples: &[f32],
+    read: &mut dyn FnMut(f32, f32) -> Vec<f32>,
     embedder: &mut SpeakerEmbedder,
     voiceprints: &[VoicePrint],
     threshold: f32,
 ) -> Result<HashMap<String, String>, SpeakerError> {
     let mut pooled = Vec::new();
     for s in speaker_order(turns) {
-        let audio = pool_audio(turns, &s, samples);
+        let audio: Vec<f32> = pool_ranges(turns, &s)
+            .into_iter()
+            .flat_map(|(a, b)| read(a, b))
+            .collect();
         if (audio.len() as f32) < crate::speaker::MIN_EMBED_SECS * 16_000.0 {
             continue;
         }
@@ -210,20 +215,18 @@ mod tests {
 
     #[test]
     fn pool_takes_the_longest_turns_of_one_speaker_up_to_30_s() {
-        let samples = vec![0.1f32; 16_000 * 100];
         let turns = [
             t("A", 0.0, 20.0),
             t("A", 30.0, 45.0),
             t("A", 50.0, 50.5),
             t("B", 60.0, 90.0),
         ];
-        let p = pool_audio(&turns, "A", &samples);
         assert_eq!(
-            p.len(),
-            16_000 * 35,
-            "20 s + 15 s, stops once 30 s is reached"
+            pool_ranges(&turns, "A"),
+            vec![(0.0, 20.0), (30.0, 45.0)],
+            "20 s + 15 s, stops once 30 s is reached; the 0.5 s turn is skipped"
         );
-        assert!(pool_audio(&turns, "C", &samples).is_empty());
+        assert!(pool_ranges(&turns, "C").is_empty());
     }
 
     #[test]

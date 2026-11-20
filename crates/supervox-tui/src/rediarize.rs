@@ -153,14 +153,13 @@ pub fn run(session: &Path, wav: &Path, bin: &Path, agent_name: &str) -> Result<(
     if turns.is_empty() {
         bail!("the diarizer found no speech");
     }
-    let chunk = voxkit::types::read_wav_file(wav).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let samples = voxkit::types::resample(&chunk.samples, chunk.sample_rate, 16_000);
+    let mut wav_in = voxkit::types::WavRanges::open(wav).map_err(|e| anyhow::anyhow!("{e}"))?;
     let mut embedder = voxkit::speaker::SpeakerEmbedder::new(&crate::audio::speaker_model_path())
         .map_err(|e| anyhow::anyhow!("speaker model: {e}"))?;
     let prints = voxkit::speaker::load_voiceprints(&voxkit::paths::voices_dir(), &mut embedder);
     let names = rediarize::name_speakers(
         &turns,
-        &samples,
+        &mut |a, b| wav_in.read(a, b, 16_000),
         &mut embedder,
         &prints,
         rediarize::NAME_THRESHOLD,

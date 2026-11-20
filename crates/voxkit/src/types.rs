@@ -195,6 +195,61 @@ pub fn read_wav_file(path: &std::path::Path) -> Result<AudioChunk, crate::stt::S
     Ok(AudioChunk::new(mono, sample_rate))
 }
 
+/// A WAV file read in pieces: only the asked-for ranges are decoded, so a long recording
+/// is never held in memory whole.
+#[cfg(feature = "wav")]
+pub struct WavRanges {
+    reader: hound::WavReader<std::io::BufReader<std::fs::File>>,
+}
+
+#[cfg(feature = "wav")]
+impl WavRanges {
+    pub fn open(path: &std::path::Path) -> Result<Self, crate::stt::SttError> {
+        let reader = hound::WavReader::open(path).map_err(|e| {
+            crate::stt::SttError::Other(format!("Read WAV {}: {e}", path.display()))
+        })?;
+        Ok(Self { reader })
+    }
+
+    /// Mono samples of `[start, end]` seconds, resampled to `rate`. Past the end of the file
+    /// the range is cut short (empty when it starts there).
+    pub fn read(&mut self, start: f32, end: f32, rate: u32) -> Vec<f32> {
+        let spec = self.reader.spec();
+        let ch = spec.channels.max(1) as usize;
+        let total = self.reader.duration();
+        let first = ((start.max(0.0) as f64 * spec.sample_rate as f64) as u32).min(total);
+        let last = ((end.max(0.0) as f64 * spec.sample_rate as f64) as u32).min(total);
+        if last <= first || self.reader.seek(first).is_err() {
+            return Vec::new();
+        }
+        let n = (last - first) as usize * ch;
+        let raw: Vec<f32> = match spec.sample_format {
+            hound::SampleFormat::Int => {
+                let max_val = (1u32 << (spec.bits_per_sample - 1)) as f32;
+                self.reader
+                    .samples::<i32>()
+                    .take(n)
+                    .map(|s| s.unwrap_or(0) as f32 / max_val)
+                    .collect()
+            }
+            hound::SampleFormat::Float => self
+                .reader
+                .samples::<f32>()
+                .take(n)
+                .map(|s| s.unwrap_or(0.0))
+                .collect(),
+        };
+        let mono: Vec<f32> = if ch > 1 {
+            raw.chunks(ch)
+                .map(|f| f.iter().sum::<f32>() / ch as f32)
+                .collect()
+        } else {
+            raw
+        };
+        resample(&mono, spec.sample_rate, rate)
+    }
+}
+
 /// Resample f32 audio from `src_rate` to `dst_rate` Hz (linear interpolation).
 pub fn resample(samples: &[f32], src_rate: u32, dst_rate: u32) -> Vec<f32> {
     if src_rate == dst_rate || samples.is_empty() {
@@ -406,6 +461,34 @@ mod tests {
     }
 
     #[cfg(feature = "wav")]
+    #[cfg(feature = "wav")]
+    #[test]
+    fn wav_ranges_reads_only_the_asked_stretch_resampled() {
+        let tmp = tempfile::NamedTempFile::with_suffix(".wav").unwrap();
+        let spec = hound::WavSpec {
+            channels: 2,
+            sample_rate: 48_000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut w = hound::WavWriter::create(tmp.path(), spec).unwrap();
+        // 4 s: value = whole second index, in both channels
+        for sec in 0..4i16 {
+            for _ in 0..48_000 {
+                w.write_sample(sec * 1000).unwrap();
+                w.write_sample(sec * 1000).unwrap();
+            }
+        }
+        w.finalize().unwrap();
+        let mut r = WavRanges::open(tmp.path()).unwrap();
+        let x = r.read(2.0, 3.0, 16_000);
+        assert_eq!(x.len(), 16_000);
+        assert!((x[100] - 2000.0 / 32768.0).abs() < 1e-3);
+        assert_eq!(r.read(3.5, 9.0, 16_000).len(), 8_000, "cut at the end");
+        assert!(r.read(5.0, 6.0, 16_000).is_empty());
+        assert!((r.read(0.0, 0.5, 16_000)[0]).abs() < 1e-3, "seeks back too");
+    }
+
     #[test]
     fn read_wav_file_not_found() {
         let result = super::read_wav_file(std::path::Path::new("/tmp/nonexistent_voxkit_test.wav"));
