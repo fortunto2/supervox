@@ -9,6 +9,7 @@ pub mod live_log;
 pub mod modes;
 #[cfg(feature = "parakeet")]
 pub mod rediarize;
+pub mod replay;
 pub mod scroll;
 pub mod sessions;
 pub mod source_picker;

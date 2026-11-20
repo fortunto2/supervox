@@ -12,6 +12,7 @@ mod live_log;
 mod modes;
 #[cfg(feature = "parakeet")]
 mod rediarize;
+mod replay;
 mod scroll;
 mod sessions;
 mod source_picker;
@@ -108,6 +109,19 @@ enum Commands {
         /// Recording to diarize; default: the session's own, found by start time
         #[arg(long)]
         wav: Option<String>,
+    },
+    /// Feed a recording through the live STT pipeline as the microphone and print each
+    /// final line with its live label (JSON lines). For checking speaker naming offline
+    #[command(hide = true)]
+    Replay {
+        /// Recording to replay
+        wav: String,
+        /// Start, seconds
+        #[arg(long, default_value_t = 0.0)]
+        from: f32,
+        /// End, seconds (default: to the end)
+        #[arg(long)]
+        to: Option<f32>,
     },
     /// List past calls
     Calls {
@@ -255,6 +269,13 @@ async fn main() -> Result<()> {
         #[cfg(not(feature = "parakeet"))]
         Some(Commands::Rediarize { .. }) => {
             anyhow::bail!("built without the parakeet feature (no speaker model)")
+        }
+        Some(Commands::Replay { wav, from, to }) => {
+            let config = supervox_agent::storage::load_config(
+                &supervox_agent::storage::default_config_path(),
+            )
+            .unwrap_or_default();
+            replay::cmd(&config, &wav, from, to).await?;
         }
         Some(Commands::Calls { json, filter }) => {
             cmd_calls(json, &filter)?;
