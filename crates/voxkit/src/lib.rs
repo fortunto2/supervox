@@ -28,6 +28,9 @@ pub mod silero;
 #[cfg(feature = "realtime")]
 pub mod realtime_stt;
 
+#[cfg(any(feature = "whisper", feature = "parakeet"))]
+pub(crate) mod segmenter;
+
 #[cfg(feature = "whisper")]
 pub mod whisper_stt;
 

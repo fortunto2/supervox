@@ -8,6 +8,9 @@ use std::path::{Path, PathBuf};
 use tokio::sync::mpsc;
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
+use crate::segmenter::{
+    DEFAULT_MAX_SEGMENT_SECS, DEFAULT_PAUSE_MS, FRAME_MS, SAMPLE_RATE, Segmenter, turn_finished,
+};
 use crate::stt::{StreamingSttBackend, SttError, SttInput, SttStreamError, TranscriptEvent};
 use crate::types::{AudioChunk, Transcript};
 
@@ -15,6 +18,10 @@ use crate::types::{AudioChunk, Transcript};
 pub struct WhisperStt {
     model_path: PathBuf,
     language: String,
+    pause_ms: u32,
+    max_segment_secs: f32,
+    /// smart-turn model and the early pause (ms) at which it is asked whether the phrase is over.
+    smart_turn: Option<(PathBuf, u32)>,
 }
 
 impl WhisperStt {
@@ -25,7 +32,22 @@ impl WhisperStt {
         Self {
             model_path,
             language: language.to_string(),
+            pause_ms: DEFAULT_PAUSE_MS,
+            max_segment_secs: DEFAULT_MAX_SEGMENT_SECS,
+            smart_turn: None,
         }
+    }
+
+    /// Trailing silence (ms) that ends an utterance. Default 1200.
+    pub fn with_pause_ms(mut self, pause_ms: u32) -> Self {
+        self.pause_ms = pause_ms.max(200);
+        self
+    }
+
+    /// End segments on semantic end-of-phrase: after `early_ms` of silence ask smart-turn.
+    pub fn with_smart_turn(mut self, model: PathBuf, early_ms: u32) -> Self {
+        self.smart_turn = Some((model, early_ms.max(100)));
+        self
     }
 
     /// Transcribe a segment of f32 PCM audio (16kHz mono).
@@ -42,6 +64,11 @@ impl WhisperStt {
         params.set_print_timestamps(false);
         params.set_suppress_blank(true);
         params.set_single_segment(true);
+        // Hallucination guard for quiet or empty chunks (whisper "thanks for watching" in silence).
+        params.set_no_speech_thold(0.6);
+        params.set_logprob_thold(-1.0);
+        params.set_suppress_nst(true);
+        params.set_n_threads(8);
 
         let mut state = ctx
             .create_state()
@@ -63,7 +90,7 @@ impl WhisperStt {
             }
         }
         let trimmed = text.trim().to_string();
-        if trimmed.is_empty() {
+        if trimmed.is_empty() || is_hallucination(&trimmed) {
             return Err(SttError::Empty);
         }
         Ok(trimmed)
@@ -212,6 +239,26 @@ pub async fn ensure_model(model_size: &str, models_dir: &Path) -> Result<PathBuf
 }
 
 /// Resample f32 audio to 16kHz (Whisper's required sample rate).
+/// Peak (linear) below which a 2 s chunk is treated as silence and never sent to Whisper.
+const SILENCE_PEAK: f32 = 0.004;
+
+/// Stock phrases Whisper emits on silence or line noise (trained on subtitles).
+const HALLUCINATIONS: &[&str] = &[
+    "izlediğiniz için teşekkür",
+    "altyazı m.k",
+    "abone ol",
+    "редактор субтитров",
+    "подписывайтесь на канал",
+    "продолжение следует",
+    "thanks for watching",
+    "thank you for watching",
+];
+
+fn is_hallucination(text: &str) -> bool {
+    let t = text.to_lowercase();
+    HALLUCINATIONS.iter().any(|h| t.contains(h))
+}
+
 fn resample_to_16k(samples: &[f32], src_rate: u32) -> Vec<f32> {
     crate::types::resample(samples, src_rate, 16000)
 }
@@ -234,66 +281,83 @@ impl StreamingSttBackend for WhisperStt {
         )
         .map_err(|e| SttStreamError::Connection(format!("Load Whisper model: {e}")))?;
 
+        let pause_frames = (self.pause_ms / FRAME_MS).max(1) as usize;
+        let max_segment_samples = (self.max_segment_secs * SAMPLE_RATE as f32) as usize;
+        let mut turn_model = self.smart_turn.as_ref().and_then(|(path, _)| {
+            crate::smart_turn::SmartTurn::new(path)
+                .map_err(|e| tracing::warn!("smart-turn off, fixed pause only: {e}"))
+                .ok()
+        });
+        let early_frames = match (&turn_model, &self.smart_turn) {
+            (Some(_), Some((_, ms))) => (*ms / FRAME_MS).max(1) as usize,
+            _ => 0,
+        };
+
         let (input_tx, mut input_rx) = mpsc::channel::<SttInput>(64);
         let (transcript_tx, transcript_rx) = mpsc::channel::<TranscriptEvent>(64);
 
-        // Spawn processing task
         tokio::task::spawn_blocking(move || {
-            let mut audio_buffer: Vec<f32> = Vec::new();
+            // Same segmenter as Parakeet: a pause closes a phrase, and smart-turn closes it early.
+            let mut seg =
+                Segmenter::new(pause_frames, max_segment_samples).with_early_check(early_frames);
             let mut item_counter = 0u64;
+            // Phone and far-field audio arrives at -25 to -45 dBFS; Whisper hallucinates on it.
+            let mut agc = crate::agc::Agc::default();
+            // Loudest raw sample since the last phrase closed: the silence gate.
+            let mut raw_peak = 0f32;
+            let mut f32_samples: Vec<f32> = Vec::new();
+            let mut resampled: Vec<f32> = Vec::new();
 
-            // Simple energy-based segmentation:
-            // Accumulate audio, transcribe when we get a Close or enough silence
+            let mut emit = |segment: Vec<f32>, span: (f32, f32), raw_peak: &mut f32| {
+                let quiet = *raw_peak < SILENCE_PEAK;
+                *raw_peak = 0.0;
+                if quiet {
+                    return;
+                }
+                item_counter += 1;
+                let item_id = format!("whisper_{item_counter}");
+                match WhisperStt::transcribe_segment(&ctx, &segment, &language) {
+                    Ok(text) => {
+                        let _ = transcript_tx.blocking_send(TranscriptEvent::Final {
+                            item_id,
+                            text,
+                            speaker: None,
+                            span: Some(span),
+                        });
+                    }
+                    Err(SttError::Empty) => {} // silence, skip
+                    Err(e) => {
+                        let _ = transcript_tx
+                            .blocking_send(TranscriptEvent::Error(format!("Whisper: {e}")));
+                    }
+                }
+            };
+
             while let Some(input) = input_rx.blocking_recv() {
                 match input {
                     SttInput::Audio(samples) => {
-                        // Convert i16 to f32 and resample to 16kHz
-                        let f32_samples: Vec<f32> =
-                            samples.iter().map(|&s| s as f32 / 32768.0).collect();
-                        let resampled = resample_to_16k(&f32_samples, 24000);
-                        audio_buffer.extend_from_slice(&resampled);
-
-                        // Transcribe every ~2 seconds of audio (32000 samples at 16kHz)
-                        if audio_buffer.len() >= 32000 {
-                            let segment = std::mem::take(&mut audio_buffer);
-                            item_counter += 1;
-                            let item_id = format!("whisper_{item_counter}");
-
-                            match WhisperStt::transcribe_segment(&ctx, &segment, &language) {
-                                Ok(text) => {
-                                    let _ = transcript_tx.blocking_send(TranscriptEvent::Final {
-                                        item_id,
-                                        text,
-                                        speaker: None,
-                                        span: None,
-                                    });
-                                }
-                                Err(SttError::Empty) => {} // silence, skip
-                                Err(e) => {
-                                    let _ = transcript_tx.blocking_send(TranscriptEvent::Error(
-                                        format!("Whisper: {e}"),
-                                    ));
-                                }
-                            }
+                        f32_samples.clear();
+                        f32_samples.extend(samples.iter().map(|&s| s as f32 / 32768.0));
+                        crate::types::resample_into(
+                            &f32_samples,
+                            24000,
+                            SAMPLE_RATE,
+                            &mut resampled,
+                        );
+                        raw_peak = resampled.iter().fold(raw_peak, |m, v| m.max(v.abs()));
+                        agc.process(&mut resampled);
+                        let mut check = |buf: &[f32]| turn_finished(turn_model.as_mut(), buf);
+                        let closed = seg.push_with(&resampled, &mut check);
+                        let spans = seg.take_spans();
+                        for (segment, span) in closed.into_iter().zip(spans) {
+                            emit(segment, span, &mut raw_peak);
                         }
                     }
                     SttInput::UpdatePrompt(_) => {} // Not supported for local Whisper
                     SttInput::Close => {
-                        // Transcribe remaining audio
-                        if audio_buffer.len() > 1600 {
-                            // >100ms
-                            item_counter += 1;
-                            let item_id = format!("whisper_{item_counter}");
-                            if let Ok(text) =
-                                WhisperStt::transcribe_segment(&ctx, &audio_buffer, &language)
-                            {
-                                let _ = transcript_tx.blocking_send(TranscriptEvent::Final {
-                                    item_id,
-                                    text,
-                                    speaker: None,
-                                    span: None,
-                                });
-                            }
+                        if let Some(segment) = seg.flush() {
+                            let span = seg.take_spans().pop().unwrap_or_default();
+                            emit(segment, span, &mut raw_peak);
                         }
                         break;
                     }
@@ -312,6 +376,12 @@ impl StreamingSttBackend for WhisperStt {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hallucination_phrases_are_dropped() {
+        assert!(is_hallucination("Bu videoyu izlediğiniz için teşekkürler"));
+        assert!(!is_hallucination("SGK için teşekkürler, tamam"));
+    }
 
     #[test]
     fn whisper_stt_new() {

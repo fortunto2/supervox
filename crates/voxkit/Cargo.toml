@@ -21,7 +21,7 @@ mic = ["dep:cpal"]
 macos-system-audio = []
 macos-mic-mode = []
 wav = ["dep:hound"]
-whisper = ["silero", "dep:whisper-rs", "dep:reqwest"]
+whisper = ["silero", "smart-turn", "dep:whisper-rs", "dep:reqwest"]
 parakeet = ["dep:parakeet-rs"]
 smart-turn = ["dep:ort", "dep:realfft"]
 speaker = ["dep:ort", "dep:knf-rs", "dep:ndarray", "wav"]
@@ -47,7 +47,7 @@ ndarray = { version = "0.16", optional = true }
 rodio = { version = "0.20", optional = true, default-features = false, features = ["mp3"] }
 cpal = { version = "0.15", optional = true }
 hound = { version = "3.5", optional = true }
-whisper-rs = { version = "0.16", optional = true }
+whisper-rs = { version = "0.16", optional = true, features = ["metal"] }
 parakeet-rs = { version = "0.3", optional = true }
 realfft = { version = "3.5", optional = true }
 

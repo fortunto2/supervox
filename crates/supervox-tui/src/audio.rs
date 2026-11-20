@@ -218,10 +218,20 @@ pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend
                     model_path.display()
                 ));
             }
-            Ok(Box::new(voxkit::whisper_stt::WhisperStt::new(
-                model_path,
-                &config.my_language,
-            )))
+            let mut stt = voxkit::whisper_stt::WhisperStt::new(model_path, &config.my_language)
+                .with_pause_ms(config.vad_pause_ms);
+            if config.turn_detect == supervox_agent::types::TurnDetect::Smart {
+                let m = voxkit::smart_turn::default_model_path();
+                if m.exists() {
+                    stt = stt.with_smart_turn(m, config.turn_early_ms);
+                } else {
+                    tracing::warn!(
+                        "turn_detect = smart but model missing at {} — fixed pause",
+                        m.display()
+                    );
+                }
+            }
+            Ok(Box::new(stt))
         }
         #[cfg(not(feature = "whisper"))]
         SttBackend::Whisper => {
