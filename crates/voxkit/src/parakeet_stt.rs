@@ -579,8 +579,7 @@ impl Segmenter {
         while self.partial.len() - offset >= FRAME_SAMPLES {
             let frame = &self.partial[offset..offset + FRAME_SAMPLES];
             offset += FRAME_SAMPLES;
-            let rms = (frame.iter().map(|s| s * s).sum::<f32>() / frame.len() as f32).sqrt();
-            let is_speech = rms >= SILENCE_THRESHOLD;
+            let is_speech = rms(frame) >= SILENCE_THRESHOLD;
             self.buf.extend_from_slice(frame);
             if is_speech {
                 self.has_speech = true;
@@ -620,11 +619,17 @@ impl Segmenter {
                 self.trailing_silence = 0;
                 out.push(segment);
             } else if self.buf.len() >= self.max_samples {
+                // Over the cap with no pause: cut at the quietest spot of the last
+                // `SOFT_CUT_WINDOW_SECS`, not mid-word; the rest starts the next segment.
                 self.closed_after = 0;
-                self.mark_span(self.buf.len());
-                out.push(std::mem::take(&mut self.buf));
-                self.has_speech = false;
-                self.trailing_silence = 0;
+                let cut = soft_cut(&self.buf, SOFT_CUT_WINDOW_SECS * SAMPLE_RATE as usize);
+                let segment: Vec<f32> = self.buf.drain(..cut).collect();
+                self.mark_span(segment.len());
+                self.has_speech = self
+                    .buf
+                    .chunks(FRAME_SAMPLES)
+                    .any(|f| rms(f) >= SILENCE_THRESHOLD);
+                out.push(segment);
             }
         }
         self.partial.drain(..offset);
@@ -658,6 +663,28 @@ impl Segmenter {
         ));
         self.buf_start += len;
     }
+}
+
+/// How far back from the cap a forced cut may look for a quiet frame.
+const SOFT_CUT_WINDOW_SECS: usize = 2;
+
+fn rms(frame: &[f32]) -> f32 {
+    (frame.iter().map(|s| s * s).sum::<f32>() / frame.len().max(1) as f32).sqrt()
+}
+
+/// Sample index to cut `buf` at: the middle of the lowest-energy 20 ms frame among those
+/// in the last `window` samples (the latest one on a tie), never past the end of `buf`.
+fn soft_cut(buf: &[f32], window: usize) -> usize {
+    let window = window.min(buf.len() / 2);
+    let first = (buf.len() - window) / FRAME_SAMPLES;
+    let frames = buf.len() / FRAME_SAMPLES;
+    let quietest = (first..frames)
+        .min_by(|&a, &b| {
+            let e = |i: usize| rms(&buf[i * FRAME_SAMPLES..(i + 1) * FRAME_SAMPLES]);
+            e(a).total_cmp(&e(b)).then(b.cmp(&a))
+        })
+        .unwrap_or(frames.saturating_sub(1));
+    ((quietest * FRAME_SAMPLES) + FRAME_SAMPLES / 2).min(buf.len())
 }
 
 /// RMS threshold below which audio is considered silence.
@@ -734,6 +761,35 @@ mod segmenter_tests {
             "span length = audio length"
         );
         assert!(seg.take_spans().is_empty(), "taken once");
+    }
+
+    #[test]
+    fn a_forced_cut_lands_in_the_dip_not_mid_word() {
+        // 9 s of continuous speech with one 40 ms dip at 6.0 s; cap 7 s, no pause long
+        // enough to close (dip < 1.2 s). A hard cut would land at 7.0 s.
+        let mut audio = tone(9.0);
+        let dip = (6.0 * SAMPLE_RATE as f32) as usize;
+        for x in &mut audio[dip..dip + FRAME_SAMPLES * 2] {
+            *x = 0.001;
+        }
+        let mut seg = Segmenter::new(60, 7 * SAMPLE_RATE as usize);
+        let out = seg.push(&audio);
+        let spans = seg.take_spans();
+        assert!(!out.is_empty());
+        let end = spans[0].1;
+        assert!((5.99..6.06).contains(&end), "cut in the dip: {end}");
+        assert!((spans[0].1 - spans[0].0 - out[0].len() as f32 / SAMPLE_RATE as f32).abs() < 0.01);
+        // the next segment starts where this one ended
+        assert!(spans.len() < 2 || (spans[1].0 - end).abs() < 0.01);
+        assert!(seg.has_speech, "the rest of the speech is still buffered");
+    }
+
+    #[test]
+    fn soft_cut_never_exceeds_the_cap_or_the_window() {
+        let buf = tone(7.0);
+        let cut = soft_cut(&buf, 2 * SAMPLE_RATE as usize);
+        assert!(cut <= buf.len());
+        assert!(cut >= buf.len() - 2 * SAMPLE_RATE as usize);
     }
 
     #[test]
