@@ -36,9 +36,13 @@ pub struct SpeakerEmbedder {
 
 impl SpeakerEmbedder {
     pub fn new(model_path: &Path) -> Result<Self, SpeakerError> {
+        // Graph optimisation OFF on purpose (20.11.2026): at Level1 and up this CAM++ export
+        // returns garbage that flips with the clip length (the same 6 s of his voice scored
+        // 0.77 or -0.11 depending on where it started, 0.1 s apart); unoptimised, every window
+        // of that recording scores 0.74-0.78. It was why live labelled him S1.
         let session = Session::builder()
             .map_err(ort_err)?
-            .with_optimization_level(GraphOptimizationLevel::Level3)
+            .with_optimization_level(GraphOptimizationLevel::Disable)
             .map_err(ort_err)?
             .with_intra_threads(1)
             .map_err(ort_err)?
@@ -151,8 +155,12 @@ pub fn embed_voiceprint(
     acc.map(normalize).ok_or(SpeakerError::NoOutput)
 }
 
+/// Cache file extension. `emb2`: voiceprints cached as `emb` were embedded by the broken
+/// optimised graph (see `SpeakerEmbedder::new`) and must not be read back.
+const EMB_CACHE_EXT: &str = "emb2";
+
 fn emb_cache_path(wav: &Path) -> PathBuf {
-    wav.with_extension("emb")
+    wav.with_extension(EMB_CACHE_EXT)
 }
 
 fn read_emb_cache(path: &Path, wav_mtime: std::time::SystemTime) -> Option<Array1<f32>> {
@@ -507,6 +515,30 @@ mod tests {
 #[cfg(all(test, feature = "wav"))]
 mod model_tests {
     use super::*;
+
+    /// The optimised ORT graph of this model returned garbage that flipped with the start of
+    /// the clip (20.11.2026): one speaker's 6 s scored 0.77 from 0 s and 0.29 from 0.5 s.
+    /// Windows of one voice that overlap almost entirely must embed alike.
+    #[test]
+    fn a_clip_embeds_alike_whatever_its_start() {
+        let model = crate::paths::models_dir().join(DEFAULT_MODEL_FILE);
+        let Ok(wav) = std::env::var("SPEAKER_TEST_WAV") else {
+            return;
+        };
+        if !model.exists() {
+            return;
+        }
+        let chunk = crate::types::read_wav_file(std::path::Path::new(&wav)).expect("wav");
+        let s = crate::types::resample(&chunk.samples, chunk.sample_rate, 16000);
+        let mut e = SpeakerEmbedder::new(&model).expect("model");
+        let base = normalize(Array1::from_vec(e.embed(&s[..16_000 * 6]).unwrap()));
+        for start in [0.1f32, 0.3, 0.5, 0.8] {
+            let from = (start * 16_000.0) as usize;
+            let w = normalize(Array1::from_vec(e.embed(&s[from..16_000 * 6]).unwrap()));
+            let sim = base.dot(&w);
+            assert!(sim > 0.8, "start +{start}s: {sim}");
+        }
+    }
 
     #[test]
     fn same_speaker_halves_are_similar() {
