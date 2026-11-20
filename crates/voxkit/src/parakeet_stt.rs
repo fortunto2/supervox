@@ -215,8 +215,11 @@ impl StreamingSttBackend for ParakeetStt {
             let mut agent =
                 crate::agent_voice::AgentVoice::new(&crate::agent_voice::default_path());
             let mut asr_log = AsrLog::open();
+            // Unix time of the first sample fed in; every span is on this clock.
+            let mut t0: Option<f64> = None;
             let mut emit = |segment: Vec<f32>,
                             span: (f32, f32),
+                            t0: f64,
                             item_counter: &mut u64,
                             silence_frames: usize| {
                 let pause_secs = silence_frames as f64 * FRAME_MS as f64 / 1000.0;
@@ -224,12 +227,7 @@ impl StreamingSttBackend for ParakeetStt {
                 let item_id = format!("parakeet_{item_counter}");
                 // Loudspeaker audio of the agent's own voice: exact text from its
                 // speaking log, never embedded (it collapses far-field clustering).
-                let now = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_secs_f64())
-                    .unwrap_or(0.0);
-                let seg_end = now - pause_secs;
-                let seg_start = seg_end - segment.len() as f64 / SAMPLE_RATE as f64;
+                let (seg_start, seg_end) = unix_span(t0, span);
                 match agent.classify(seg_start, seg_end) {
                     crate::agent_voice::Verdict::Agent(text) => {
                         let _ = transcript_tx.blocking_send(TranscriptEvent::Final {
@@ -304,6 +302,10 @@ impl StreamingSttBackend for ParakeetStt {
             while let Some(input) = input_rx.blocking_recv() {
                 match input {
                     SttInput::Audio(samples) => {
+                        if t0.is_none() {
+                            // Capture hands over chunks as they are recorded: this one just ended.
+                            t0 = Some(unix_now() - samples.len() as f64 / 24_000.0);
+                        }
                         let f32_samples: Vec<f32> =
                             samples.iter().map(|&s| s as f32 / 32768.0).collect();
                         // Realtime input arrives at 24 kHz; Parakeet wants 16 kHz.
@@ -329,14 +331,20 @@ impl StreamingSttBackend for ParakeetStt {
                         let closed = seg.push_with(&resampled, &mut check);
                         let spans = seg.take_spans();
                         for (segment, span) in closed.into_iter().zip(spans) {
-                            emit(segment, span, &mut item_counter, seg.closed_after);
+                            emit(
+                                segment,
+                                span,
+                                t0.unwrap_or_default(),
+                                &mut item_counter,
+                                seg.closed_after,
+                            );
                         }
                     }
                     SttInput::UpdatePrompt(_) => {}
                     SttInput::Close => {
                         if let Some(segment) = seg.flush() {
                             let span = seg.take_spans().pop().unwrap_or_default();
-                            emit(segment, span, &mut item_counter, 0);
+                            emit(segment, span, t0.unwrap_or_default(), &mut item_counter, 0);
                         }
                         break;
                     }
@@ -347,6 +355,19 @@ impl StreamingSttBackend for ParakeetStt {
 
         Ok((input_tx, transcript_rx))
     }
+}
+
+fn unix_now() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs_f64())
+        .unwrap_or(0.0)
+}
+
+/// Wall-clock span (unix seconds) of a segment: stream start plus its audio span, so it does
+/// not depend on how long the pause wait, the embedding or the recognition took.
+fn unix_span(t0: f64, span: (f32, f32)) -> (f64, f64) {
+    (t0 + span.0 as f64, t0 + span.1 as f64)
 }
 
 /// True when the text's letters belong to the allowed languages' scripts.
@@ -713,6 +734,12 @@ mod segmenter_tests {
             "span length = audio length"
         );
         assert!(seg.take_spans().is_empty(), "taken once");
+    }
+
+    #[test]
+    fn unix_span_is_stream_start_plus_audio_span() {
+        let (a, b) = unix_span(1_000.0, (2.0, 5.5));
+        assert_eq!((a, b), (1_002.0, 1_005.5));
     }
 
     #[test]
