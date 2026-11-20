@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use ort::session::Session;
-use ort::value::Tensor;
+use ort::value::TensorRef;
 use realfft::{RealFftPlanner, RealToComplex};
 
 const SR: usize = 16_000;
@@ -32,6 +32,19 @@ pub struct SmartTurn {
     filters: Vec<f32>, // N_MELS x N_BINS
     /// Per mel row, the bins with non-zero weight (the triangles are narrow).
     bands: Vec<std::ops::Range<usize>>,
+    /// Scratch reused by every call (a check runs at each pause, several per second).
+    scratch: Scratch,
+}
+
+/// Buffers `features` fills each call: the normalised window, its reflect-padded copy, one FFT
+/// frame with its spectrum and power, and the `[N_MELS][N_FRAMES]` result.
+struct Scratch {
+    x: Vec<f32>,
+    padded: Vec<f32>,
+    frame: Vec<f32>,
+    spec: Vec<realfft::num_complex::Complex<f32>>,
+    power: Vec<f32>,
+    log_mel: Vec<f32>,
 }
 
 impl SmartTurn {
@@ -42,9 +55,19 @@ impl SmartTurn {
         };
         let session = load().map_err(|e| format!("smart-turn model {}: {e}", model.display()))?;
         let filters = mel_filters();
+        let fft = RealFftPlanner::<f32>::new().plan_fft_forward(N_FFT);
+        let scratch = Scratch {
+            x: Vec::with_capacity(WINDOW_SAMPLES),
+            padded: Vec::with_capacity(WINDOW_SAMPLES + N_FFT),
+            frame: vec![0.0; N_FFT],
+            spec: fft.make_output_vec(),
+            power: vec![0.0; N_BINS],
+            log_mel: vec![0.0; N_MELS * N_FRAMES],
+        };
         Ok(Self {
             session,
-            fft: RealFftPlanner::<f32>::new().plan_fft_forward(N_FFT),
+            scratch,
+            fft,
             window: (0..N_FFT)
                 .map(|n| 0.5 - 0.5 * (2.0 * std::f32::consts::PI * n as f32 / N_FFT as f32).cos())
                 .collect(),
@@ -55,9 +78,10 @@ impl SmartTurn {
 
     /// Probability that the speech in `samples` (ends at the pause) is a finished turn.
     pub fn probability(&mut self, samples: &[f32]) -> Result<f32, String> {
-        let feats = self.features(samples);
-        let input = Tensor::from_array((vec![1_i64, N_MELS as i64, N_FRAMES as i64], feats))
-            .map_err(|e| e.to_string())?;
+        self.compute_features(samples);
+        let input =
+            TensorRef::from_array_view(([1_usize, N_MELS, N_FRAMES], &*self.scratch.log_mel))
+                .map_err(|e| e.to_string())?;
         let out = self
             .session
             .run(ort::inputs!["input_features" => input])
@@ -70,8 +94,23 @@ impl SmartTurn {
 
     /// Whisper log-mel features, `[N_MELS][N_FRAMES]` flattened, of the last 8 s.
     pub fn features(&mut self, samples: &[f32]) -> Vec<f32> {
+        self.compute_features(samples);
+        self.scratch.log_mel.clone()
+    }
+
+    /// Fill `scratch.log_mel` from the last 8 s of `samples`; allocates nothing.
+    fn compute_features(&mut self, samples: &[f32]) {
+        let Scratch {
+            x,
+            padded: p,
+            frame,
+            spec,
+            power,
+            log_mel,
+        } = &mut self.scratch;
         let tail = &samples[samples.len().saturating_sub(WINDOW_SAMPLES)..];
-        let mut x = vec![0.0f32; WINDOW_SAMPLES - tail.len()];
+        x.clear();
+        x.resize(WINDOW_SAMPLES - tail.len(), 0.0);
         x.extend_from_slice(tail);
         let mean = x.iter().sum::<f32>() / x.len() as f32;
         let var = x.iter().map(|v| (v - mean) * (v - mean)).sum::<f32>() / x.len() as f32;
@@ -80,22 +119,18 @@ impl SmartTurn {
 
         // Reflect padding (center=True), as torch/numpy stft does.
         let pad = N_FFT / 2;
-        let mut p = Vec::with_capacity(x.len() + 2 * pad);
+        p.clear();
         p.extend((1..=pad).rev().map(|i| x[i]));
-        p.extend_from_slice(&x);
+        p.extend_from_slice(x);
         p.extend((1..=pad).map(|i| x[x.len() - 1 - i]));
 
-        let mut log_mel = vec![0.0f32; N_MELS * N_FRAMES];
-        let mut frame = vec![0.0f32; N_FFT];
-        let mut spec = self.fft.make_output_vec();
-        let mut power = vec![0.0f32; N_BINS];
         for t in 0..N_FRAMES {
             // The 801st frame is dropped, as in the Whisper extractor.
             for (i, f) in frame.iter_mut().enumerate() {
                 *f = p[t * HOP + i] * self.window[i];
             }
-            self.fft.process(&mut frame, &mut spec).expect("fft size");
-            for (pw, c) in power.iter_mut().zip(&spec) {
+            self.fft.process(frame, spec).expect("fft size");
+            for (pw, c) in power.iter_mut().zip(spec.iter()) {
                 *pw = c.re * c.re + c.im * c.im;
             }
             for m in 0..N_MELS {
@@ -109,7 +144,6 @@ impl SmartTurn {
         log_mel
             .iter_mut()
             .for_each(|v| *v = (v.max(max - 8.0) + 4.0) / 4.0);
-        log_mel
     }
 }
 
@@ -219,6 +253,26 @@ mod tests {
         );
         assert!((center - 1000.0).abs() < 120.0, "peak at {center} Hz");
         assert!(f.iter().all(|v| v.is_finite()));
+    }
+
+    #[test]
+    fn reused_scratch_leaves_no_trace_of_the_previous_call() {
+        let (Some(mut used), Some(mut fresh)) = (model(), model()) else {
+            return;
+        };
+        let tone = |hz: f32, secs: usize| -> Vec<f32> {
+            (0..SR * secs)
+                .map(|i| (2.0 * std::f32::consts::PI * hz * i as f32 / SR as f32).sin() * 0.3)
+                .collect()
+        };
+        let _ = used.features(&tone(300.0, 10));
+        let (short, other) = (tone(1000.0, 2), tone(500.0, 9));
+        let _ = used.probability(&other).unwrap();
+        assert_eq!(used.features(&short), fresh.features(&short));
+        assert_eq!(
+            used.probability(&short).unwrap(),
+            fresh.probability(&short).unwrap()
+        );
     }
 
     #[test]
