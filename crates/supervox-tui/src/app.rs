@@ -61,6 +61,8 @@ pub struct App {
     pub app_event_tx: mpsc::UnboundedSender<AppEvent>,
     /// JSONL stream of the live call for outside agents.
     pub live_log: crate::live_log::LiveLog,
+    /// Agent-written speaker names (`speakers.json`).
+    pub speaker_map: crate::live_log::SpeakerMap,
     /// Stop flag for the external summary file watcher.
     pub summary_watch_stop: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     /// The "what are we listening to?" list shown when Live opens.
@@ -175,6 +177,7 @@ impl App {
             translate_tx: None,
             summary_tx: None,
             live_log: crate::live_log::LiveLog::default(),
+            speaker_map: crate::live_log::SpeakerMap::default(),
             summary_watch_stop: None,
             source_picker: None,
             app_event_rx,
@@ -348,6 +351,9 @@ impl App {
                 span,
             } => {
                 if is_final {
+                    self.speaker_map
+                        .refresh(self.live_log.live(), self.live_log.session());
+                    let speaker = self.speaker_map.relabel(speaker, &self.config.agent_name);
                     self.live_state
                         .push_final_transcript(source.clone(), &text, speaker.clone());
                     // Feed into translation + summary pipelines

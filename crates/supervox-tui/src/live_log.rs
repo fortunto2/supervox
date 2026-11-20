@@ -437,6 +437,60 @@ pub fn watch_external_summary(
     });
 }
 
+/// `speakers.json` in the session folder or in `live/`: `{"S2": "Name"}`, written by an agent
+/// that knows from context who spoke. Later transcript lines of that cluster carry the name.
+pub const SPEAKERS_FILE: &str = "speakers.json";
+
+/// The agent's relabeling of speaker clusters, reloaded when the file changes.
+#[derive(Default)]
+pub struct SpeakerMap {
+    names: std::collections::HashMap<String, String>,
+    seen: Option<(PathBuf, SystemTime)>,
+    checked: Option<std::time::Instant>,
+}
+
+impl SpeakerMap {
+    /// Re-read `speakers.json` (session folder first, then `live/`) when it changed; at most once a second.
+    pub fn refresh(&mut self, live: &Path, session: Option<&Path>) {
+        if self.checked.is_some_and(|t| t.elapsed().as_millis() < 1000) {
+            return;
+        }
+        self.checked = Some(std::time::Instant::now());
+        let found = session
+            .into_iter()
+            .chain(Some(live))
+            .map(|d| d.join(SPEAKERS_FILE))
+            .find_map(|p| modified(&p).map(|m| (p, m)));
+        if found == self.seen {
+            return;
+        }
+        self.seen = found.clone();
+        // A half-written or invalid file keeps the previous map
+        if let Some((p, _)) = found
+            && let Some(map) = fs::read_to_string(p)
+                .ok()
+                .and_then(|t| serde_json::from_str(&t).ok())
+        {
+            self.names = map;
+        }
+    }
+
+    /// The speaker as the agent named it; unmapped speakers pass through.
+    pub fn relabel(
+        &self,
+        speaker: Option<voxkit::stt::SpeakerId>,
+        agent_name: &str,
+    ) -> Option<voxkit::stt::SpeakerId> {
+        let id = speaker?;
+        match self.names.get(&id.label(agent_name)) {
+            Some(name) if !name.trim().is_empty() => {
+                Some(voxkit::stt::SpeakerId::Named(name.trim().to_string()))
+            }
+            _ => Some(id),
+        }
+    }
+}
+
 /// The layout of supervox before session folders: a regular `live/current.jsonl`, a regular
 /// `summary.md` and `summary-history/`. Moved into `<dir>/sessions/<start stamp>/` as
 /// `stream.jsonl`, `summary.md`, `summaries/` and `recording.wav` (a link to the call's WAV).
@@ -1018,6 +1072,39 @@ mod tests {
             fs::read_to_string(named.join("stream.jsonl"))
                 .unwrap()
                 .contains("hello")
+        );
+    }
+
+    #[test]
+    fn speakers_json_renames_clusters_and_follows_edits() {
+        use voxkit::stt::SpeakerId::{Cluster, Named};
+        let live = tempfile::tempdir().unwrap();
+        let mut map = SpeakerMap::default();
+        map.refresh(live.path(), None);
+        assert_eq!(map.relabel(Some(Cluster(2)), "Me"), Some(Cluster(2)));
+
+        fs::write(
+            live.path().join(SPEAKERS_FILE),
+            r#"{"S2":"Рустам","S3":"Рустам"}"#,
+        )
+        .unwrap();
+        map.checked = None;
+        map.refresh(live.path(), None);
+        assert_eq!(
+            map.relabel(Some(Cluster(2)), "Me"),
+            Some(Named("Рустам".into()))
+        );
+        assert_eq!(map.relabel(Some(Cluster(1)), "Me"), Some(Cluster(1)));
+        assert_eq!(map.relabel(None, "Me"), None);
+
+        // Broken JSON keeps the last good map
+        fs::write(live.path().join(SPEAKERS_FILE), "{oops").unwrap();
+        set_mtime(&live.path().join(SPEAKERS_FILE), minutes_ago(-1));
+        map.checked = None;
+        map.refresh(live.path(), None);
+        assert_eq!(
+            map.relabel(Some(Cluster(3)), "Me"),
+            Some(Named("Рустам".into()))
         );
     }
 }
