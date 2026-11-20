@@ -21,13 +21,7 @@ const N_FRAMES: usize = WINDOW_SAMPLES / HOP; // 800
 
 /// Default model location (shared with the talk skill's cache).
 pub fn default_model_path() -> PathBuf {
-    directories_home().join(".cache/solo-tts/smart-turn/smart-turn-v3.2-cpu.onnx")
-}
-
-fn directories_home() -> PathBuf {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_default()
+    crate::paths::home_dir().join(".cache/solo-tts/smart-turn/smart-turn-v3.2-cpu.onnx")
 }
 
 /// Smart-turn model plus the Whisper feature extractor it expects.
@@ -36,6 +30,8 @@ pub struct SmartTurn {
     fft: Arc<dyn RealToComplex<f32>>,
     window: Vec<f32>,
     filters: Vec<f32>, // N_MELS x N_BINS
+    /// Per mel row, the bins with non-zero weight (the triangles are narrow).
+    bands: Vec<std::ops::Range<usize>>,
 }
 
 impl SmartTurn {
@@ -45,13 +41,15 @@ impl SmartTurn {
             builder.commit_from_file(model)
         };
         let session = load().map_err(|e| format!("smart-turn model {}: {e}", model.display()))?;
+        let filters = mel_filters();
         Ok(Self {
             session,
             fft: RealFftPlanner::<f32>::new().plan_fft_forward(N_FFT),
             window: (0..N_FFT)
                 .map(|n| 0.5 - 0.5 * (2.0 * std::f32::consts::PI * n as f32 / N_FFT as f32).cos())
                 .collect(),
-            filters: mel_filters(),
+            bands: mel_bands(&filters),
+            filters,
         })
     }
 
@@ -101,8 +99,9 @@ impl SmartTurn {
                 *pw = c.re * c.re + c.im * c.im;
             }
             for m in 0..N_MELS {
-                let row = &self.filters[m * N_BINS..(m + 1) * N_BINS];
-                let s: f32 = row.iter().zip(&power).map(|(a, b)| a * b).sum();
+                let band = self.bands[m].clone();
+                let row = &self.filters[m * N_BINS + band.start..m * N_BINS + band.end];
+                let s: f32 = row.iter().zip(&power[band]).map(|(a, b)| a * b).sum();
                 log_mel[m * N_FRAMES + t] = s.max(1e-10).log10();
             }
         }
@@ -128,6 +127,18 @@ fn mel_to_hz(m: f64) -> f64 {
     } else {
         1000.0 * ((6.4f64.ln() / 27.0) * (m - 15.0)).exp()
     }
+}
+
+/// The span of bins with non-zero weight in each row of a `[N_MELS][N_BINS]` filterbank.
+fn mel_bands(filters: &[f32]) -> Vec<std::ops::Range<usize>> {
+    (0..N_MELS)
+        .map(|m| {
+            let row = &filters[m * N_BINS..(m + 1) * N_BINS];
+            let lo = row.iter().position(|w| *w != 0.0).unwrap_or(0);
+            let hi = row.iter().rposition(|w| *w != 0.0).map_or(0, |i| i + 1);
+            lo..hi.max(lo)
+        })
+        .collect()
 }
 
 /// Slaney-scale, slaney-normalised mel filterbank (HF `mel_filter_bank`), `[N_MELS][N_BINS]`.
@@ -174,6 +185,17 @@ mod tests {
         // every mel row has weight somewhere
         for m in 0..N_MELS {
             assert!(fb[m * N_BINS..(m + 1) * N_BINS].iter().sum::<f32>() > 0.0);
+        }
+    }
+
+    #[test]
+    fn bands_hold_every_non_zero_weight() {
+        let fb = mel_filters();
+        for (m, band) in mel_bands(&fb).into_iter().enumerate() {
+            let row = &fb[m * N_BINS..(m + 1) * N_BINS];
+            assert!(band.len() < N_BINS / 4, "row {m} is sparse: {band:?}");
+            let outside: f32 = row[..band.start].iter().chain(&row[band.end..]).sum();
+            assert_eq!(outside, 0.0, "row {m}");
         }
     }
 

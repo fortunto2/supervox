@@ -1,13 +1,14 @@
 //! Probe: cosine of 4 s windows of a recording vs the voiceprints, raw audio and after the live AGC.
 //!
 //!     cargo run -p voxkit --release --features speaker,wav --example sim_probe -- rec.wav model.onnx
+use ndarray::Array1;
 use std::path::Path;
 use voxkit::agc::Agc;
-use voxkit::speaker::{SpeakerEmbedder, embed_voiceprint, voices_dir};
+use voxkit::paths::voices_dir;
+use voxkit::speaker::{SpeakerEmbedder, embed_voiceprint, normalize, raw_similarity};
 
-fn unit(v: &[f32]) -> Vec<f32> {
-    let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-    v.iter().map(|x| x / n).collect()
+fn sim(e: Vec<f32>, vp: &Array1<f32>) -> f32 {
+    raw_similarity(&normalize(Array1::from_vec(e)), vp)
 }
 
 fn main() {
@@ -17,7 +18,7 @@ fn main() {
     let mut emb = SpeakerEmbedder::new(Path::new(&a[2])).expect("model");
     let vwav = voxkit::types::read_wav_file(&voices_dir().join("Рустам.wav")).expect("vp wav");
     let vs = voxkit::types::resample(&vwav.samples, vwav.sample_rate, 16_000);
-    let vp = embed_voiceprint(&mut emb, &vs).expect("vp").to_vec();
+    let vp = embed_voiceprint(&mut emb, &vs).expect("vp");
     let mut agc_s = s.clone();
     Agc::default().process(&mut agc_s);
     // Optional third argument: a TSV of `id<TAB>start<TAB>end` (seconds): one similarity per span.
@@ -33,11 +34,7 @@ fn main() {
                 continue;
             }
             let w = &s[lo..hi];
-            let sim = unit(&emb.embed(w).unwrap())
-                .iter()
-                .zip(&vp)
-                .map(|(x, y)| x * y)
-                .sum::<f32>();
+            let sim = sim(emb.embed(w).unwrap(), &vp);
             println!("{}\t{sim:.3}", f[0]);
         }
         return;
@@ -48,16 +45,8 @@ fn main() {
         let w = &s[i..i + win];
         let rms = (w.iter().map(|x| x * x).sum::<f32>() / w.len() as f32).sqrt();
         if rms > 0.003 {
-            let raw = unit(&emb.embed(w).unwrap())
-                .iter()
-                .zip(&vp)
-                .map(|(x, y)| x * y)
-                .sum::<f32>();
-            let ag = unit(&emb.embed(&agc_s[i..i + win]).unwrap())
-                .iter()
-                .zip(&vp)
-                .map(|(x, y)| x * y)
-                .sum::<f32>();
+            let raw = sim(emb.embed(w).unwrap(), &vp);
+            let ag = sim(emb.embed(&agc_s[i..i + win]).unwrap(), &vp);
             println!(
                 "t={:>5.1}s rms={rms:.4} raw={raw:.3} agc={ag:.3}",
                 i as f32 / 16000.0

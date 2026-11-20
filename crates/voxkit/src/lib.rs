@@ -13,6 +13,7 @@
 //! All backends are feature-gated. Core types have zero dependencies.
 
 pub mod agent_voice;
+pub mod paths;
 pub mod types;
 
 pub mod stt;

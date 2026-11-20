@@ -30,22 +30,24 @@ pub fn speaker_label(source: &AudioSource, speaker: Option<usize>) -> String {
         (AudioSource::Mic, Some(voxkit::agent_voice::AGENT_SPEAKER)) => {
             voxkit::agent_voice::label()
         }
-        #[cfg(feature = "parakeet")]
-        (AudioSource::Mic, Some(n)) if voxkit::speaker::voice_name(n).is_some() => {
-            voxkit::speaker::voice_name(n).unwrap_or_default()
-        }
-        (AudioSource::Mic, Some(n)) => format!("S{n}"),
+        (AudioSource::Mic, Some(n)) => mic_speaker_label(n),
         _ => source.label().to_string(),
     }
+}
+
+/// A voiceprint name when `n` is a named speaker, else `S<n>`.
+fn mic_speaker_label(n: usize) -> String {
+    #[cfg(feature = "parakeet")]
+    if let Some(name) = voxkit::speaker::voice_name(n) {
+        return name;
+    }
+    format!("S{n}")
 }
 
 /// `~/.supervox/models/wespeaker_en_voxceleb_CAM++.onnx`
 #[cfg(feature = "parakeet")]
 pub fn speaker_model_path() -> PathBuf {
-    supervox_agent::storage::default_config_path()
-        .parent()
-        .map(|p| p.join("models").join(voxkit::speaker::DEFAULT_MODEL_FILE))
-        .unwrap_or_default()
+    voxkit::paths::models_dir().join(voxkit::speaker::DEFAULT_MODEL_FILE)
 }
 
 /// Events from audio capture + STT pipeline.
@@ -268,23 +270,13 @@ pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend
                     );
                 }
             }
-            #[cfg(feature = "coreml")]
-            {
-                stt = stt.with_coreml(config.asr_coreml);
-            }
-            #[cfg(not(feature = "coreml"))]
-            if config.asr_coreml {
-                tracing::warn!("asr_coreml = true but built without the coreml feature");
-            }
             voxkit::agent_voice::set_label(&config.agent_name);
             if config.diarize {
                 let sp = speaker_model_path();
                 if sp.exists() {
                     stt = stt.with_diarization(sp, config.max_speakers);
-                    stt = stt.with_voiceprints(
-                        voxkit::speaker::voices_dir(),
-                        config.voiceprint_threshold,
-                    );
+                    stt =
+                        stt.with_voiceprints(voxkit::paths::voices_dir(), config.voiceprint_match);
                 } else {
                     tracing::warn!(
                         "diarize = true but speaker model missing at {} — labels stay You/Them",

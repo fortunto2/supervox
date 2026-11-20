@@ -11,7 +11,9 @@ use std::collections::HashMap;
 use ndarray::Array1;
 use serde::Deserialize;
 
-use crate::speaker::{SpeakerEmbedder, SpeakerError, VoicePrint, embed_voiceprint};
+use crate::speaker::{
+    SpeakerEmbedder, SpeakerError, VoicePrint, embed_voiceprint, normalize, raw_similarity,
+};
 
 /// Raw-cosine match of a speaker's pooled audio (up to 30 s) to a voiceprint.
 /// Lower than the live per-segment threshold (0.65): a mean over many turns is steadier
@@ -103,21 +105,18 @@ pub fn pool_audio(turns: &[Turn], speaker: &str, samples: &[f32]) -> Vec<f32> {
 }
 
 /// Which diarizer speaker is which voiceprint: best raw cosine first, one name per
-/// speaker and one speaker per name. Returns `speaker -> name`.
+/// speaker and one speaker per name. Voiceprints are unit length (see [`VoicePrint`]).
+/// Returns `speaker -> name`.
 pub fn match_voiceprints(
     pooled: &[(String, Array1<f32>)],
     voiceprints: &[VoicePrint],
     threshold: f32,
 ) -> HashMap<String, String> {
-    let unit = |v: &Array1<f32>| {
-        let n = v.dot(v).sqrt();
-        if n > 0.0 { v / n } else { v.clone() }
-    };
     let mut pairs = Vec::new();
     for (s, e) in pooled {
-        let e = unit(e);
+        let e = normalize(e.clone());
         for (v, vp) in voiceprints.iter().enumerate() {
-            let sim = e.dot(&unit(&vp.emb));
+            let sim = raw_similarity(&e, &vp.emb);
             tracing::debug!("rediarize: {s} vs {} raw sim {sim:.3}", vp.name);
             if sim >= threshold {
                 pairs.push((sim, s.clone(), v));

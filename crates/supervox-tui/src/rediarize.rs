@@ -29,10 +29,9 @@ pub fn sidecar_path() -> PathBuf {
     if let Some(p) = std::env::var_os(BIN_ENV) {
         return PathBuf::from(p);
     }
-    supervox_agent::storage::default_config_path()
-        .parent()
-        .map(|p| p.join("bin").join("fluidaudiocli"))
-        .unwrap_or_default()
+    voxkit::paths::supervox_home()
+        .join("bin")
+        .join("fluidaudiocli")
 }
 
 /// What a run changed.
@@ -158,7 +157,7 @@ pub fn run(session: &Path, wav: &Path, bin: &Path, agent_name: &str) -> Result<(
     let samples = voxkit::types::resample(&chunk.samples, chunk.sample_rate, 16_000);
     let mut embedder = voxkit::speaker::SpeakerEmbedder::new(&crate::audio::speaker_model_path())
         .map_err(|e| anyhow::anyhow!("speaker model: {e}"))?;
-    let prints = voxkit::speaker::load_voiceprints(&voxkit::speaker::voices_dir(), &mut embedder);
+    let prints = voxkit::speaker::load_voiceprints(&voxkit::paths::voices_dir(), &mut embedder);
     let names = rediarize::name_speakers(
         &turns,
         &samples,

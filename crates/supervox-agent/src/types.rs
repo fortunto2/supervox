@@ -264,18 +264,15 @@ pub struct Config {
     /// Languages local STT may output (ISO codes); text in other scripts is dropped.
     #[serde(default = "default_languages")]
     pub languages: Vec<String>,
-    /// Run the Parakeet encoder on the Apple GPU through CoreML (needs a build with `coreml`).
-    #[serde(default)]
-    pub asr_coreml: bool,
     /// Tell mic speakers apart (S1..Sn) — local STT only, needs the speaker model.
     #[serde(default = "default_true")]
     pub diarize: bool,
     #[serde(default = "default_max_speakers")]
     pub max_speakers: usize,
-    /// Cosine similarity (session-centered) at which a cluster takes the name of a
-    /// voiceprint in `~/.supervox/voices/<Name>.wav`.
-    #[serde(default = "default_voiceprint_threshold")]
-    pub voiceprint_threshold: f32,
+    /// Raw cosine at which a segment takes the name of a voiceprint in
+    /// `~/.supervox/voices/<Name>.wav` (own voice 0.60-0.89, others <= 0.48).
+    #[serde(default = "default_voiceprint_match")]
+    pub voiceprint_match: f32,
     /// Label for the agent's own speech in the transcript.
     #[serde(default = "default_agent_name")]
     pub agent_name: String,
@@ -301,8 +298,8 @@ fn default_languages() -> Vec<String> {
 fn default_turn_early_ms() -> u32 {
     300
 }
-fn default_voiceprint_threshold() -> f32 {
-    0.1
+fn default_voiceprint_match() -> f32 {
+    0.65
 }
 fn default_agent_name() -> String {
     "Алина".into()
@@ -413,10 +410,9 @@ impl Default for Config {
             turn_detect: TurnDetect::default(),
             turn_early_ms: default_turn_early_ms(),
             languages: default_languages(),
-            asr_coreml: false,
             diarize: default_true(),
             max_speakers: default_max_speakers(),
-            voiceprint_threshold: default_voiceprint_threshold(),
+            voiceprint_match: default_voiceprint_match(),
             agent_name: default_agent_name(),
             diarizer: Diarizer::default(),
             summary: SummaryMode::default(),
@@ -436,7 +432,6 @@ mod tests {
         let c: Config = toml::from_str("vad_pause_ms = 900").unwrap();
         assert_eq!(c.turn_detect, TurnDetect::Smart);
         assert_eq!(c.turn_early_ms, 300);
-        assert!(!c.asr_coreml);
         assert_eq!(c.languages, ["ru", "en"]);
         let c: Config = toml::from_str("diarizer = \"campp\"").unwrap();
         assert_eq!(c.diarizer, Diarizer::Campp);

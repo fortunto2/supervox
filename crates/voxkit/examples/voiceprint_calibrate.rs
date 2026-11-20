@@ -1,11 +1,15 @@
 //! Calibrate the voiceprint threshold: cluster a room recording, then print how each
-//! cluster scores against each voiceprint in ~/.supervox/voices (session-centered and raw).
+//! cluster scores (raw cosine) against each voiceprint in ~/.supervox/voices.
 //!
 //!     ffmpeg -i room.wav -ac 1 -ar 16000 -f f32le clip.f32
 //!     cargo run -p voxkit --release --features speaker --example voiceprint_calibrate -- clip.f32 ~/.supervox/models/wespeaker_en_voxceleb_CAM++.onnx
 
+use ndarray::Array1;
 use std::path::Path;
-use voxkit::speaker::{SpeakerEmbedder, SpeakerTracker, load_voiceprints, voices_dir};
+use voxkit::paths::voices_dir;
+use voxkit::speaker::{
+    SpeakerEmbedder, SpeakerTracker, load_voiceprints, normalize, raw_similarity,
+};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -37,16 +41,13 @@ fn main() {
         counts[c] += 1;
         ids.push(c);
     }
-    let unit = |v: &[f32]| {
-        let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-        v.iter().map(|x| x / n).collect::<Vec<f32>>()
-    };
-    let dot = |a: &[f32], b: &[f32]| a.iter().zip(b).map(|(x, y)| x * y).sum::<f32>();
     for vp in &vps {
-        let v = vp.emb.to_vec();
         let mut per: Vec<Vec<f32>> = vec![Vec::new(); 8];
         for (e, c) in embs.iter().zip(&ids) {
-            per[*c].push(dot(&unit(e), &v));
+            per[*c].push(raw_similarity(
+                &normalize(Array1::from_vec(e.clone())),
+                &vp.emb,
+            ));
         }
         for (c, xs) in per.iter().enumerate().skip(1) {
             if xs.is_empty() {
@@ -69,13 +70,4 @@ fn main() {
         tr.speaker_count(),
         counts
     );
-    for vp in &vps {
-        let sims: Vec<String> = (0..tr.speaker_count())
-            .map(|c| {
-                let s = tr.voiceprint_similarity(c, vp).unwrap_or(f32::NAN);
-                format!("S{}={s:.3}(n={})", c + 1, counts[c + 1])
-            })
-            .collect();
-        println!("{:>8}: {}", vp.name, sims.join("  "));
-    }
 }

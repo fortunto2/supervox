@@ -33,10 +33,7 @@ const STAMP: &str = "%Y%m%d-%H%M%S";
 
 /// `~/.supervox/live`
 pub fn live_dir() -> PathBuf {
-    supervox_agent::storage::default_config_path()
-        .parent()
-        .map(|p| p.join("live"))
-        .unwrap_or_else(|| PathBuf::from(".supervox/live"))
+    voxkit::paths::live_dir()
 }
 
 /// Appends events to the live stream. Silent on IO errors: the stream is a
@@ -99,8 +96,8 @@ impl LiveLog {
     }
 
     /// A transcript line; `span` is where its speech sat in the recording, seconds `(start, end)`.
-    /// `t` is when the line arrived, which falls behind the audio whenever recognition does
-    /// (measured 19.11: 100-170 s late on a loaded Mac), so only `a`/`b` can be matched to the WAV.
+    /// `t` is that span's start; without a span it is `t_secs`, when the line arrived, which
+    /// falls behind the audio whenever recognition does (measured 19.11: 100-170 s late).
     pub fn transcript_span(
         &mut self,
         t_secs: u64,
@@ -108,9 +105,10 @@ impl LiveLog {
         text: &str,
         span: Option<(f32, f32)>,
     ) {
+        let t = span.map_or(t_secs, |(a, _)| a.max(0.0) as u64);
         let mut line = serde_json::json!({
             "type": "transcript",
-            "t": t_secs,
+            "t": t,
             "ts": chrono::Local::now().to_rfc3339(),
             "speaker": speaker,
             "text": text,
@@ -583,6 +581,26 @@ mod tests {
 
     fn is_link(p: &Path) -> bool {
         fs::symlink_metadata(p).is_ok_and(|m| m.file_type().is_symlink())
+    }
+
+    #[test]
+    fn t_is_the_audio_time_when_the_span_is_known() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut log = LiveLog::default();
+        log.path = dir.path().join(STREAM_FILE);
+        log.file = File::create(&log.path).ok();
+        log.transcript_span(170, "S1", "late", Some((61.7, 66.0)));
+        log.transcript_span(170, "S1", "no span", None);
+        let body = fs::read_to_string(&log.path).unwrap();
+        let t: Vec<u64> = body
+            .lines()
+            .map(|l| {
+                serde_json::from_str::<serde_json::Value>(l).unwrap()["t"]
+                    .as_u64()
+                    .unwrap()
+            })
+            .collect();
+        assert_eq!(t, [61, 170]);
     }
 
     #[test]

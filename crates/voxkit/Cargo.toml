@@ -22,9 +22,8 @@ macos-system-audio = []
 macos-mic-mode = []
 wav = ["dep:hound"]
 whisper = ["silero", "dep:whisper-rs", "dep:reqwest"]
-parakeet = ["dep:parakeet-rs", "dep:directories"]
+parakeet = ["dep:parakeet-rs"]
 smart-turn = ["dep:ort", "dep:realfft"]
-coreml = ["parakeet", "parakeet-rs/coreml"]
 speaker = ["dep:ort", "dep:knf-rs", "dep:ndarray", "wav"]
 
 [dependencies]
@@ -34,6 +33,7 @@ thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 async-trait = "0.1"
+directories = "6"
 
 # Feature-gated
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "multipart"], optional = true }
@@ -49,7 +49,6 @@ cpal = { version = "0.15", optional = true }
 hound = { version = "3.5", optional = true }
 whisper-rs = { version = "0.16", optional = true }
 parakeet-rs = { version = "0.3", optional = true }
-directories = { version = "6", optional = true }
 realfft = { version = "3.5", optional = true }
 
 [dev-dependencies]

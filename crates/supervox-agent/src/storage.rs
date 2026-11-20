@@ -6,9 +6,7 @@ use std::path::{Path, PathBuf};
 
 /// Base data directory: ~/.supervox/
 pub fn data_dir() -> PathBuf {
-    directories::BaseDirs::new()
-        .map(|d| d.home_dir().join(".supervox"))
-        .unwrap_or_else(|| PathBuf::from(".supervox"))
+    voxkit::paths::supervox_home()
 }
 
 /// Default calls directory: ~/.supervox/calls/
@@ -363,9 +361,7 @@ pub fn compute_stats(calls_dir: &Path) -> Result<CallStats, Box<dyn std::error::
 
 /// Default actions store path: ~/.supervox/actions.json
 pub fn default_actions_path() -> PathBuf {
-    directories::BaseDirs::new()
-        .map(|d| d.home_dir().join(".supervox").join("actions.json"))
-        .unwrap_or_else(|| PathBuf::from(".supervox/actions.json"))
+    data_dir().join("actions.json")
 }
 
 /// Load the action completion store from JSON file.
@@ -491,9 +487,7 @@ pub fn find_action_by_prefix(
 
 /// Default config path: ~/.supervox/config.toml
 pub fn default_config_path() -> PathBuf {
-    directories::BaseDirs::new()
-        .map(|d| d.home_dir().join(".supervox").join("config.toml"))
-        .unwrap_or_else(|| PathBuf::from(".supervox/config.toml"))
+    data_dir().join("config.toml")
 }
 
 /// Load config from a TOML file. If missing, create default and return it.
@@ -621,11 +615,10 @@ mod tests {
             vad_pause_ms: 900,
             turn_detect: Default::default(),
             turn_early_ms: 300,
-            asr_coreml: false,
             languages: vec!["ru".into(), "en".into()],
             diarize: true,
             max_speakers: 2,
-            voiceprint_threshold: 0.1,
+            voiceprint_match: 0.65,
             agent_name: "Алина".into(),
             diarizer: Default::default(),
             summary: crate::types::SummaryMode::External,

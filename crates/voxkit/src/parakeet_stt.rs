@@ -27,9 +27,6 @@ pub struct ParakeetStt {
     /// Allowed languages (ISO codes). Parakeet v3 answers unclear speech with text in some
     /// other language; a segment whose letters fall outside these scripts is dropped.
     languages: Vec<String>,
-    /// Run the ONNX encoder through CoreML (Apple GPU) instead of CPU.
-    #[cfg(feature = "coreml")]
-    coreml: bool,
     /// Speaker diarization: (embedding model path, max speakers).
     #[cfg(feature = "speaker")]
     diarize: Option<(PathBuf, usize)>,
@@ -51,8 +48,6 @@ impl ParakeetStt {
             #[cfg(feature = "smart-turn")]
             smart_turn: None,
             languages: vec!["ru".into(), "en".into()],
-            #[cfg(feature = "coreml")]
-            coreml: false,
             #[cfg(feature = "speaker")]
             diarize: None,
             #[cfg(feature = "speaker")]
@@ -85,13 +80,6 @@ impl ParakeetStt {
         self
     }
 
-    /// Use CoreML (Apple GPU) for the ASR encoder.
-    #[cfg(feature = "coreml")]
-    pub fn with_coreml(mut self, on: bool) -> Self {
-        self.coreml = on;
-        self
-    }
-
     /// Label each segment with a speaker index (1..=max_speakers).
     #[cfg(feature = "speaker")]
     pub fn with_diarization(mut self, model_path: PathBuf, max_speakers: usize) -> Self {
@@ -99,7 +87,7 @@ impl ParakeetStt {
         self
     }
 
-    /// Name clusters that match a `<Name>.wav` voiceprint in `dir` (cosine >= `threshold`).
+    /// Name segments whose raw embedding matches a `<Name>.wav` voiceprint in `dir` (cosine >= `threshold`).
     #[cfg(feature = "speaker")]
     pub fn with_voiceprints(mut self, dir: PathBuf, threshold: f32) -> Self {
         self.voiceprints = Some((dir, threshold));
@@ -173,11 +161,7 @@ impl StreamingSttBackend for ParakeetStt {
         let max_segment_samples = (self.max_segment_secs * SAMPLE_RATE as f32) as usize;
 
         // Load Parakeet model
-        #[cfg(feature = "coreml")]
-        let use_coreml = self.coreml;
-        #[cfg(not(feature = "coreml"))]
-        let use_coreml = false;
-        let mut engine = load_engine(&model_dir, use_coreml)
+        let mut engine = load_engine(&model_dir)
             .map_err(|e| SttStreamError::Connection(format!("Load Parakeet model: {e}")))?;
 
         let languages = self.languages.clone();
@@ -231,6 +215,7 @@ impl StreamingSttBackend for ParakeetStt {
 
             let mut agent =
                 crate::agent_voice::AgentVoice::new(&crate::agent_voice::default_path());
+            let mut asr_log = AsrLog::open();
             let mut emit = |segment: Vec<f32>,
                             span: (f32, f32),
                             item_counter: &mut u64,
@@ -261,24 +246,41 @@ impl StreamingSttBackend for ParakeetStt {
                 }
                 #[allow(unused_mut)]
                 let mut speaker: Option<usize> = None;
+                let seg_secs = segment.len() as f32 / SAMPLE_RATE as f32;
+                let t0 = std::time::Instant::now();
+                // The speaker embedding and the recognition are independent: run them together.
                 #[cfg(feature = "speaker")]
-                if let Some((embedder, tracker)) = diarizer.as_mut() {
-                    if segment.len() as f32 / SAMPLE_RATE as f32 >= crate::speaker::MIN_EMBED_SECS {
-                        match embedder.embed(&segment) {
-                            Ok(e) => speaker = Some(tracker.assign_display(&e)),
-                            Err(e) => tracing::warn!("speaker embedding failed: {e}"),
+                let (res, asr_ms) = match diarizer.as_mut() {
+                    Some((embedder, tracker)) => {
+                        let (res, asr_ms, emb) = std::thread::scope(|sc| {
+                            let emb = (seg_secs >= crate::speaker::MIN_EMBED_SECS)
+                                .then(|| sc.spawn(|| embedder.embed(&segment)));
+                            let res =
+                                engine.transcribe_samples(segment.clone(), SAMPLE_RATE, 1, None);
+                            (res, t0.elapsed().as_millis(), emb.map(|h| h.join()))
+                        });
+                        match emb {
+                            Some(Ok(Ok(e))) => speaker = Some(tracker.assign_display(&e)),
+                            Some(Ok(Err(e))) => tracing::warn!("speaker embedding failed: {e}"),
+                            Some(Err(_)) => tracing::warn!("speaker embedding panicked"),
+                            None => {}
                         }
+                        if speaker.is_none() {
+                            speaker = tracker.last();
+                        }
+                        (res, asr_ms)
                     }
-                    if speaker.is_none() {
-                        speaker = tracker.last_display();
-                    }
-                }
-                let (seg_secs, t0) = (
-                    segment.len() as f32 / SAMPLE_RATE as f32,
-                    std::time::Instant::now(),
+                    None => (
+                        engine.transcribe_samples(segment, SAMPLE_RATE, 1, None),
+                        t0.elapsed().as_millis(),
+                    ),
+                };
+                #[cfg(not(feature = "speaker"))]
+                let (res, asr_ms) = (
+                    engine.transcribe_samples(segment, SAMPLE_RATE, 1, None),
+                    t0.elapsed().as_millis(),
                 );
-                let res = engine.transcribe_samples(segment, SAMPLE_RATE, 1, None);
-                log_asr(seg_secs, t0.elapsed().as_millis(), pause_secs);
+                asr_log.write(seg_secs, asr_ms, pause_secs);
                 match res {
                     Ok(result) if !result.text.trim().is_empty() => {
                         if !text_in_languages(&result.text, &languages) {
@@ -377,19 +379,14 @@ pub fn text_in_languages(text: &str, languages: &[String]) -> bool {
     total == 0 || bad as f32 / total as f32 <= 0.05
 }
 
+/// The end-of-turn model only looks at the last 8 s of the speech so far.
+const TURN_WINDOW_SAMPLES: usize = 8 * SAMPLE_RATE as usize;
+
 /// Smart-turn probability that ends a turn at the early pause.
 const SMART_TURN_THRESHOLD: f32 = 0.5;
 
-fn load_engine(dir: &Path, coreml: bool) -> Result<parakeet_rs::ParakeetTDT, parakeet_rs::Error> {
-    let dir = dir.to_str().unwrap_or("");
-    #[cfg(feature = "coreml")]
-    if coreml {
-        let cfg = parakeet_rs::ExecutionConfig::new()
-            .with_execution_provider(parakeet_rs::ExecutionProvider::CoreML);
-        return parakeet_rs::ParakeetTDT::from_pretrained(dir, Some(cfg));
-    }
-    let _ = coreml;
-    parakeet_rs::ParakeetTDT::from_pretrained(dir, None)
+fn load_engine(dir: &Path) -> Result<parakeet_rs::ParakeetTDT, parakeet_rs::Error> {
+    parakeet_rs::ParakeetTDT::from_pretrained(dir.to_str().unwrap_or(""), None)
 }
 
 /// Offline run of the live pipeline over a recording (benchmark): segments with the same
@@ -401,9 +398,8 @@ pub fn bench_file(
     samples: &[f32],
     rate: u32,
     smart: bool,
-    coreml: bool,
 ) -> Vec<(f32, u32, u128, String)> {
-    let mut engine = load_engine(dir, coreml).expect("load model");
+    let mut engine = load_engine(dir).expect("load model");
     let mut x = if rate == SAMPLE_RATE {
         samples.to_vec()
     } else {
@@ -456,23 +452,30 @@ pub fn bench_file(
         .collect()
 }
 
-/// One line per transcribed segment: `~/.supervox/live/asr.log` (`asr_ms`, segment length,
-/// silence waited before the cut).
-fn log_asr(seg_secs: f32, asr_ms: u128, silence_secs: f64) {
-    use std::io::Write;
-    let path = std::env::var_os("HOME")
-        .map(|h| PathBuf::from(h).join(".supervox/live/asr.log"))
-        .unwrap_or_default();
-    if let Ok(mut f) = std::fs::OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(path)
-    {
-        let _ = writeln!(
-            f,
-            "asr_ms={asr_ms} secs={seg_secs:.1} wait_ms={:.0}",
-            silence_secs * 1000.0
-        );
+/// `~/.supervox/live/asr.log`: one line per transcribed segment (`asr_ms`, segment length,
+/// silence waited before the cut). The file stays open for the whole stream.
+struct AsrLog(Option<std::io::BufWriter<std::fs::File>>);
+
+impl AsrLog {
+    fn open() -> Self {
+        let f = std::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(crate::paths::live_dir().join("asr.log"))
+            .ok();
+        Self(f.map(std::io::BufWriter::new))
+    }
+
+    fn write(&mut self, seg_secs: f32, asr_ms: u128, silence_secs: f64) {
+        use std::io::Write;
+        if let Some(w) = self.0.as_mut() {
+            let _ = writeln!(
+                w,
+                "asr_ms={asr_ms} secs={seg_secs:.1} wait_ms={:.0}",
+                silence_secs * 1000.0
+            );
+            let _ = w.flush();
+        }
     }
 }
 
@@ -578,7 +581,7 @@ impl Segmenter {
             let early = self.early_frames > 0
                 && self.early_frames < self.pause_frames
                 && self.trailing_silence == self.early_frames
-                && turn(&self.buf);
+                && turn(&self.buf[self.buf.len().saturating_sub(TURN_WINDOW_SAMPLES)..]);
             if early || self.trailing_silence >= self.pause_frames {
                 self.closed_after = self.trailing_silence;
                 // Utterance ended: emit speech + a short tail, keep the rest as pre-roll.
@@ -650,9 +653,7 @@ pub fn model_exists(model_dir: &Path) -> bool {
 
 /// Default model directory: ~/.supervox/models/parakeet-tdt/
 pub fn default_model_dir() -> PathBuf {
-    directories::BaseDirs::new()
-        .map(|d| d.home_dir().join(".supervox/models/parakeet-tdt"))
-        .unwrap_or_else(|| PathBuf::from("models/parakeet-tdt"))
+    crate::paths::models_dir().join("parakeet-tdt")
 }
 
 #[cfg(test)]
