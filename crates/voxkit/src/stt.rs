@@ -84,6 +84,8 @@ pub enum TranscriptEvent {
         /// Where the speech sat in the audio fed in, seconds `(start, end)` (local backends
         /// that cut their own segments); the clock the saved recording shares.
         span: Option<(f32, f32)>,
+        /// The segment's raw speaker embedding, when diarization computed one.
+        embedding: Option<Vec<f32>>,
     },
     /// Provider error.
     Error(String),
@@ -192,6 +194,7 @@ mod tests {
         let final_ = TranscriptEvent::Final {
             speaker: None,
             span: None,
+            embedding: None,
             item_id: "x".into(),
             text: "hello".into(),
         };

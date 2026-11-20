@@ -235,6 +235,7 @@ fn parse_transcript_event(msg: &serde_json::Value) -> Option<TranscriptEvent> {
                 text,
                 speaker: None,
                 span: None,
+                embedding: None,
             })
         }
         "error" => {

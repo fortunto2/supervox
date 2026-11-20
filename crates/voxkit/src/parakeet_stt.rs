@@ -229,6 +229,7 @@ impl StreamingSttBackend for ParakeetStt {
                             text,
                             speaker: Some(crate::stt::SpeakerId::Agent),
                             span: Some(span),
+                            embedding: None,
                         });
                         return;
                     }
@@ -237,6 +238,8 @@ impl StreamingSttBackend for ParakeetStt {
                 }
                 #[allow(unused_mut)]
                 let mut speaker: Option<crate::stt::SpeakerId> = None;
+                #[allow(unused_mut)]
+                let mut embedding: Option<Vec<f32>> = None;
                 let seg_secs = segment.len() as f32 / SAMPLE_RATE as f32;
                 let t0 = std::time::Instant::now();
                 // The speaker embedding and the recognition are independent: run them together.
@@ -251,7 +254,10 @@ impl StreamingSttBackend for ParakeetStt {
                             (res, t0.elapsed().as_millis(), emb.map(|h| h.join()))
                         });
                         match emb {
-                            Some(Ok(Ok(e))) => speaker = Some(tracker.assign_display(&e)),
+                            Some(Ok(Ok(e))) => {
+                                speaker = Some(tracker.assign_display(&e));
+                                embedding = Some(e);
+                            }
                             Some(Ok(Err(e))) => tracing::warn!("speaker embedding failed: {e}"),
                             Some(Err(_)) => tracing::warn!("speaker embedding panicked"),
                             None => {}
@@ -283,6 +289,7 @@ impl StreamingSttBackend for ParakeetStt {
                             text: result.text,
                             speaker,
                             span: Some(span),
+                            embedding,
                         });
                     }
                     Ok(_) => {}

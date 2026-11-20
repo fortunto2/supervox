@@ -323,6 +323,7 @@ impl StreamingSttBackend for WhisperStt {
                             text,
                             speaker: None,
                             span: Some(span),
+                            embedding: None,
                         });
                     }
                     Err(SttError::Empty) => {} // silence, skip

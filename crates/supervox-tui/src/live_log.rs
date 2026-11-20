@@ -67,6 +67,8 @@ impl LiveLog {
     ) {
         self.live = live.to_path_buf();
         self.last_beat = None;
+        // A speakers.json left by an earlier recording must not name this one's clusters
+        let _ = fs::remove_file(live.join(SPEAKERS_FILE));
         self.session = begin_session(live, now);
         self.path = match &self.session {
             Some(session) => session.join(SESSION_STREAM),
@@ -161,6 +163,9 @@ impl LiveLog {
         };
         if let Some(wav) = wav.map(Path::new).filter(|w| w.exists()) {
             let _ = symlink(wav, &session.join(RECORDING));
+        }
+        if session.join(crate::voices::EMBEDDINGS_FILE).exists() {
+            crate::voices::sync_session(&session, &self.live, &crate::voices::dataset_dir());
         }
         adopt_summary(&self.live.join(SUMMARY_FILE), &session);
         self.session = finish_session(&self.live, &session);

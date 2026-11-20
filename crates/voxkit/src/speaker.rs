@@ -220,6 +220,25 @@ pub fn load_voiceprints(dir: &Path, embedder: &mut SpeakerEmbedder) -> Vec<Voice
             Err(e) => tracing::warn!("voiceprint {} skipped: {e}", wav.display()),
         }
     }
+    // A voiceprint with no wav: built from a dataset of sessions (`supervox voices rebuild`)
+    let mut embs: Vec<PathBuf> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| {
+            p.extension().is_some_and(|x| x == EMB_CACHE_EXT) && !p.with_extension("wav").exists()
+        })
+        .collect();
+    embs.sort();
+    for p in embs {
+        let (Some(name), Some(e)) = (
+            p.file_stem().and_then(|s| s.to_str()).map(str::to_owned),
+            read_emb_cache(&p, std::time::SystemTime::UNIX_EPOCH),
+        ) else {
+            continue;
+        };
+        out.push(VoicePrint { name, emb: e });
+    }
     out
 }
 

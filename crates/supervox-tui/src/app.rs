@@ -349,8 +349,17 @@ impl App {
                 is_final,
                 speaker,
                 span,
+                embedding,
             } => {
                 if is_final {
+                    if let (Some(emb), Some(session)) = (&embedding, self.live_log.session()) {
+                        let raw = crate::audio::speaker_label(
+                            &source,
+                            speaker.as_ref(),
+                            &self.config.agent_name,
+                        );
+                        crate::voices::record(session, &raw, span, emb);
+                    }
                     self.speaker_map
                         .refresh(self.live_log.live(), self.live_log.session());
                     let speaker = self.speaker_map.relabel(speaker, &self.config.agent_name);

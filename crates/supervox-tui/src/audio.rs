@@ -57,6 +57,8 @@ pub enum AudioEvent {
         is_final: bool,
         /// Who spoke, from diarization (mic, local STT only).
         speaker: Option<voxkit::stt::SpeakerId>,
+        /// The segment's raw speaker embedding (local diarization).
+        embedding: Option<Vec<f32>>,
     },
     /// Translation of a final transcript segment.
     #[allow(dead_code)]
@@ -436,9 +438,10 @@ async fn run_pipeline(
                             text,
                             is_final: false,
                             speaker: None,
+                            embedding: None,
                         });
                     }
-                    Some(TranscriptEvent::Final { text, speaker, span, .. }) => {
+                    Some(TranscriptEvent::Final { text, speaker, span, embedding, .. }) => {
                         if !text.is_empty() {
                             let label = speaker_label(&AudioSource::Mic, speaker.as_ref(), &agent_name);
                             full_transcript.push_str(&format!("{label}: {text}\n"));
@@ -449,6 +452,7 @@ async fn run_pipeline(
                             text,
                             is_final: true,
                             speaker,
+                            embedding,
                         });
                     }
                     Some(TranscriptEvent::Error(e)) => {
@@ -468,6 +472,7 @@ async fn run_pipeline(
                             text,
                             is_final: false,
                             speaker: None,
+                            embedding: None,
                         });
                     }
                     Some(TranscriptEvent::Final { text, .. }) => {
@@ -480,6 +485,7 @@ async fn run_pipeline(
                             text,
                             is_final: true,
                             speaker: None,
+                            embedding: None,
                         });
                     }
                     Some(TranscriptEvent::Error(e)) => {

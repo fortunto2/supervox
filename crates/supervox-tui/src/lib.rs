@@ -13,3 +13,4 @@ pub mod replay;
 pub mod scroll;
 pub mod sessions;
 pub mod source_picker;
+pub mod voices;

@@ -16,6 +16,7 @@ mod replay;
 mod scroll;
 mod sessions;
 mod source_picker;
+mod voices;
 
 #[derive(Parser)]
 #[command(name = "supervox", about = "Voice-powered productivity TUI", version)]
@@ -205,6 +206,11 @@ enum Commands {
         /// Call ID (suffix match)
         call_id: String,
     },
+    /// Recurring voices: name a session's cluster, build a voiceprint from the dataset
+    Voices {
+        #[command(subcommand)]
+        action: VoicesCommands,
+    },
     /// List action items across calls
     Actions {
         /// Include completed actions
@@ -218,6 +224,27 @@ enum Commands {
         #[command(subcommand)]
         action: Option<ActionCommands>,
     },
+}
+
+#[derive(Subcommand)]
+enum VoicesCommands {
+    /// Name an unnamed cluster of a session and add its segments to the dataset
+    Name {
+        /// Session folder, folder name or unique prefix under ~/.supervox/live/sessions
+        session: String,
+        /// Cluster label, e.g. S3
+        label: String,
+        name: String,
+    },
+    /// Recompute <name>.emb2 from the dataset, dropping outliers
+    Rebuild {
+        name: String,
+        /// Fewest segments to build from
+        #[arg(long, default_value_t = voices::MIN_SEGMENTS)]
+        min: usize,
+    },
+    /// Names in the dataset: segments, sessions, voiceprint
+    List,
 }
 
 #[derive(Subcommand)]
@@ -270,6 +297,19 @@ async fn main() -> Result<()> {
         Some(Commands::Rediarize { .. }) => {
             anyhow::bail!("built without the parakeet feature (no speaker model)")
         }
+        Some(Commands::Voices { action }) => voices::cmd(match action {
+            VoicesCommands::Name {
+                session,
+                label,
+                name,
+            } => voices::Cmd::Name {
+                session,
+                label,
+                name,
+            },
+            VoicesCommands::Rebuild { name, min } => voices::Cmd::Rebuild { name, min },
+            VoicesCommands::List => voices::Cmd::List,
+        })?,
         Some(Commands::Replay { wav, from, to }) => {
             let config = supervox_agent::storage::load_config(
                 &supervox_agent::storage::default_config_path(),
