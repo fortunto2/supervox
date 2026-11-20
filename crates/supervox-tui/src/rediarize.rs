@@ -44,7 +44,7 @@ pub struct Stats {
 }
 
 /// New `stream.jsonl` text: every transcript line with a span takes the label of the speaker
-/// covering most of it. Lines of the agent's own voice, lines without a span and every other
+/// covering most of it (when the diarizer heard one speaker only, every line does, span or not). Lines of the agent's own voice, lines without a span and every other
 /// event pass through untouched.
 pub fn relabel_stream(
     text: &str,
@@ -54,6 +54,11 @@ pub fn relabel_stream(
 ) -> (String, Stats) {
     let mut out = String::with_capacity(text.len());
     let mut st = Stats::default();
+    // One voice in the whole recording: a line needs no span to know who spoke.
+    let sole = match labels.values().collect::<Vec<_>>().as_slice() {
+        [only] => Some((*only).clone()),
+        _ => None,
+    };
     for line in text.lines() {
         let mut v: serde_json::Value = match serde_json::from_str(line) {
             Ok(v) => v,
@@ -78,6 +83,9 @@ pub fn relabel_stream(
                     }
                     _ => st.unchanged += 1,
                 }
+            } else if let Some(only) = sole.as_ref().filter(|o| **o != now) {
+                v["speaker"] = serde_json::Value::String(only.clone());
+                st.relabelled += 1;
             } else {
                 st.no_span += 1;
             }
@@ -274,6 +282,27 @@ mod tests {
         );
         // The arrival time, which runs behind the audio, is never used to place a line.
         assert_eq!(rows[2]["t"], 120);
+    }
+
+    #[test]
+    fn a_single_speaker_names_lines_without_a_span() {
+        // 19.11: a session of him alone, recorded before spans existed, stayed S1/S2/S3.
+        let stream = [
+            r#"{"type":"transcript","t":1,"speaker":"S1","text":"a"}"#,
+            r#"{"type":"transcript","t":2,"speaker":"S3","text":"b"}"#,
+            r#"{"type":"transcript","t":3,"speaker":"Алина","text":"agent"}"#,
+        ]
+        .join("\n");
+        let one = HashMap::from([("x1".to_string(), "Рустам".to_string())]);
+        let (out, st) = relabel_stream(&stream, &[turn("x1", 0.0, 5.0)], &one, "Алина");
+        let rows: Vec<serde_json::Value> = out
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        assert_eq!(rows[0]["speaker"], "Рустам");
+        assert_eq!(rows[1]["speaker"], "Рустам");
+        assert_eq!(rows[2]["speaker"], "Алина");
+        assert_eq!((st.relabelled, st.no_span, st.agent), (2, 0, 1));
     }
 
     #[test]
