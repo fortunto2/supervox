@@ -131,7 +131,10 @@ impl App {
             matches!(mode, Mode::Sessions { .. }).then(crate::sessions::browser::Browser::open);
         let (audio_event_tx, audio_event_rx) = mpsc::unbounded_channel();
         let (app_event_tx, app_event_rx) = mpsc::unbounded_channel();
-        let mut live_state = modes::live::LiveState::default();
+        let mut live_state = modes::live::LiveState {
+            agent_name: config.agent_name.clone(),
+            ..Default::default()
+        };
         let effective_stt = crate::audio::effective_stt_backend(&config);
         if effective_stt == supervox_agent::types::SttBackend::Whisper {
             live_state.stt_backend = format!("whisper ({})", config.whisper_model);
@@ -346,10 +349,14 @@ impl App {
             } => {
                 if is_final {
                     self.live_state
-                        .push_final_transcript(source.clone(), &text, speaker);
+                        .push_final_transcript(source.clone(), &text, speaker.clone());
                     // Feed into translation + summary pipelines
                     if !text.is_empty() {
-                        let label = crate::audio::speaker_label(&source, speaker);
+                        let label = crate::audio::speaker_label(
+                            &source,
+                            speaker.as_ref(),
+                            &self.config.agent_name,
+                        );
                         self.live_log.transcript_span(
                             self.live_state.elapsed_secs(),
                             &label,

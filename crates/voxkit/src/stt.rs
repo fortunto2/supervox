@@ -48,6 +48,28 @@ pub trait SttBackend: Send + Sync {
     fn name(&self) -> &str;
 }
 
+/// Who spoke a finalized segment (local backends with diarization).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SpeakerId {
+    /// The agent's own voice, heard back through the loudspeaker.
+    Agent,
+    /// An anonymous voice cluster, 1-based (`S<n>`).
+    Cluster(usize),
+    /// A voice that matched a voiceprint.
+    Named(String),
+}
+
+impl SpeakerId {
+    /// Text shown for this speaker; `agent_name` is what the agent is called.
+    pub fn label(&self, agent_name: &str) -> String {
+        match self {
+            SpeakerId::Agent => agent_name.to_string(),
+            SpeakerId::Cluster(n) => format!("S{n}"),
+            SpeakerId::Named(name) => name.clone(),
+        }
+    }
+}
+
 /// Streaming transcript event (for real-time STT backends).
 #[derive(Debug, Clone)]
 pub enum TranscriptEvent {
@@ -57,8 +79,8 @@ pub enum TranscriptEvent {
     Final {
         item_id: String,
         text: String,
-        /// 1-based speaker index when diarization is on (local backends only).
-        speaker: Option<usize>,
+        /// Who spoke, when diarization is on (local backends only).
+        speaker: Option<SpeakerId>,
         /// Where the speech sat in the audio fed in, seconds `(start, end)` (local backends
         /// that cut their own segments); the clock the saved recording shares.
         span: Option<(f32, f32)>,
@@ -119,6 +141,13 @@ pub trait StreamingSttBackend: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn speaker_labels() {
+        assert_eq!(SpeakerId::Agent.label("Алина"), "Алина");
+        assert_eq!(SpeakerId::Cluster(2).label("x"), "S2");
+        assert_eq!(SpeakerId::Named("Ann".into()).label("x"), "Ann");
+    }
 
     #[test]
     fn stt_error_display() {

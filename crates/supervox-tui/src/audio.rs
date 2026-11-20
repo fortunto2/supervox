@@ -24,24 +24,17 @@ impl AudioSource {
     }
 }
 
-/// Display label: `S1`/`S2`/… when diarization tagged a mic segment, else the source label.
-pub fn speaker_label(source: &AudioSource, speaker: Option<usize>) -> String {
+/// Display label: the speaker's name or `S<n>` when diarization tagged a mic segment,
+/// else the source label.
+pub fn speaker_label(
+    source: &AudioSource,
+    speaker: Option<&voxkit::stt::SpeakerId>,
+    agent_name: &str,
+) -> String {
     match (source, speaker) {
-        (AudioSource::Mic, Some(voxkit::agent_voice::AGENT_SPEAKER)) => {
-            voxkit::agent_voice::label()
-        }
-        (AudioSource::Mic, Some(n)) => mic_speaker_label(n),
+        (AudioSource::Mic, Some(id)) => id.label(agent_name),
         _ => source.label().to_string(),
     }
-}
-
-/// A voiceprint name when `n` is a named speaker, else `S<n>`.
-fn mic_speaker_label(n: usize) -> String {
-    #[cfg(feature = "parakeet")]
-    if let Some(name) = voxkit::speaker::voice_name(n) {
-        return name;
-    }
-    format!("S{n}")
 }
 
 /// `~/.supervox/models/wespeaker_en_voxceleb_CAM++.onnx`
@@ -62,8 +55,8 @@ pub enum AudioEvent {
         source: AudioSource,
         text: String,
         is_final: bool,
-        /// 1-based speaker index from diarization (mic, local STT only).
-        speaker: Option<usize>,
+        /// Who spoke, from diarization (mic, local STT only).
+        speaker: Option<voxkit::stt::SpeakerId>,
     },
     /// Translation of a final transcript segment.
     #[allow(dead_code)]
@@ -145,6 +138,7 @@ impl AudioPipeline {
         };
 
         let ducking_threshold = config.ducking_threshold;
+        let agent_name = config.agent_name.clone();
         tokio::spawn(async move {
             if let Err(e) = run_pipeline(
                 stt_backend,
@@ -155,6 +149,7 @@ impl AudioPipeline {
                 event_tx,
                 calls_dir,
                 ducking_threshold,
+                agent_name,
             )
             .await
             {
@@ -270,7 +265,6 @@ pub fn create_stt_backend(config: &Config) -> Result<Box<dyn StreamingSttBackend
                     );
                 }
             }
-            voxkit::agent_voice::set_label(&config.agent_name);
             if config.diarize {
                 let sp = speaker_model_path();
                 if sp.exists() {
@@ -321,6 +315,7 @@ async fn run_pipeline(
     event_tx: mpsc::UnboundedSender<AudioEvent>,
     calls_dir: PathBuf,
     ducking_threshold: f32,
+    agent_name: String,
 ) -> Result<(), String> {
     // Connect mic STT
     let (stt_tx, mut stt_rx) = stt_backend
@@ -435,7 +430,7 @@ async fn run_pipeline(
                     }
                     Some(TranscriptEvent::Final { text, speaker, span, .. }) => {
                         if !text.is_empty() {
-                            let label = speaker_label(&AudioSource::Mic, speaker);
+                            let label = speaker_label(&AudioSource::Mic, speaker.as_ref(), &agent_name);
                             full_transcript.push_str(&format!("{label}: {text}\n"));
                         }
                         let _ = event_tx.send(AudioEvent::Transcript {

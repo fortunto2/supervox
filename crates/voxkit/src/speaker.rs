@@ -6,8 +6,8 @@
 //! stage is talking"; it is not a replacement for offline pyannote.
 
 use std::path::{Path, PathBuf};
-use std::sync::RwLock;
 
+use crate::stt::SpeakerId;
 use ndarray::Array1;
 use ort::session::Session;
 use ort::session::builder::GraphOptimizationLevel;
@@ -95,25 +95,6 @@ pub struct SpeakerTracker {
 pub struct VoicePrint {
     pub name: String,
     pub emb: Array1<f32>,
-}
-
-/// Speaker ids at or above this are voiceprint names (`NAMED_BASE + index`),
-/// below it are anonymous clusters (`S<n>`).
-pub const NAMED_BASE: usize = 1000;
-
-static VOICE_NAMES: RwLock<Vec<String>> = RwLock::new(Vec::new());
-
-/// Publish the voiceprint names so the UI can turn a speaker id into a label.
-pub fn set_voice_names(names: Vec<String>) {
-    if let Ok(mut g) = VOICE_NAMES.write() {
-        *g = names;
-    }
-}
-
-/// Name behind a speaker id, if it is a named one.
-pub fn voice_name(id: usize) -> Option<String> {
-    let i = id.checked_sub(NAMED_BASE)?;
-    VOICE_NAMES.read().ok()?.get(i).cloned()
 }
 
 /// Default raw cosine at which a segment takes a voiceprint's name.
@@ -264,13 +245,13 @@ impl SpeakerTracker {
         self
     }
 
-    /// [`assign`](Self::assign), then the id to show: `NAMED_BASE + voiceprint index` when the
-    /// segment's raw embedding is close to a voiceprint, else the cluster.
+    /// [`assign`](Self::assign), then who to show: the voiceprint's name when the
+    /// segment's raw embedding is close to one, else the cluster.
     ///
     /// One person often lands in several clusters (S1/S2/S3 for one voice, 19.11), so the name
     /// is decided per segment, whatever its cluster. Raw cosine, as in the talk skill's owner
     /// check (own clips 0.60-0.89, others <= 0.48).
-    pub fn assign_display(&mut self, embedding: &[f32]) -> usize {
+    pub fn assign_display(&mut self, embedding: &[f32]) -> SpeakerId {
         let e = normalize(Array1::from_vec(embedding.to_vec()));
         let c = self.assign_unit(&e);
         let best = self
@@ -285,10 +266,10 @@ impl SpeakerTracker {
                 self.voiceprints[v].name
             );
             if sim >= self.voiceprint_threshold {
-                return NAMED_BASE + v;
+                return SpeakerId::Named(self.voiceprints[v].name.clone());
             }
         }
-        c
+        SpeakerId::Cluster(c)
     }
 
     /// Far-field mode: after `CENTER_AFTER` embeddings, compare voices with the
@@ -353,8 +334,8 @@ impl SpeakerTracker {
     }
 
     /// Last assigned speaker, for short segments that were not embedded.
-    pub fn last(&self) -> Option<usize> {
-        self.last
+    pub fn last(&self) -> Option<SpeakerId> {
+        self.last.map(SpeakerId::Cluster)
     }
 
     pub fn speaker_count(&self) -> usize {
@@ -388,7 +369,7 @@ mod tests {
         assert_eq!(t.assign(&[0.0, 1.0, 0.0]), 2);
         assert_eq!(t.assign(&[0.9, 0.1, 0.0]), 1);
         assert_eq!(t.speaker_count(), 2);
-        assert_eq!(t.last(), Some(1));
+        assert_eq!(t.last(), Some(SpeakerId::Cluster(1)));
     }
 
     #[test]
@@ -458,8 +439,11 @@ mod tests {
         feed_two_voices(&mut t);
         let b = t.assign_display(&[0.5, 0.5, 0.5, 0.05, 1.0]);
         let a = t.assign_display(&[0.5, 0.5, 0.5, 1.0, 0.05]);
-        assert_eq!(b, NAMED_BASE);
-        assert!(a < NAMED_BASE, "the other voice stays S<n>: {a}");
+        assert_eq!(b, SpeakerId::Named("Ann".into()));
+        assert!(
+            matches!(a, SpeakerId::Cluster(_)),
+            "the other voice stays S<n>: {a:?}"
+        );
     }
 
     #[test]
@@ -470,10 +454,16 @@ mod tests {
             .far_field()
             .with_voiceprints(vec![print("Ann", 0.0, 1.0)], 0.5);
         for _ in 0..3 {
-            assert_eq!(t.assign_display(&[0.5, 0.5, 0.5, 0.05, 1.0]), NAMED_BASE);
+            assert_eq!(
+                t.assign_display(&[0.5, 0.5, 0.5, 0.05, 1.0]),
+                SpeakerId::Named("Ann".into())
+            );
         }
         assert!(
-            t.assign_display(&[0.5, 0.5, 0.5, 1.0, 0.05]) < NAMED_BASE,
+            matches!(
+                t.assign_display(&[0.5, 0.5, 0.5, 1.0, 0.05]),
+                SpeakerId::Cluster(_)
+            ),
             "a different voice stays anonymous"
         );
     }
@@ -484,7 +474,10 @@ mod tests {
             .far_field()
             .with_voiceprints(vec![print("Ann", -1.0, -1.0)], 0.9);
         feed_two_voices(&mut t);
-        assert!(t.assign_display(&[0.5, 0.5, 0.5, 0.05, 1.0]) < NAMED_BASE);
+        assert!(matches!(
+            t.assign_display(&[0.5, 0.5, 0.5, 0.05, 1.0]),
+            SpeakerId::Cluster(_)
+        ));
     }
 
     #[test]

@@ -9,6 +9,7 @@ use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
 use sgr_agent_tui::FocusRing;
 use std::time::Instant;
 use supervox_agent::types::Bookmark;
+use voxkit::stt::SpeakerId;
 
 const TRANSCRIPT: &str = "transcript";
 const SUMMARY: &str = "summary";
@@ -19,12 +20,14 @@ pub struct TranscriptLine {
     pub source: AudioSource,
     pub text: String,
     pub is_translation: bool,
-    /// Diarized speaker index (mic only).
-    pub speaker: Option<usize>,
+    /// Diarized speaker (mic only).
+    pub speaker: Option<voxkit::stt::SpeakerId>,
 }
 
 /// State for live mode.
 pub struct LiveState {
+    /// What the agent's own voice is called in the transcript (config `agent_name`).
+    pub agent_name: String,
     pub lines: Vec<TranscriptLine>,
     pub summary_lines: Vec<String>,
     /// Current delta (partial) transcript, shown dimmed until final.
@@ -53,6 +56,7 @@ pub struct LiveState {
 impl Default for LiveState {
     fn default() -> Self {
         Self {
+            agent_name: "Алина".into(),
             lines: Vec::new(),
             summary_lines: Vec::new(),
             current_delta: None,
@@ -150,7 +154,7 @@ impl LiveState {
         &mut self,
         source: AudioSource,
         text: &str,
-        speaker: Option<usize>,
+        speaker: Option<voxkit::stt::SpeakerId>,
     ) {
         if !text.is_empty() {
             self.lines.push(TranscriptLine {
@@ -186,8 +190,8 @@ impl LiveState {
 }
 
 /// One transcript line: `S1: text`, translations indented and italic.
-fn transcript_line(line: &TranscriptLine) -> Line<'_> {
-    let color = speaker_color(&line.source, line.speaker);
+fn transcript_line<'a>(line: &'a TranscriptLine, agent_name: &str) -> Line<'a> {
+    let color = speaker_color(&line.source, line.speaker.as_ref());
     let text_style = if line.is_translation {
         Style::default()
             .fg(Color::Cyan)
@@ -195,7 +199,7 @@ fn transcript_line(line: &TranscriptLine) -> Line<'_> {
     } else {
         Style::default().fg(Color::White)
     };
-    let label = crate::audio::speaker_label(&line.source, line.speaker);
+    let label = crate::audio::speaker_label(&line.source, line.speaker.as_ref(), agent_name);
     let prefix = if line.is_translation {
         format!("  → {label}: ")
     } else {
@@ -263,13 +267,14 @@ fn render_transcript(f: &mut Frame, area: Rect, state: &mut LiveState) {
         .current_delta
         .as_ref()
         .map(|(source, text)| delta_line(source, text));
+    let agent_name = state.agent_name.as_str();
     render_pane(
         f,
         area,
         block,
         &mut state.transcript_pane,
         &state.lines,
-        |_, l| transcript_line(l),
+        |_, l| transcript_line(l, agent_name),
         tail,
     );
 }
@@ -391,13 +396,13 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut LiveState) {
 }
 
 /// Color for speaker labels: one per diarized speaker, else per source.
-fn speaker_color(source: &AudioSource, speaker: Option<usize>) -> Color {
+fn speaker_color(source: &AudioSource, speaker: Option<&SpeakerId>) -> Color {
     match (source, speaker) {
         (AudioSource::System, _) => Color::Yellow,
-        (AudioSource::Mic, Some(0)) => Color::Yellow,
-        (AudioSource::Mic, Some(1)) => Color::Cyan,
-        (AudioSource::Mic, Some(2)) => Color::Green,
-        (AudioSource::Mic, Some(3)) => Color::Magenta,
+        (AudioSource::Mic, Some(SpeakerId::Agent)) => Color::Yellow,
+        (AudioSource::Mic, Some(SpeakerId::Cluster(1))) => Color::Cyan,
+        (AudioSource::Mic, Some(SpeakerId::Cluster(2))) => Color::Green,
+        (AudioSource::Mic, Some(SpeakerId::Cluster(3))) => Color::Magenta,
         (AudioSource::Mic, Some(_)) => Color::LightRed,
         (AudioSource::Mic, None) => Color::Cyan,
     }
@@ -439,7 +444,11 @@ mod tests {
         let mut s = LiveState::default();
         s.start_recording();
         for i in 0..lines {
-            s.push_final_transcript(AudioSource::Mic, &format!("L{i:03}"), Some(1));
+            s.push_final_transcript(
+                AudioSource::Mic,
+                &format!("L{i:03}"),
+                Some(SpeakerId::Cluster(1)),
+            );
         }
         s
     }
@@ -455,7 +464,7 @@ mod tests {
             !out.contains("L099") && out.contains("End follows"),
             "{out}"
         );
-        s.push_final_transcript(AudioSource::Mic, "L100", Some(1));
+        s.push_final_transcript(AudioSource::Mic, "L100", Some(SpeakerId::Cluster(1)));
         assert!(
             !screen(&mut s).contains("L100"),
             "scrolled up: new lines wait below"
@@ -483,7 +492,7 @@ mod tests {
             .map(|i| format!("w{i:02}"))
             .collect::<Vec<_>>()
             .join(" ");
-        s.push_final_transcript(AudioSource::Mic, &long, Some(1));
+        s.push_final_transcript(AudioSource::Mic, &long, Some(SpeakerId::Cluster(1)));
         let out = screen(&mut s);
         assert!(
             out.contains("w39"),

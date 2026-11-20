@@ -196,7 +196,6 @@ impl StreamingSttBackend for ParakeetStt {
                 if let Some((dir, threshold)) = &self.voiceprints {
                     let vps = crate::speaker::load_voiceprints(dir, &mut embedder);
                     tracing::info!("{} voiceprint(s) loaded from {}", vps.len(), dir.display());
-                    crate::speaker::set_voice_names(vps.iter().map(|v| v.name.clone()).collect());
                     tracker = tracker.with_voiceprints(vps, *threshold);
                 }
                 Some((embedder, tracker))
@@ -236,7 +235,7 @@ impl StreamingSttBackend for ParakeetStt {
                         let _ = transcript_tx.blocking_send(TranscriptEvent::Final {
                             item_id,
                             text,
-                            speaker: Some(crate::agent_voice::AGENT_SPEAKER),
+                            speaker: Some(crate::stt::SpeakerId::Agent),
                             span: Some(span),
                         });
                         return;
@@ -245,7 +244,7 @@ impl StreamingSttBackend for ParakeetStt {
                     crate::agent_voice::Verdict::Human => {}
                 }
                 #[allow(unused_mut)]
-                let mut speaker: Option<usize> = None;
+                let mut speaker: Option<crate::stt::SpeakerId> = None;
                 let seg_secs = segment.len() as f32 / SAMPLE_RATE as f32;
                 let t0 = std::time::Instant::now();
                 // The speaker embedding and the recognition are independent: run them together.
