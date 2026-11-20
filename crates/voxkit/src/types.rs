@@ -252,21 +252,30 @@ impl WavRanges {
 
 /// Resample f32 audio from `src_rate` to `dst_rate` Hz (linear interpolation).
 pub fn resample(samples: &[f32], src_rate: u32, dst_rate: u32) -> Vec<f32> {
+    let mut out = Vec::new();
+    resample_into(samples, src_rate, dst_rate, &mut out);
+    out
+}
+
+/// [`resample`] into `out` (cleared first), so a caller handling a chunk every 100 ms can
+/// keep one buffer instead of allocating each time.
+pub fn resample_into(samples: &[f32], src_rate: u32, dst_rate: u32, out: &mut Vec<f32>) {
+    out.clear();
     if src_rate == dst_rate || samples.is_empty() {
-        return samples.to_vec();
+        out.extend_from_slice(samples);
+        return;
     }
     let ratio = src_rate as f64 / dst_rate as f64;
     let out_len = (samples.len() as f64 / ratio).ceil() as usize;
-    let mut output = Vec::with_capacity(out_len);
+    out.reserve(out_len);
     for i in 0..out_len {
         let src_idx = i as f64 * ratio;
         let idx = src_idx as usize;
         let frac = src_idx - idx as f64;
         let s0 = samples[idx.min(samples.len() - 1)];
         let s1 = samples[(idx + 1).min(samples.len() - 1)];
-        output.push(s0 + (s1 - s0) * frac as f32);
+        out.push(s0 + (s1 - s0) * frac as f32);
     }
-    output
 }
 
 /// Resample f32 audio to 24kHz i16 (OpenAI Realtime API format).
@@ -290,6 +299,18 @@ pub fn f32_le_samples(buf: &[u8]) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn resample_into_matches_resample_and_reuses_the_buffer() {
+        let x: Vec<f32> = (0..2400).map(|i| (i as f32 * 0.05).sin()).collect();
+        let mut out = vec![9.0; 10];
+        for (src, dst) in [(24_000, 16_000), (48_000, 16_000), (16_000, 16_000)] {
+            resample_into(&x, src, dst, &mut out);
+            assert_eq!(out, resample(&x, src, dst), "{src}->{dst}");
+        }
+        resample_into(&[], 24_000, 16_000, &mut out);
+        assert!(out.is_empty());
+    }
 
     #[test]
     fn audio_chunk_new() {

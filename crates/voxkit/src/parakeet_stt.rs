@@ -200,6 +200,9 @@ impl StreamingSttBackend for ParakeetStt {
                 Segmenter::new(pause_frames, max_segment_samples).with_early_check(early_frames);
             let mut agc = crate::agc::Agc::default();
             let mut item_counter = 0u64;
+            // One chunk arrives every ~100 ms: convert and resample into these, never allocate.
+            let mut f32_samples: Vec<f32> = Vec::new();
+            let mut resampled: Vec<f32> = Vec::new();
 
             let mut agent =
                 crate::agent_voice::AgentVoice::new(&crate::agent_voice::default_path());
@@ -295,11 +298,15 @@ impl StreamingSttBackend for ParakeetStt {
                             // Capture hands over chunks as they are recorded: this one just ended.
                             t0 = Some(unix_now() - samples.len() as f64 / 24_000.0);
                         }
-                        let f32_samples: Vec<f32> =
-                            samples.iter().map(|&s| s as f32 / 32768.0).collect();
+                        f32_samples.clear();
+                        f32_samples.extend(samples.iter().map(|&s| s as f32 / 32768.0));
                         // Realtime input arrives at 24 kHz; Parakeet wants 16 kHz.
-                        let mut resampled =
-                            crate::types::resample(&f32_samples, 24000, SAMPLE_RATE);
+                        crate::types::resample_into(
+                            &f32_samples,
+                            24000,
+                            SAMPLE_RATE,
+                            &mut resampled,
+                        );
                         agc.process(&mut resampled);
                         #[cfg(feature = "smart-turn")]
                         let mut check = |buf: &[f32]| match turn_model.as_mut() {
